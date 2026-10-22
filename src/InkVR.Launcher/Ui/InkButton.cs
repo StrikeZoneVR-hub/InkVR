@@ -54,11 +54,10 @@ namespace InkVR.Launcher.Ui
             Children.Add(_text.At(0, 0));
 
             MouseEnter += (s, e) => Hovered?.Invoke(this);
-            MouseLeftButtonUp += (s, e) =>
+            this.OnClick(() =>
             {
                 if (Enabled) Click?.Invoke();
-                e.Handled = true;
-            };
+            });
         }
 
         public void Invoke()

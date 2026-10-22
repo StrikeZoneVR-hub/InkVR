@@ -68,6 +68,37 @@ namespace InkVR.Launcher.Ui
             return r;
         }
 
+        /// <summary>
+        /// Makes an element clickable. The press is claimed (so the window-drag on the background never sees it)
+        /// and the click fires on release over the element, like a normal button.
+        /// </summary>
+        /// <summary>Test harness only: synthetic events carry the real cursor position, so skip the "released over it" check.</summary>
+        public static bool TestIgnorePosition;
+
+        public static void OnClick(this FrameworkElement e, System.Action click)
+        {
+            var pressed = false;
+            e.MouseLeftButtonDown += (s, a) =>
+            {
+                a.Handled = true;
+                pressed = true;
+                e.CaptureMouse(); // so a release outside the element cancels, like a normal button
+            };
+            e.MouseLeave += (s, a) =>
+            {
+                if (!e.IsMouseCaptured) pressed = false;
+            };
+            e.MouseLeftButtonUp += (s, a) =>
+            {
+                if (!pressed) return;
+                pressed = false;
+                if (e.IsMouseCaptured) e.ReleaseMouseCapture();
+                a.Handled = true;
+                var p = a.GetPosition(e);
+                if (TestIgnorePosition || p.X >= -2 && p.Y >= -2 && p.X <= e.ActualWidth + 2 && p.Y <= e.ActualHeight + 2) click();
+            };
+        }
+
         public static T At<T>(this T e, double x, double y) where T : UIElement
         {
             Canvas.SetLeft(e, x);

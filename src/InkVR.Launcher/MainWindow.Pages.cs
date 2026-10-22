@@ -26,6 +26,7 @@ namespace InkVR.Launcher
 
         private void OpenPage(string name)
         {
+            LauncherLog.Write("page: " + name);
             if (_page != null) ClosePage(true);
             var root = new Canvas { Width = 1920, Height = 1080, Background = Brushes.Transparent };
             var sheet = new Canvas { Width = SheetW, Height = SheetH };
@@ -85,6 +86,7 @@ namespace InkVR.Launcher
         private void ClosePage(bool instant = false)
         {
             if (_page == null) return;
+            LauncherLog.Write("page closed");
             var page = _page;
             var s = _pageS;
             _page = null;
@@ -462,15 +464,14 @@ namespace InkVR.Launcher
                     a.Padding = new Thickness(8, 0, 8, 0);
                     a.MouseEnter += (s, e) => a.Foreground = Paint.Brush(Paint.StampRed);
                     a.MouseLeave += (s, e) => a.Foreground = Paint.Brush(Paint.Ink);
-                    a.MouseLeftButtonUp += (s, e) =>
+                    a.OnClick(() =>
                     {
-                        e.Handled = true;
                         i = (i + dir + values.Length) % values.Length;
                         valueText.Text = values[i];
                         Sfx.Play("hover", 0.5);
                         changed(i);
                         SetIdleStatus();
-                    };
+                    });
                     sheet.Children.Add(a.At(ax, rowY - 3));
                     return a;
                 }

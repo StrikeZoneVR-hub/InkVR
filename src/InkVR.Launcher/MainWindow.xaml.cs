@@ -364,6 +364,7 @@ namespace InkVR.Launcher
                 b.Click += () =>
                 {
                     if (_mode != Mode.Home || _page != null || _note != null) return;
+                    LauncherLog.Write("menu: " + label);
                     Sfx.Play("bloop", 0.7);
                     act();
                 };
@@ -399,11 +400,10 @@ namespace InkVR.Launcher
                 t.Padding = new Thickness(10, 0, 10, 0);
                 t.MouseEnter += (s, e) => t.Foreground = Paint.Brush(Paint.StampRed);
                 t.MouseLeave += (s, e) => t.Foreground = Paint.Brush(Paint.Ink);
-                t.MouseLeftButtonUp += (s, e) =>
+                t.OnClick(() =>
                 {
-                    e.Handled = true;
                     if (_mode == Mode.Home) act();
-                };
+                });
                 _chrome.Children.Add(t.At(x, 44));
             }
 
@@ -855,8 +855,15 @@ namespace InkVR.Launcher
                 return;
             }
 
+            if (_smoke)
+            {
+                LauncherLog.Write("test: background press reached the window (drag)");
+                return;
+            }
+
             if (_mode == Mode.Home && WindowState == WindowState.Normal && e.ButtonState == MouseButtonState.Pressed && !Capturing)
             {
+
                 try
                 {
                     DragMove();
@@ -1165,6 +1172,60 @@ namespace InkVR.Launcher
             }
         }
 
+        /// <summary>Test aid: sends real mouse messages to this window at a stage point ("x,y" in 1920x1080 units).</summary>
+        private void PostClick(string xy)
+        {
+            var parts = xy.Split(',');
+            var stage = new Point(double.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture), double.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture));
+            var dip = Root.TransformToAncestor(this).Transform(stage);
+            var dev = PresentationSource.FromVisual(this).CompositionTarget.TransformToDevice.Transform(dip);
+            var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            var lp = (IntPtr)(((int)dev.Y << 16) | ((int)dev.X & 0xFFFF));
+            NativeMethods.PostMessage(hwnd, 0x0200, IntPtr.Zero, lp);       // WM_MOUSEMOVE
+            NativeMethods.PostMessage(hwnd, 0x0201, (IntPtr)1, lp);         // WM_LBUTTONDOWN
+            NativeMethods.PostMessage(hwnd, 0x0202, IntPtr.Zero, lp);       // WM_LBUTTONUP
+            LauncherLog.Write($"test click at stage {stage} -> client {dev}");
+        }
+
+        /// <summary>
+        /// Test aid: drives WPF's own mouse-down/up events through an element ("menu:N", "back", "chrome:N", "bg"),
+        /// the same route a real click takes once the system has found the element under the cursor.
+        /// </summary>
+        private void PressButton(string target)
+        {
+            FrameworkElement el;
+            if (target.StartsWith("menu:")) el = _buttons[int.Parse(target.Substring(5))];
+            else if (target == "back") el = FindBack(_pageLayer);
+            else if (target.StartsWith("chrome:")) el = (FrameworkElement)_chrome.Children[int.Parse(target.Substring(7))];
+            else el = _bg;
+            if (el == null)
+            {
+                LauncherLog.Write("test: no element for " + target);
+                return;
+            }
+
+            Look.TestIgnorePosition = true;
+            var down = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.MouseDownEvent };
+            el.RaiseEvent(down);
+            var up = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.MouseUpEvent };
+            el.RaiseEvent(up);
+            Look.TestIgnorePosition = false;
+            LauncherLog.Write($"test: pressed {target} (down handled={down.Handled}, up handled={up.Handled})");
+        }
+
+        private static FrameworkElement FindBack(DependencyObject root)
+        {
+            if (root == null) return null;
+            if (root is InkButton b && b.Label == "BACK") return b;
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                var f = FindBack(VisualTreeHelper.GetChild(root, i));
+                if (f != null) return f;
+            }
+
+            return null;
+        }
+
         private void RunScript(string action)
         {
             if (action == "skip") SkipIntro();
@@ -1174,6 +1235,8 @@ namespace InkVR.Launcher
             else if (action == "play") BeginClose(true, true);
             else if (action == "quit") BeginClose(false, false);
             else if (action.StartsWith("select:")) Select(int.Parse(action.Substring(7)), false);
+            else if (action.StartsWith("click:")) PostClick(action.Substring(6));
+            else if (action.StartsWith("press:")) PressButton(action.Substring(6));
             else if (action == "note") ShowNote("VIRTUAL DESKTOP ISN'T RUNNING", "Start the Virtual Desktop Streamer on this PC and connect from your Quest 3, then press PLAY IN VR.", "PLAY ANYWAY", () => { });
         }
     }
