@@ -4,3 +4,4 @@ analysis/
 vendor/
 *.user
 .vs/
+teasers/

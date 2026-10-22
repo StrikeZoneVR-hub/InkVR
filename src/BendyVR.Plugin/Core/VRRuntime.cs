@@ -27,7 +27,10 @@ public class VRRuntime : MonoBehaviour
         }
 
         XrManager.Update();
+        VRRig.Update();
     }
+
+    private void LateUpdate() => VRRig.LateUpdate();
 
     private void OnApplicationQuit() => XrManager.Shutdown();
 }

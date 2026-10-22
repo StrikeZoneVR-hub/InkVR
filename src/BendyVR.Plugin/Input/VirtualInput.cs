@@ -30,6 +30,12 @@ public static class VirtualInput
     public static Vector2 Move;
     public static Vector2 Look;
 
+    /// <summary>Horizontal look/turn input captured from the game's own input while the VR rig owns the camera.</summary>
+    public static float TurnInput;
+
+    /// <summary>In VR the headset aims the camera; stick look turns the play space instead (see VRRig).</summary>
+    public static bool HeadsetOwnsLook => BendyVR.Core.XrManager.IsRunning && BendyVR.Core.VRRig.InGame;
+
     /// <summary>Set the held state of an action for this frame; edges become Pressed/Released.</summary>
     public static void SetHeld(GameAction action, bool held)
     {
@@ -102,10 +108,20 @@ internal static class PlayerInputPatches
     private static void MoveY(ref float __result) => __result = Combine(__result, VirtualInput.Move.y);
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.LookX))]
-    private static void LookX(ref float __result) => __result = Combine(__result, VirtualInput.Look.x);
+    private static void LookX(float TSpeed, ref float __result)
+    {
+        __result = Combine(__result, VirtualInput.Look.x);
+        if (!VirtualInput.HeadsetOwnsLook) return;
+        VirtualInput.TurnInput = Mathf.Clamp(__result, -1f, 1f);
+        __result = 0;
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.LookY))]
-    private static void LookY(ref float __result) => __result = Combine(__result, VirtualInput.Look.y);
+    private static void LookY(float TSpeed, ref float __result)
+    {
+        __result = Combine(__result, VirtualInput.Look.y);
+        if (VirtualInput.HeadsetOwnsLook) __result = 0;
+    }
 
     private static float Combine(float game, float vr) => Mathf.Abs(vr) > Mathf.Abs(game) ? vr : game;
 }

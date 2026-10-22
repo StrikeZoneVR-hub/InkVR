@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace BendyVR.Core;
@@ -50,16 +49,8 @@ public static class OpenXRNative
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void ReceiveNativeEventDelegate(NativeEvent e, ulong payload);
 
-    private static string _pluginDir;
-
     /// <summary>Point DllImport("UnityOpenXR") at the copy in the game's Plugins folder (the same module Unity loads).</summary>
-    public static void Resolve(string pluginDir)
-    {
-        if (_pluginDir != null) return;
-        _pluginDir = pluginDir;
-        NativeLibrary.SetDllImportResolver(Assembly.GetExecutingAssembly(), (name, _, _) =>
-            name == Lib ? NativeLibrary.Load(Path.Combine(_pluginDir, Lib + ".dll")) : IntPtr.Zero);
-    }
+    public static void Resolve(string pluginDir) => NativeLibs.Register(Lib, Path.Combine(pluginDir, Lib + ".dll"));
 
     [DllImport(Lib, EntryPoint = "main_LoadOpenXRLibrary")]
     [return: MarshalAs(UnmanagedType.U1)]

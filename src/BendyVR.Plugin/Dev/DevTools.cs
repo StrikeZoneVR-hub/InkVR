@@ -5,9 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using BendyVR.Input;
-using Il2CppInterop.Common.XrefScans;
 using Il2CppInterop.Runtime;
-using Il2CppInterop.Runtime.XrefScans;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
@@ -36,6 +34,7 @@ public class DevTools : MonoBehaviour
     private void Awake()
     {
         _cmdPath = Path.Combine(Plugin.DataDir, "cmd.txt");
+        if (File.Exists(_cmdPath)) File.Delete(_cmdPath); // never replay commands from a previous run
         Plugin.L.LogInfo($"DevTools ready. Graphics: {SystemInfo.graphicsDeviceType} {SystemInfo.graphicsDeviceVersion} on {SystemInfo.graphicsDeviceName}");
     }
 
@@ -138,13 +137,79 @@ public class DevTools : MonoBehaviour
             case "click": Click(arg); break;
             case "findc": FindComponent(arg); break;
             case "call": Call(arg); break;
+            case "rscale":
+                UnityEngine.XR.XRSettings.eyeTextureResolutionScale = float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture);
+                Plugin.L.LogInfo($"eye texture {UnityEngine.XR.XRSettings.eyeTextureWidth}x{UnityEngine.XR.XRSettings.eyeTextureHeight}");
+                break;
+            case "enable":
+            {
+                // enable <path> <ComponentType> 0|1
+                var a = arg.Split(' ');
+                var t = Resolve(string.Join(' ', a[..^2]));
+                foreach (var c in t.GetComponents<Behaviour>())
+                    if (c.GetIl2CppType().Name == a[^2]) c.enabled = a[^1] == "1";
+                break;
+            }
+            case "bounds":
+            {
+                var n = 0;
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Renderer>()))
+                {
+                    var r = o.Cast<Renderer>();
+                    if (!r.gameObject.scene.IsValid() || !r.gameObject.activeInHierarchy || r.name.IndexOf(arg, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    Plugin.L.LogInfo($"  {PathOf(r.transform)} size={r.bounds.size} center={r.bounds.center}");
+                    if (++n > 15) break;
+                }
+                break;
+            }
+            case "pp":
+            {
+                var cam = BendyVR.Core.VRRig.GameCamera ?? GameManager.Instance?.GameCamera?.Camera;
+                if (cam == null) break;
+                if (arg.Length > 0)
+                {
+                    var a = arg.Split(' ');
+                    BendyVR.Rendering.VRGraphics.Set(cam, a[0], a[1] == "1");
+                }
+
+                Plugin.L.LogInfo("PP " + BendyVR.Rendering.VRGraphics.Describe(cam));
+                break;
+            }
+            case "eyes":
+            {
+                var cam = BendyVR.Core.VRRig.GameCamera ?? Camera.main;
+                var l = cam.GetStereoViewMatrix(Camera.StereoscopicEye.Left).inverse.GetColumn(3);
+                var r = cam.GetStereoViewMatrix(Camera.StereoscopicEye.Right).inverse.GetColumn(3);
+                Plugin.L.LogInfo($"EYES {cam.name}: left={(Vector3)l} right={(Vector3)r} separation={Vector3.Distance(l, r):F3} units, camera at {cam.transform.position}, lossyScale={cam.transform.lossyScale.x:F2}, stereoSeparation={cam.stereoSeparation}");
+                break;
+            }
+            case "mirror":
+                UnityEngine.XR.XRSettings.gameViewRenderMode = arg switch
+                {
+                    "both" => UnityEngine.XR.GameViewRenderMode.BothEyes,
+                    "right" => UnityEngine.XR.GameViewRenderMode.RightEye,
+                    "occlusion" => UnityEngine.XR.GameViewRenderMode.OcclusionMesh,
+                    _ => UnityEngine.XR.GameViewRenderMode.LeftEye
+                };
+                break;
+            case "head":
+            {
+                // head x y z yaw pitch  (metres / degrees, overrides tracking)  |  head off
+                if (arg == "off")
+                {
+                    BendyVR.Core.VRRig.DevHeadOverride = null;
+                    break;
+                }
+
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                BendyVR.Core.VRRig.DevHeadOverride = (new Vector3(a[0], a[1], a[2]), Quaternion.Euler(a.Length > 4 ? a[4] : 0, a.Length > 3 ? a[3] : 0, 0));
+                break;
+            }
             case "xr":
                 if (arg == "start") BendyVR.Core.XrManager.Initialize();
                 else if (arg == "stop") BendyVR.Core.XrManager.Shutdown();
                 Plugin.L.LogInfo($"XR state={BendyVR.Core.XrManager.Current} session={BendyVR.Core.XrManager.SessionState} runtime='{BendyVR.Core.XrManager.RuntimeName}' running={BendyVR.Core.XrManager.IsRunning} XRSettings.enabled={UnityEngine.XR.XRSettings.enabled} device='{UnityEngine.XR.XRSettings.loadedDeviceName}' eye={UnityEngine.XR.XRSettings.eyeTextureWidth}x{UnityEngine.XR.XRSettings.eyeTextureHeight}");
                 break;
-            case "xref": Xref(arg, false); break;
-            case "usedby": Xref(arg, true); break;
             case "press":
             {
                 var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -485,48 +550,6 @@ public class DevTools : MonoBehaviour
         Plugin.L.LogInfo(sb.ToString());
     }
 
-    // ---------- xrefs (what a native game method calls / who calls it) ----------
-
-    private void Xref(string arg, bool usedBy)
-    {
-        var dot = arg.LastIndexOf('.');
-        var type = InteropType(arg[..dot]);
-        var name = arg[(dot + 1)..];
-        if (type == null)
-        {
-            Plugin.L.LogWarning($"Type not found: {arg[..dot]}");
-            return;
-        }
-
-        foreach (var m in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
-                     .Where(m => m.Name == name))
-        {
-            var sb = new StringBuilder($"{(usedBy ? "USEDBY" : "XREF")} {type.Name}.{m.Name}({string.Join(",", m.GetParameters().Select(p => p.ParameterType.Name))})\n");
-            try
-            {
-                foreach (var x in usedBy ? XrefScanner.UsedBy(m) : XrefScanner.XrefScan(m))
-                {
-                    if (x.Type == XrefType.Method)
-                    {
-                        var r = x.TryResolve();
-                        if (r != null) sb.AppendLine($"    {r.DeclaringType?.Name}.{r.Name}");
-                    }
-                    else if (!usedBy)
-                    {
-                        var o = x.ReadAsObject();
-                        if (o != null) sb.AppendLine($"    \"{o}\"");
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                sb.AppendLine("    scan failed: " + e.Message);
-            }
-
-            Plugin.L.LogInfo(sb.ToString());
-        }
-    }
-
     // ---------- screenshots ----------
 
     private void Screenshot(string arg)
@@ -537,7 +560,10 @@ public class DevTools : MonoBehaviour
         var dir = Path.Combine(Plugin.DataDir, "shots");
         Directory.CreateDirectory(dir);
         var file = Path.Combine(dir, $"{name}_{DateTime.Now:HHmmss}.png");
-        ScreenCapture.CaptureScreenshot(file, scale);
+        if (UnityEngine.XR.XRSettings.enabled)
+            ScreenCapture.CaptureScreenshot(file, ScreenCapture.StereoScreenCaptureMode.BothEyes);
+        else
+            ScreenCapture.CaptureScreenshot(file, scale);
         Plugin.L.LogInfo($"Screenshot -> {file}");
     }
 }

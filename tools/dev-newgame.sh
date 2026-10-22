@@ -9,4 +9,5 @@ tools/game.sh cmd "click $M/SlotMenu/Navigation/Slot_03"; sleep 2
 tools/game.sh cmd "click $M/BeginMenu/Navigation/NewGameBtn"; sleep 12
 tools/game.sh cmd "press interact"; sleep 1
 tools/game.sh cmd "press attack"; sleep 10
+tools/game.sh cmd "head 0 1.7 0 0 0"; sleep 1
 tools/game.sh cmd "shot ch1"
