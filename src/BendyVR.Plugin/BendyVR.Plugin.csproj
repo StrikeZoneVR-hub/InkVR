@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>BendyVR</AssemblyName>
+    <RootNamespace>BendyVR</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>disable</Nullable>
+    <Version>0.1.0</Version>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="$(BepInExDir)core\BepInEx.Core.dll" Private="false" />
+    <Reference Include="$(BepInExDir)core\BepInEx.Unity.IL2CPP.dll" Private="false" />
+    <Reference Include="$(BepInExDir)core\BepInEx.Unity.Common.dll" Private="false" />
+    <Reference Include="$(BepInExDir)core\Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="$(BepInExDir)core\Il2CppInterop.Common.dll" Private="false" />
+    <Reference Include="$(BepInExDir)core\0Harmony.dll" Private="false" />
+    <Reference Include="$(BepInExDir)interop\*.dll" Private="false" />
+  </ItemGroup>
+
+  <Target Name="DeployToGame" AfterTargets="Build" Condition="Exists('$(BepInExDir)')">
+    <MakeDir Directories="$(BepInExDir)plugins\BendyVR" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExDir)plugins\BendyVR" />
+  </Target>
+</Project>

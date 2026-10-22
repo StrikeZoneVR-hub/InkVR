@@ -1,0 +1,6 @@
+bin/
+obj/
+analysis/
+vendor/
+*.user
+.vs/

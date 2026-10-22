@@ -1,0 +1,66 @@
+./Bendy and the Ink Machine.exe
+./Bendy and the Ink Machine_Data/Plugins/Steamworks.NET.txt
+./Bendy and the Ink Machine_Data/Plugins/x86_64/ConvexDecompositionDll.dll
+./Bendy and the Ink Machine_Data/Plugins/x86_64/EOSSDK-Win64-Shipping.dll
+./Bendy and the Ink Machine_Data/Plugins/x86_64/InControlNative.dll
+./Bendy and the Ink Machine_Data/Plugins/x86_64/XInputInterface64.dll
+./Bendy and the Ink Machine_Data/Plugins/x86_64/steam_api64.dll
+./Bendy and the Ink Machine_Data/Plugins/x86_64/xaudio2_9redist.dll
+./Bendy and the Ink Machine_Data/Resources/unity default resources
+./Bendy and the Ink Machine_Data/Resources/unity_builtin_extra
+./Bendy and the Ink Machine_Data/RuntimeInitializeOnLoads.json
+./Bendy and the Ink Machine_Data/ScriptingAssemblies.json
+./Bendy and the Ink Machine_Data/app.info
+./Bendy and the Ink Machine_Data/boot.config
+./Bendy and the Ink Machine_Data/globalgamemanagers
+./Bendy and the Ink Machine_Data/globalgamemanagers.assets
+./Bendy and the Ink Machine_Data/globalgamemanagers.assets.resS
+./Bendy and the Ink Machine_Data/il2cpp_data/Metadata/global-metadata.dat
+./Bendy and the Ink Machine_Data/il2cpp_data/Resources/mscorlib.dll-resources.dat
+./Bendy and the Ink Machine_Data/level0
+./Bendy and the Ink Machine_Data/level1
+./Bendy and the Ink Machine_Data/level1.resS
+./Bendy and the Ink Machine_Data/level10
+./Bendy and the Ink Machine_Data/level2
+./Bendy and the Ink Machine_Data/level3
+./Bendy and the Ink Machine_Data/level3.resS
+./Bendy and the Ink Machine_Data/level4
+./Bendy and the Ink Machine_Data/level5
+./Bendy and the Ink Machine_Data/level5.resS
+./Bendy and the Ink Machine_Data/level6
+./Bendy and the Ink Machine_Data/level6.resS
+./Bendy and the Ink Machine_Data/level7
+./Bendy and the Ink Machine_Data/level7.resS
+./Bendy and the Ink Machine_Data/level8
+./Bendy and the Ink Machine_Data/level9
+./Bendy and the Ink Machine_Data/resources.assets
+./Bendy and the Ink Machine_Data/resources.assets.resS
+./Bendy and the Ink Machine_Data/resources.resource
+./Bendy and the Ink Machine_Data/sharedassets0.assets
+./Bendy and the Ink Machine_Data/sharedassets0.assets.resS
+./Bendy and the Ink Machine_Data/sharedassets1.assets
+./Bendy and the Ink Machine_Data/sharedassets1.assets.resS
+./Bendy and the Ink Machine_Data/sharedassets1.resource
+./Bendy and the Ink Machine_Data/sharedassets10.assets
+./Bendy and the Ink Machine_Data/sharedassets2.assets
+./Bendy and the Ink Machine_Data/sharedassets2.assets.resS
+./Bendy and the Ink Machine_Data/sharedassets2.resource
+./Bendy and the Ink Machine_Data/sharedassets3.assets
+./Bendy and the Ink Machine_Data/sharedassets3.assets.resS
+./Bendy and the Ink Machine_Data/sharedassets3.resource
+./Bendy and the Ink Machine_Data/sharedassets4.assets
+./Bendy and the Ink Machine_Data/sharedassets4.assets.resS
+./Bendy and the Ink Machine_Data/sharedassets4.resource
+./Bendy and the Ink Machine_Data/sharedassets5.assets
+./Bendy and the Ink Machine_Data/sharedassets5.assets.resS
+./Bendy and the Ink Machine_Data/sharedassets5.resource
+./Bendy and the Ink Machine_Data/sharedassets6.assets
+./Bendy and the Ink Machine_Data/sharedassets6.assets.resS
+./Bendy and the Ink Machine_Data/sharedassets7.assets
+./Bendy and the Ink Machine_Data/sharedassets7.assets.resS
+./Bendy and the Ink Machine_Data/sharedassets8.assets
+./Bendy and the Ink Machine_Data/sharedassets9.assets
+./GameAssembly.dll
+./UnityCrashHandler64.exe
+./UnityPlayer.dll
+./baselib.dll
