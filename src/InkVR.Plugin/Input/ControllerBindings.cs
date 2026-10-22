@@ -49,7 +49,8 @@ public static class ControllerBindings
             LeftTrigger = off.Trigger,
             RightTrigger = uiHasPointer ? 0f : dom.Trigger,
             LeftStickButton = off.StickClick,
-            Menu = off.Menu
+            // Quest has a menu button on the left controller only (the right one's is Meta's, reserved).
+            Menu = XrInput.Get(Hand.Left).Menu || XrInput.Get(Hand.Right).Menu
         };
     }
 

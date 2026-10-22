@@ -34,6 +34,21 @@ public static class ModConfig
 
     public static ConfigFile File { get; private set; }
 
+    /// <summary>
+    /// Whether this session starts in VR. The InkVR Launcher sets INKVR_MODE=vr|flat for the game it starts,
+    /// so "Play flat" never rewrites the saved setting; launching from Steam uses [VR] Enabled.
+    /// </summary>
+    public static bool StartInVR
+    {
+        get
+        {
+            var mode = System.Environment.GetEnvironmentVariable("INKVR_MODE");
+            if (string.Equals(mode, "vr", System.StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.Equals(mode, "flat", System.StringComparison.OrdinalIgnoreCase)) return false;
+            return VREnabled.Value;
+        }
+    }
+
     public static void Bind(ConfigFile cfg)
     {
         File = cfg;

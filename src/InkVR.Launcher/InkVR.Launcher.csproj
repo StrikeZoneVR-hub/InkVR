@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- .NET Framework 4.8 ships with Windows 10/11: the launcher is one small .exe with nothing to install. -->
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>InkVR Launcher</AssemblyName>
+    <RootNamespace>InkVR.Launcher</RootNamespace>
+    <ApplicationIcon>Assets\inkvr.ico</ApplicationIcon>
+    <Version>0.2.0</Version>
+    <Company>StrikeZoneVR</Company>
+    <Product>InkVR</Product>
+    <Description>InkVR - VR mod launcher for Bendy and the Ink Machine</Description>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Management" />
+    <Resource Include="Assets\Fonts\Bangers-Regular.ttf" />
+    <Resource Include="Assets\inkvr.png" />
+  </ItemGroup>
+</Project>

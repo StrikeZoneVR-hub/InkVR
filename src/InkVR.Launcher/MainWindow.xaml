@@ -1,0 +1,10 @@
+<Window x:Class="InkVR.Launcher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="InkVR Launcher" Width="1280" Height="720"
+        WindowStyle="None" ResizeMode="NoResize" Background="Black"
+        WindowStartupLocation="CenterScreen" Icon="Assets/inkvr.png">
+  <Viewbox Stretch="Uniform">
+    <Grid x:Name="Root" Width="1920" Height="1080" ClipToBounds="True" Background="Black" />
+  </Viewbox>
+</Window>

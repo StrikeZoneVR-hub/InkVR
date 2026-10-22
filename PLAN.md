@@ -1,6 +1,6 @@
 # InkVR — Full 6DoF VR Mod for Bendy and the Ink Machine
 
-Status: **M0 done · M1 built, awaiting headset test** · Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22
+Status: **Test build 0.2.0 ready for your headset test** (M1 VR core · M2 button controls + Henry's hands · M3 launcher · M5 VR SETTINGS page + theatre menus) · next after your test: M4 motion controls · Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22
 
 Target setup: **Quest 3 · Virtual Desktop · VDXR OpenXR runtime** · RTX 4050 Laptop. Release: **open source on GitHub**.
 
@@ -48,7 +48,7 @@ Goals (all required):
 4. **Stereo mode: multi-pass, almost certainly.** The game's shaders weren't compiled with single-pass-instanced variants, so each eye is rendered separately. That roughly doubles CPU draw submission and makes 90 fps harder. We plan for it from the start rather than hoping otherwise.
 5. **Full-body IK: our own solver, written in the plugin.** Animation Rigging can't be loaded into an IL2CPP game, and FinalIK is a paid asset we can't redistribute. The body mesh and animation clips ship as an **AssetBundle** built with Unity 2022.3.62f2.
 6. **Official artwork is never bundled.** The launcher and the in-game VR menu read the art, fonts and UI sprites from your installed game files at runtime. That guarantees genuine official artwork and keeps the mod download free of copyrighted assets.
-7. **Launcher: WPF on .NET 10**, built as a single self-contained `.exe`. It's native Windows with GPU-accelerated animation and pixel-shader effects for film grain, sepia and ink.
+7. **Launcher: WPF on .NET Framework 4.8** (ships with Windows 10/11), so it's a single ~280 KB `.exe` with nothing to install. Native Windows with GPU-accelerated animation; film grain, flicker and ink effects are procedural.
 
 ---
 
@@ -128,7 +128,8 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 - **Feasibility gate:** measure VR frame time at max settings in the heaviest areas, and report real numbers before going further.
 - **Done when:** you start Ch1 and walk around with a gamepad. Head tracking is correct in both eyes, scale feels right, and nothing swims or doubles.
 
-### M2 — Controllers, locomotion, the game's own hands & arms on button presses, VR-usable menus *(risk: medium)*
+### M2 — Controllers, locomotion, the game's own hands & arms on button presses, VR-usable menus *(risk: medium)* 🟡 built, awaiting headset test
+> Built: Quest Touch (+ Index / simple) actions feed an InControl virtual gamepad in the game's own layout; off-hand stick locomotion (stick-click or trigger to run); snap or smooth turning; hand-aimed interaction; a laser pointer for every menu; held items follow your hand. Hands and arms are made by InkVR in the game's ink-outlined style (Henry's rolled sleeves, wedding ring, wristwatch, ink creeping up chapter by chapter), as you asked on 2026-10-22. Not yet: physical crouch collider, seated mode, comfort vignette.
 - OpenXR controller profiles: Quest Touch first, with Index, Vive and WMR mapped as well.
 - InControl virtual device, so every existing game action (jump, interact, sprint, pause, menu navigation) works on controllers straight away.
 - Locomotion:
@@ -143,7 +144,13 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 - Laser pointer for all existing menus (main, pause, options, chapter select).
 - **Done when:** Ch1 is playable start to finish with controllers only; the game's hands/arms follow your controllers; interactions and attacks are button presses.
 
-### M3 — Animated launcher + installer *(risk: low)*
+### M3 — Animated launcher + installer *(risk: low)* 🟡 built, awaiting your test
+> Built as `InkVR Launcher.exe`. The game's art is read straight from `resources.assets` by InkVR's own reader and BC7 decoder (pixel-identical to UnityPy), then cached in `%LOCALAPPDATA%\InkVR\art`.
+> **Opening:** a film-leader countdown, a "StrikeZoneVR presents" card, an ink-splat reveal of the game's menu, the logo dropping in and a "VR" rubber stamp. **Idle:** projector flicker, grain, scratches, ink drips, and Bendy bouncing in the menu ring.
+> **Closing:** the menu clears away, Bendy fills with ink like the game's loader, and a Bendy-head-shaped iris closes to "Dreams come true" ("The End" when you quit).
+> **Pages:** the Quest 3 controls sheet (painted controller art), VR CHECK, OPTIONS (the shared cfg, runtime choice and launcher preferences), and ABOUT.
+> It installs from `InkVR-Payload/` and downloads Unity's OpenXR plugin, checking its SHA-256. The game is started directly (`steam_appid.txt`) with `INKVR_MODE` and `XR_RUNTIME_JSON` set for that launch only, so the PC-wide runtime never changes. `--play vr` skips the menu for shortcuts.
+> Changed from the plan: no music sting from the game (the sounds are synthesised); no in-headset boot splash yet; the GPU check reports the adapter but doesn't change Windows' per-app GPU setting.
 - **Reference (not to copy):** your Outlast 2 VR launcher — `Outlast 2\Binaries\Win64\Outlast2VR_Launcher.cs` + its README/art. Same idea: a single `.exe` that launches the game in VR, with opening and closing animations, here built from Bendy's official artwork.
 - Official artwork extracted from your installed game at runtime (AssetsTools.NET) and cached locally. None of it is shipped.
 - **Opening animation:** the projector starts up (flicker, film grain, sepia, frame jitter), ink drips reveal the key art, the logo stamps in, and an optional music sting plays from the game's audio.
@@ -180,7 +187,8 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 - Haptics throughout. Point-and-press stays available as an accessibility option.
 - **Done when:** Ch1–2 are playable with physical interactions only, and combat feels good.
 
-### M5 — VR settings menu (game style) + full UI pass *(risk: medium)*
+### M5 — VR settings menu (game style) + full UI pass *(risk: medium)* 🟡 partly built
+> Built: a VR SETTINGS page in the game's Options menu (main and pause), made from the game's own widgets, with "VR MOD MADE BY STRIKEZONEVR" at the bottom. The title, pause and loading screens play on a projector screen in a small studio theatre. Still to do: the rest of the full UI pass.
 - Add a **VR tab to the game's own Options menu**, on both the main menu and the pause menu. It's built at runtime by cloning the game's real buttons, sliders, toggles, tab headers, fonts, sprites, DOTween transitions, menu sounds and I2 localisation, so it looks native.
 - Settings:
   - **Comfort:** move direction, turn mode/angle/speed, vignette, cutscene comfort mode
@@ -305,3 +313,6 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 3. **Body:** use the game's own hands/arms for now. Full-body IK moves to M7 (later).
 4. **Release:** open source on GitHub. Licence to pick before release (GPL-3.0 if any UnityVRMod code is borrowed).
 5. **Order & scope:** M0 → M1 → M2 → M3 launcher → M4 motion controls → M5 VR settings → M6 cutscenes. Authorized through M6.
+6. **Name:** InkVR, by StrikeZoneVR. Project folder: `InkVR`.
+7. **Hands & arms:** made in the game's style and true to the lore (they're Henry's), not just the flat game's viewmodel.
+8. **Test gate:** your first headset test comes once the launcher, settings, hands/arms, Quest button controls, theatre menu and pause, and the in-game VR settings (with the StrikeZoneVR credit) are all done. Motion controls (M4) follow that test.

@@ -1,0 +1,10 @@
+<Application x:Class="InkVR.Launcher.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnMainWindowClose">
+  <Application.Resources>
+    <FontFamily x:Key="Brush">pack://application:,,,/Assets/Fonts/#Bangers</FontFamily>
+    <SolidColorBrush x:Key="Ink" Color="#FF140D09"/>
+    <SolidColorBrush x:Key="Paper" Color="#FFF0D696"/>
+  </Application.Resources>
+</Application>

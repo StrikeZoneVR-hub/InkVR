@@ -15,7 +15,7 @@ public class VRRuntime : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        if (ModConfig.VREnabled.Value) _startAt = Time.realtimeSinceStartup + 1f;
+        if (ModConfig.StartInVR) _startAt = Time.realtimeSinceStartup + 1f;
     }
 
     private void Update()
