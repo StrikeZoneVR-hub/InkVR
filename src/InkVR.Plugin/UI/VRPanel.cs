@@ -17,7 +17,7 @@ public class VRPanel
         Object.Destroy(GameObject.GetComponent<Collider>());
         GameObject.layer = VRLayers.UI;
         Transform = GameObject.transform;
-        Transform.SetParent(parent, false);
+        if (parent != null) Transform.SetParent(parent, false);
 
         _material = new Material(Shader.Find("UI/Default")) { mainTexture = texture, color = color, renderQueue = 4000 + sortingOrder };
         _material.SetInt("unity_GUIZTestMode", (int)CompareFunction.Always);
@@ -41,6 +41,11 @@ public class VRPanel
             if (GameObject.activeSelf != value) GameObject.SetActive(value);
         }
     }
+
+    /// <summary>Depth test against the scene (LessEqual) or always on top (Always, the default).</summary>
+    public void ZTest(CompareFunction f) => _material.SetInt("unity_GUIZTestMode", (int)f);
+
+    public Material Material => _material;
 
     /// <summary>Size in the parent's units (metres inside a rig origin).</summary>
     public void SetSize(float width, float height) => Transform.localScale = new Vector3(width, height, 1);

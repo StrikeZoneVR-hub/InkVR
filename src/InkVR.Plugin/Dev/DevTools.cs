@@ -183,6 +183,79 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"EYES {cam.name}: left={(Vector3)l} right={(Vector3)r} separation={Vector3.Distance(l, r):F3} units, camera at {cam.transform.position}, lossyScale={cam.transform.lossyScale.x:F2}, stereoSeparation={cam.stereoSeparation}");
                 break;
             }
+            case "shaders":
+            {
+                var used = new Dictionary<string, int>();
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Renderer>()))
+                {
+                    var r = o.Cast<Renderer>();
+                    if (!r.gameObject.scene.IsValid()) continue;
+                    foreach (var m in r.sharedMaterials)
+                    {
+                        if (m == null || m.shader == null) continue;
+                        used.TryGetValue(m.shader.name, out var c);
+                        used[m.shader.name] = c + 1;
+                    }
+                }
+
+                Plugin.L.LogInfo("SHADERS in use: " + string.Join(", ", used.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}({kv.Value})")));
+                var all = new List<string>();
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Shader>())) all.Add(o.Cast<Shader>().name);
+                Plugin.L.LogInfo("SHADERS loaded: " + string.Join(", ", all.OrderBy(n => n)));
+                foreach (var n in new[] { "Standard", "Hidden/Internal-Colored", "Unlit/Color", "Unlit/Texture", "Unlit/Transparent", "Legacy Shaders/Diffuse", "Particles/Standard Unlit", "Sprites/Default" })
+                    Plugin.L.LogInfo($"  Shader.Find('{n}') = {(Shader.Find(n) != null ? "yes" : "no")}");
+                break;
+            }
+            case "shaderprops":
+            {
+                var sh = Shader.Find(arg);
+                if (sh == null) { Plugin.L.LogWarning("shader not found"); break; }
+                var sb = new StringBuilder($"SHADERPROPS {arg} queue={sh.renderQueue}:");
+                for (var i = 0; i < sh.GetPropertyCount(); i++)
+                    sb.Append($" {sh.GetPropertyName(i)}:{sh.GetPropertyType(i)}");
+                // A material that uses it, for default values.
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Material>()))
+                {
+                    var m = o.Cast<Material>();
+                    if (m.shader != sh) continue;
+                    sb.Append($"\n  example material '{m.name}':");
+                    for (var i = 0; i < sh.GetPropertyCount(); i++)
+                    {
+                        var n = sh.GetPropertyName(i);
+                        var t = sh.GetPropertyType(i);
+                        sb.Append(t switch
+                        {
+                            UnityEngine.Rendering.ShaderPropertyType.Texture => $" {n}={(m.GetTexture(n) != null ? m.GetTexture(n).name : "-")}",
+                            UnityEngine.Rendering.ShaderPropertyType.Color => $" {n}={m.GetColor(n)}",
+                            UnityEngine.Rendering.ShaderPropertyType.Vector => $" {n}={m.GetVector(n)}",
+                            _ => $" {n}={m.GetFloat(n)}"
+                        });
+                    }
+
+                    sb.Append($" keywords=[{string.Join(",", m.shaderKeywords)}]");
+                    break;
+                }
+
+                Plugin.L.LogInfo(sb.ToString());
+                break;
+            }
+            case "hands":
+            {
+                // hands demo [pitch] | hands off | hands x y z pitch yaw (right hand; left mirrored)
+                if (arg == "off")
+                {
+                    InkVR.Body.Hands.DevLeft = InkVR.Body.Hands.DevRight = null;
+                    break;
+                }
+
+                var a = arg == "demo" || arg.Length == 0 ? new float[] { 0.17f, 1.38f, 0.32f, -35f, 0f }
+                    : arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                if (a.Length == 1) a = new[] { 0.17f, 1.38f, 0.32f, a[0], 0f };
+                if (a.Length < 5) a = a.Concat(new float[5 - a.Length]).ToArray();
+                InkVR.Body.Hands.DevRight = (new Vector3(a[0], a[1], a[2]), Quaternion.Euler(a[3], a[4], 0));
+                InkVR.Body.Hands.DevLeft = (new Vector3(-a[0], a[1], a[2]), Quaternion.Euler(a[3], -a[4], 0));
+                break;
+            }
             case "mirror":
                 UnityEngine.XR.XRSettings.gameViewRenderMode = arg switch
                 {

@@ -1,3 +1,4 @@
+using InkVR.Body;
 using InkVR.Input;
 using InkVR.UI;
 using UnityEngine;
@@ -6,25 +7,29 @@ using UnityEngine.XR;
 namespace InkVR.Core;
 
 /// <summary>
-/// Owns the VR camera setup. In menus a mod-owned rig shows the game UI on a panel in a dark room;
-/// in gameplay the game's own camera is moved under a head-tracked, world-scaled origin on the player.
+/// Owns the VR camera setup.
 ///
+/// Cinema (title screen, pause, loading): a mod-owned theatre far below the level; the game's UI
+/// plays on its big screen. While paused mid-game the game cameras render to a tiny texture instead
+/// of the headset.
+///
+/// Gameplay: the game's own camera moves under a head-tracked, world-scaled origin on the player.
 ///   PlayerController (yaw = your head yaw, so movement is head-relative)
 ///     InkVR_Origin   at the capsule's feet, scale = WorldScale (game units per metre)
-///       GameCamera_PostProcess (+WeaponCam, InvisibleCam)   ← tracked by Unity XR
-///       InkVR_UICamera   (layer 31 only: UI panel + fade)  ← tracked by Unity XR
-///       InkVR_UIPanel
+///       GameCamera_PostProcess (+WeaponCam, InvisibleCam)
+///       InkVR_UICamera   (layer 31: HUD panel, laser, fade)
+///       InkVR_UIPanel    (subtitles, prompts, objectives, notes)
 /// </summary>
 public static class VRRig
 {
-    private const float MenuPanelDistance = 2.4f, MenuPanelWidth = 3.2f;
     private const float GamePanelDistance = 1.6f, GamePanelWidth = 1.5f;
     private const float PanelFollowAngle = 35f;
 
-    // Menu rig (persistent).
-    private static Transform _menuOrigin;
-    private static Camera _menuCam;
-    private static VRPanel _menuPanel;
+    // Cinema rig (persistent).
+    private static Transform _cinemaOrigin;
+    private static Camera _cinemaCam;
+    private static Cinema _cinema;
+    private static bool _cinemaActive;
 
     // Player rig (lives on the current PlayerController, destroyed with it).
     private static PlayerController _player;
@@ -32,15 +37,28 @@ public static class VRRig
     private static Camera _gameCam;
     private static Camera _uiCam;
     private static VRPanel _gamePanel;
-    private static VRPanel _fade;
     private static CharacterController _cc;
     private static float _panelYaw;
+    private static RenderTexture _parkedTarget;
+
+    private static VRPanel _fade;
 
     public static bool InGame => _player != null && _origin != null;
-    public static Transform Origin => InGame ? _origin : _menuOrigin;
+    public static bool CinemaActive => _cinemaActive;
     public static Camera GameCamera => InGame ? _gameCam : null;
-    public static Transform Head => InGame ? _gameCam.transform : _menuCam != null ? _menuCam.transform : null;
+    public static Transform Head => _cinemaActive ? _cinemaCam?.transform : InGame ? _gameCam.transform : null;
+    public static Transform ActiveOrigin => _cinemaActive || !InGame ? _cinemaOrigin : _origin;
     public static float Scale => ModConfig.WorldScale.Value;
+    public static float ActiveScale => _cinemaActive || !InGame ? 1f : Scale;
+
+    /// <summary>Smooth-turn input (-1..1) from the controllers this frame.</summary>
+    public static float SmoothTurnInput;
+
+    /// <summary>A menu or modal is up and wants pointer input (laser), rather than gameplay.</summary>
+    public static bool MenuWantsPointer => _cinemaActive || (InGame && Cursor.lockState != CursorLockMode.Locked);
+
+    /// <summary>The panel currently showing the game's UI that the laser can click.</summary>
+    public static VRPanel PointerPanel => _cinemaActive ? _cinema?.Screen : MenuWantsPointer ? _gamePanel : null;
 
     /// <summary>Dev/testing: replaces the tracked head pose (metres, tracking space).</summary>
     public static (Vector3 pos, Quaternion rot)? DevHeadOverride;
@@ -49,7 +67,7 @@ public static class VRRig
     {
         if (!XrManager.IsRunning)
         {
-            if (_menuOrigin != null) _menuOrigin.gameObject.SetActive(false);
+            if (_cinemaOrigin != null) _cinemaOrigin.gameObject.SetActive(false);
             return;
         }
 
@@ -59,34 +77,9 @@ public static class VRRig
         if (player != null && player != _player) AttachToPlayer(player);
         if (player == null && _player != null) DetachFromPlayer();
 
-        EnsureMenuRig();
-        _menuOrigin.gameObject.SetActive(!InGame);
+        EnsureCinema();
+        SetCinema(!InGame || IsPaused());
         ApplyHeadPose();
-    }
-
-    /// <summary>
-    /// XR SDK cameras are not tracked implicitly (that is TrackedPoseDriver's job), so copy the
-    /// centre-eye pose onto the rig cameras. Runs in Update (for game logic) and again in
-    /// LateUpdate (Application.onBeforeRender is stripped from this build).
-    /// </summary>
-    public static void ApplyHeadPose()
-    {
-        if (!XrManager.IsRunning) return;
-        var pos = DevHeadOverride?.pos ?? InputTracking.GetLocalPosition(XRNode.CenterEye);
-        var rot = DevHeadOverride?.rot ?? InputTracking.GetLocalRotation(XRNode.CenterEye);
-        pos.y += ModConfig.HeightOffset.Value;
-        if (InGame)
-        {
-            _gameCam.transform.localPosition = pos;
-            _gameCam.transform.localRotation = rot;
-            _uiCam.transform.localPosition = pos;
-            _uiCam.transform.localRotation = rot;
-        }
-        else if (_menuCam != null)
-        {
-            _menuCam.transform.localPosition = pos;
-            _menuCam.transform.localRotation = rot;
-        }
     }
 
     public static void LateUpdate()
@@ -94,52 +87,148 @@ public static class VRRig
         if (!XrManager.IsRunning) return;
         ApplyHeadPose();
 
-        if (InGame)
+        if (InGame && !_cinemaActive)
         {
-            ApplyTurn();
+            ApplySmoothTurn();
             FollowHeadWithBody();
             PlaceGamePanel();
-            UpdateFade();
             Rendering.VRGraphics.Update(_gameCam);
-            ScaleStereo();
         }
-        else if (_menuCam != null)
+
+        _cinema?.Animate();
+        UpdateFade();
+        Hands.Update();
+        LaserPointer.Update();
+        if (InGame && !_cinemaActive) ScaleStereo();
+    }
+
+    private static bool IsPaused()
+    {
+        var gm = GameManager.Instance;
+        return gm != null && gm.isPaused;
+    }
+
+    // ---------------- tracking ----------------
+
+    public static Vector3 HeadLocalPosition =>
+        (DevHeadOverride?.pos ?? InputTracking.GetLocalPosition(XRNode.CenterEye)) + Vector3.up * ModConfig.HeightOffset.Value;
+
+    public static Quaternion HeadLocalRotation => DevHeadOverride?.rot ?? InputTracking.GetLocalRotation(XRNode.CenterEye);
+
+    /// <summary>
+    /// XR SDK cameras are not tracked implicitly (that is TrackedPoseDriver's job), so copy the
+    /// centre-eye pose onto the active rig cameras. Runs in Update (for game logic) and again in
+    /// LateUpdate (Application.onBeforeRender is stripped from this build).
+    /// </summary>
+    public static void ApplyHeadPose()
+    {
+        if (!XrManager.IsRunning) return;
+        var pos = HeadLocalPosition;
+        var rot = HeadLocalRotation;
+        if (_cinemaActive || !InGame)
         {
-            UpdateFade();
+            if (_cinemaCam != null) _cinemaCam.transform.SetLocalPositionAndRotation(pos, rot);
+        }
+        else
+        {
+            _gameCam.transform.SetLocalPositionAndRotation(pos, rot);
+            _uiCam.transform.SetLocalPositionAndRotation(pos, rot);
         }
     }
 
-    /// <summary>Every stereo camera inside the scaled origin (game, weapon, invisible, UI cameras).</summary>
-    private static void ScaleStereo()
+    /// <summary>Tracking-space pose (metres) to world, through whichever rig is active.</summary>
+    public static void TrackingToWorld(Vector3 localPos, Quaternion localRot, out Vector3 worldPos, out Quaternion worldRot)
     {
-        foreach (var cam in _origin.GetComponentsInChildren<Camera>())
-            if (cam.enabled && cam.targetTexture == null)
-                StereoScale.Apply(cam, Scale);
+        var origin = ActiveOrigin;
+        localPos += Vector3.up * ModConfig.HeightOffset.Value;
+        if (origin == null)
+        {
+            worldPos = localPos;
+            worldRot = localRot;
+            return;
+        }
+
+        worldPos = origin.TransformPoint(localPos);
+        worldRot = origin.rotation * localRot;
     }
 
-    // ---------------- menu rig ----------------
+    // ---------------- cinema ----------------
 
-    private static void EnsureMenuRig()
+    private static void EnsureCinema()
     {
-        if (_menuOrigin != null) return;
+        if (_cinemaOrigin != null) return;
 
-        var root = new GameObject("InkVR_MenuRig");
+        var root = new GameObject("InkVR_Cinema");
         Object.DontDestroyOnLoad(root);
-        root.transform.position = new Vector3(0, -500, 0); // away from anything the game draws
-        _menuOrigin = root.transform;
+        root.transform.position = new Vector3(0, -5000, 0); // far away from anything the game draws
+        _cinemaOrigin = root.transform;
 
-        _menuCam = new GameObject("InkVR_MenuCamera").AddComponent<Camera>();
-        _menuCam.transform.SetParent(_menuOrigin, false);
-        _menuCam.clearFlags = CameraClearFlags.SolidColor;
-        _menuCam.backgroundColor = new Color(0.03f, 0.025f, 0.015f);
-        _menuCam.cullingMask = VRLayers.UIMask;
-        _menuCam.nearClipPlane = 0.05f;
-        _menuCam.farClipPlane = 100f;
-        _menuCam.depth = 0;
+        _cinemaCam = new GameObject("InkVR_CinemaCamera").AddComponent<Camera>();
+        _cinemaCam.transform.SetParent(_cinemaOrigin, false);
+        _cinemaCam.clearFlags = CameraClearFlags.SolidColor;
+        _cinemaCam.backgroundColor = new Color(0.018f, 0.014f, 0.01f);
+        _cinemaCam.cullingMask = VRLayers.UIMask;
+        _cinemaCam.renderingPath = RenderingPath.Forward;
+        _cinemaCam.nearClipPlane = 0.03f;
+        _cinemaCam.farClipPlane = 60f;
+        _cinemaCam.depth = 60; // above every game camera, so a paused game never shows through
 
-        _menuPanel = new VRPanel("InkVR_MenuPanel", _menuOrigin, UICapture.Texture, Color.white, 0);
-        _menuPanel.SetSize(MenuPanelWidth, MenuPanelWidth * UICapture.Height / UICapture.Width);
-        _menuPanel.Transform.localPosition = new Vector3(0, 1.6f, MenuPanelDistance);
+        _cinema = new Cinema(_cinemaOrigin, UICapture.Texture);
+        _cinemaActive = true;
+        Recenter();
+    }
+
+    private static void SetCinema(bool on)
+    {
+        if (on == _cinemaActive && _cinemaOrigin.gameObject.activeSelf == on) return;
+        _cinemaActive = on;
+        _cinemaOrigin.gameObject.SetActive(on);
+        if (on) Recenter();
+
+        if (InGame)
+        {
+            ParkGameCameras(on);
+            _uiCam.enabled = !on;
+            if (_gamePanel != null) _gamePanel.Visible = !on;
+        }
+    }
+
+    /// <summary>Turn the theatre so its screen is straight ahead of where you are looking.</summary>
+    public static void Recenter()
+    {
+        if (_cinemaOrigin == null) return;
+        var local = HeadLocalPosition;
+        var fwd = HeadLocalRotation * Vector3.forward;
+        var yaw = Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
+        var rot = Quaternion.Euler(0, -yaw, 0);
+        _cinemaOrigin.rotation = rot;
+        var basePos = new Vector3(0, -5000, 0);
+        _cinemaOrigin.position = basePos - rot * new Vector3(local.x, 0, local.z);
+    }
+
+    /// <summary>While paused, game cameras render into a tiny texture instead of the headset.</summary>
+    private static void ParkGameCameras(bool park)
+    {
+        if (_parkedTarget == null)
+        {
+            _parkedTarget = new RenderTexture(16, 16, 16) { name = "InkVR_Parked" };
+            Object.DontDestroyOnLoad(_parkedTarget);
+        }
+
+        foreach (var cam in _origin.GetComponentsInChildren<Camera>(true))
+        {
+            if (cam == _uiCam) continue;
+            if (park)
+            {
+                cam.stereoTargetEye = StereoTargetEyeMask.None;
+                cam.targetTexture = _parkedTarget;
+            }
+            else if (cam.targetTexture == _parkedTarget)
+            {
+                cam.targetTexture = null;
+                cam.stereoTargetEye = StereoTargetEyeMask.Both;
+            }
+        }
     }
 
     // ---------------- player rig ----------------
@@ -169,6 +258,7 @@ public static class VRRig
         _uiCam.transform.SetParent(_origin, false);
         _uiCam.clearFlags = CameraClearFlags.Depth;
         _uiCam.cullingMask = VRLayers.UIMask;
+        _uiCam.renderingPath = RenderingPath.Forward;
         _uiCam.nearClipPlane = 0.02f * Scale;
         _uiCam.farClipPlane = 20f * Scale;
         _uiCam.depth = 50;
@@ -176,6 +266,11 @@ public static class VRRig
         _gamePanel = new VRPanel("InkVR_UIPanel", _origin, UICapture.Texture, Color.white, 0);
         _gamePanel.SetSize(GamePanelWidth, GamePanelWidth * UICapture.Height / UICapture.Width);
         _panelYaw = 0;
+
+        // Re-apply the current cinema state to the new cameras.
+        var cinema = _cinemaActive;
+        _cinemaActive = !cinema;
+        SetCinema(cinema);
 
         Plugin.L.LogInfo($"VR rig attached to player (scale {Scale}, feet at {origin.localPosition.y:F2})");
     }
@@ -196,18 +291,19 @@ public static class VRRig
         return _cc.center - Vector3.up * (_cc.height * 0.5f);
     }
 
-    /// <summary>Stick turning rotates the play space around your head (the game's own look input is muted in VR).</summary>
-    private static void ApplyTurn()
+    /// <summary>Snap/smooth turning rotates the play space around your head.</summary>
+    public static void Turn(float degrees)
     {
-        var x = VirtualInput.TurnInput;
-        if (Mathf.Abs(x) < 0.15f) return;
-        var angle = x * ModConfig.SmoothTurnSpeed.Value * Time.unscaledDeltaTime;
-        RotateAroundHead(angle);
+        if (!InGame || _cinemaActive || _player.isLocked) return;
+        _origin.RotateAround(_gameCam.transform.position, Vector3.up, degrees);
     }
 
-    private static void RotateAroundHead(float angle)
+    private static void ApplySmoothTurn()
     {
-        _origin.RotateAround(_gameCam.transform.position, Vector3.up, angle);
+        // Controllers (SmoothTurnInput) or a gamepad's right stick (captured game look input).
+        var x = Mathf.Abs(SmoothTurnInput) > 0 ? SmoothTurnInput : VirtualInput.TurnInput;
+        if (Mathf.Abs(x) < 0.15f) return;
+        Turn(x * ModConfig.SmoothTurnSpeed.Value * Time.unscaledDeltaTime);
     }
 
     /// <summary>
@@ -223,7 +319,6 @@ public static class VRRig
         var originPos = _origin.position;
         var originRot = _origin.rotation;
 
-        // Yaw: turn the body to face where the head looks.
         var headFwd = Vector3.ProjectOnPlane(head.forward, Vector3.up);
         if (headFwd.sqrMagnitude > 1e-4f)
         {
@@ -232,13 +327,11 @@ public static class VRRig
             _player.m_PlayerLook.m_CharacterTargetRotation = bodyRot;
         }
 
-        // Position: drag the capsule under the head (room-scale), with collision.
         var delta = headPos - _player.transform.position;
         delta.y = 0;
         if (delta.sqrMagnitude > 0.0001f && _cc != null && _cc.enabled && !_player.isMoveLocked)
             _cc.Move(delta);
 
-        // Undo the side effects on the origin so the camera does not move.
         _origin.SetPositionAndRotation(originPos, originRot);
     }
 
@@ -256,12 +349,20 @@ public static class VRRig
         _gamePanel.Transform.localPosition = headLocalPos + rot * Vector3.forward * GamePanelDistance;
     }
 
+    /// <summary>Every stereo camera inside the scaled origin (game, weapon, invisible, UI cameras).</summary>
+    private static void ScaleStereo()
+    {
+        foreach (var cam in _origin.GetComponentsInChildren<Camera>())
+            if (cam.enabled && cam.targetTexture == null)
+                StereoScale.Apply(cam, Scale);
+    }
+
     // ---------------- fades ----------------
 
     /// <summary>The game fades with a full-screen UI image; in VR that has to cover the whole view.</summary>
     private static void UpdateFade()
     {
-        var cam = InGame ? _uiCam : _menuCam;
+        var cam = _cinemaActive || !InGame ? _cinemaCam : _uiCam;
         if (cam == null) return;
         if (_fade == null || _fade.GameObject == null)
         {
@@ -272,9 +373,13 @@ public static class VRRig
         else if (_fade.Transform.parent != cam.transform)
         {
             _fade.Transform.SetParent(cam.transform, false);
+            _fade.Transform.localPosition = new Vector3(0, 0, 0.1f);
+            _fade.Transform.localRotation = Quaternion.identity;
         }
 
+        // In the theatre only the game's own fades during loads matter; a paused game shows no blocker.
         var c = ScreenFade.Current();
+        if (_cinemaActive && InGame) c.a = 0;
         _fade.Color = c;
         _fade.Visible = c.a > 0.001f;
     }

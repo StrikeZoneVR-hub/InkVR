@@ -52,9 +52,12 @@ public static class VirtualInput
         HeldUntil[action] = Time.unscaledTime + Mathf.Max(seconds, 0.05f);
     }
 
-    public static bool IsPressed(GameAction a) => PressedFrame.TryGetValue(a, out var f) && f == Time.frameCount;
+    private static readonly Dictionary<GameAction, int> PressSeen = new();
+    private static readonly Dictionary<GameAction, int> ReleaseSeen = new();
 
-    public static bool IsReleased(GameAction a) => ReleasedFrame.TryGetValue(a, out var f) && f == Time.frameCount;
+    public static bool IsPressed(GameAction a) => Edge(PressedFrame, PressSeen, a);
+
+    public static bool IsReleased(GameAction a) => Edge(ReleasedFrame, ReleaseSeen, a);
 
     public static bool IsHeld(GameAction a) =>
         (Held.TryGetValue(a, out var h) && h) || (HeldUntil.TryGetValue(a, out var t) && Time.unscaledTime < t);
@@ -62,9 +65,26 @@ public static class VirtualInput
     public static bool AnyPressed()
     {
         foreach (var kv in PressedFrame)
-            if (kv.Value == Time.frameCount)
+            if (Edge(PressedFrame, PressSeen, kv.Key))
                 return true;
         return false;
+    }
+
+    /// <summary>
+    /// An edge is visible during the frame it happened. If nothing read it that frame (input sampled
+    /// after the reader ran), it stays visible for the following frame so presses are never lost.
+    /// </summary>
+    private static bool Edge(Dictionary<GameAction, int> frames, Dictionary<GameAction, int> seen, GameAction a)
+    {
+        if (!frames.TryGetValue(a, out var f)) return false;
+        var now = Time.frameCount;
+        if (f == now)
+        {
+            seen[a] = now;
+            return true;
+        }
+
+        return f == now - 1 && (!seen.TryGetValue(a, out var s) || s != f);
     }
 }
 

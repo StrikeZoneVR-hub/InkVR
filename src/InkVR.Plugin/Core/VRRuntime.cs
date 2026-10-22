@@ -27,6 +27,7 @@ public class VRRuntime : MonoBehaviour
         }
 
         XrManager.Update();
+        Input.ControllerBindings.Sample(); // normally already done from InControl's early update
         VRRig.Update();
         PerfMonitor.Update();
     }

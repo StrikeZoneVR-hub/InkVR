@@ -64,7 +64,7 @@ public static class XrManager
             // OpenXRFeature.HookGetInstanceProcAddr with no features: hand the loader's
             // xrGetInstanceProcAddr to the provider so it can resolve the OpenXR API.
             XrGetInstanceProcAddr = OpenXRNative.GetProcAddressPtr(true);
-            OpenXRNative.SetProcAddressPtrAndLoadStage1(XrGetInstanceProcAddr);
+            OpenXRNative.SetProcAddressPtrAndLoadStage1(OpenXRApi.InstallHook(XrGetInstanceProcAddr));
 
             if (!OpenXRNative.InitializeSession())
                 return Fail("session_InitializeSession failed: " + OpenXRNative.LastError());
@@ -140,9 +140,11 @@ public static class XrManager
         {
             case OpenXRNative.NativeEvent.XrInstanceChanged:
                 XrInstance = payload;
+                Plugin.L.LogInfo($"OpenXR instance 0x{payload:X}");
                 break;
             case OpenXRNative.NativeEvent.XrSessionChanged:
                 XrSession = payload;
+                Plugin.L.LogInfo($"OpenXR session 0x{payload:X}");
                 break;
             case OpenXRNative.NativeEvent.XrSessionStateChanged:
             case OpenXRNative.NativeEvent.XrSetupConfigValues:
