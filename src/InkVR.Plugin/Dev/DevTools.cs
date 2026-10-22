@@ -256,6 +256,17 @@ public class DevTools : MonoBehaviour
                 InkVR.Body.Hands.DevLeft = (new Vector3(-a[0], a[1], a[2]), Quaternion.Euler(a[3], -a[4], 0));
                 break;
             }
+            case "aim":
+            {
+                // aim x y z pitch yaw | aim off   (right controller aim, tracking space)
+                if (arg == "off") { InkVR.Input.XrInput.DevRightAim = null; break; }
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                InkVR.Input.XrInput.DevRightAim = (new Vector3(a[0], a[1], a[2]), Quaternion.Euler(a[3], a[4], 0));
+                break;
+            }
+            case "trigger":
+                InkVR.Input.XrInput.DevRightTrigger = arg == "off" ? null : float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture);
+                break;
             case "mirror":
                 UnityEngine.XR.XRSettings.gameViewRenderMode = arg switch
                 {

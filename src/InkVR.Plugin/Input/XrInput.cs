@@ -58,6 +58,24 @@ public static unsafe class XrInput
 
     public static ControllerState Get(Hand h) => h == Hand.Left ? Left : Right;
 
+    /// <summary>Dev/testing: forces the right controller's aim pose and trigger (mock runtime has no controllers).</summary>
+    public static (Vector3 pos, Quaternion rot)? DevRightAim;
+    public static float? DevRightTrigger;
+
+    private static void ApplyDev()
+    {
+        if (DevRightAim.HasValue)
+        {
+            Right.AimPosition = DevRightAim.Value.pos;
+            Right.AimRotation = DevRightAim.Value.rot;
+            Right.GripPosition = DevRightAim.Value.pos;
+            Right.GripRotation = DevRightAim.Value.rot * Quaternion.Euler(-40, 0, 0);
+            Right.PoseValid = true;
+        }
+
+        if (DevRightTrigger.HasValue) Right.Trigger = DevRightTrigger.Value;
+    }
+
     public static void Update()
     {
         if (_failed || !XrManager.IsRunning) return;
@@ -76,6 +94,7 @@ public static unsafe class XrInput
         Read(Left, _handLeft);
         Read(Right, _handRight);
         LocatePoses();
+        ApplyDev();
 
         if (Time.unscaledTime > _profileCheckAt)
         {
@@ -101,6 +120,7 @@ public static unsafe class XrInput
         if (time == 0) return;
         Locate(Left, _gripSpaceL, _aimSpaceL, time);
         Locate(Right, _gripSpaceR, _aimSpaceR, time);
+        ApplyDev();
     }
 
     public static void Haptic(Hand hand, float amplitude, float seconds, float frequency = 0)
