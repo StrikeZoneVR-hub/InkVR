@@ -2,6 +2,7 @@ using System.IO;
 using BepInEx;
 using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
+using BendyVR.Core;
 using BendyVR.Dev;
 using HarmonyLib;
 using UnityEngine;
@@ -26,6 +27,11 @@ public class Plugin : BasePlugin
 
         L.LogInfo($"{Name} {Version} loading. Unity {Application.unityVersion}, game {Application.version}");
 
+        // The headset keeps rendering while the desktop window is unfocused, so the game must too.
+        Application.runInBackground = true;
+
+        ModConfig.Bind(Config);
+        AddComponent<VRRuntime>();
         AddComponent<DevTools>();
         new Harmony(Guid).PatchAll(typeof(Plugin).Assembly);
 

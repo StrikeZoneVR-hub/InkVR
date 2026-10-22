@@ -4,7 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using BendyVR.Input;
+using Il2CppInterop.Common.XrefScans;
 using Il2CppInterop.Runtime;
+using Il2CppInterop.Runtime.XrefScans;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
@@ -27,6 +30,8 @@ public class DevTools : MonoBehaviour
     private float _perfStart;
     private int _perfFrames;
     private float _perfWorst;
+    private Vector2 _devMove, _devLook;
+    private float _devMoveUntil, _devLookUntil;
 
     private void Awake()
     {
@@ -44,6 +49,20 @@ public class DevTools : MonoBehaviour
         }
 
         if (_perf) TrackPerf();
+
+        if (_devMoveUntil > 0)
+        {
+            var on = Time.unscaledTime < _devMoveUntil;
+            VirtualInput.Move = on ? _devMove : Vector2.zero;
+            if (!on) _devMoveUntil = 0;
+        }
+
+        if (_devLookUntil > 0)
+        {
+            var on = Time.unscaledTime < _devLookUntil;
+            VirtualInput.Look = on ? _devLook : Vector2.zero;
+            if (!on) _devLookUntil = 0;
+        }
     }
 
     private void LogSceneChanges()
@@ -116,6 +135,30 @@ public class DevTools : MonoBehaviour
             case "find": Find(arg); break;
             case "inspect": Inspect(arg); break;
             case "active": SetActive(arg); break;
+            case "click": Click(arg); break;
+            case "findc": FindComponent(arg); break;
+            case "call": Call(arg); break;
+            case "xr":
+                if (arg == "start") BendyVR.Core.XrManager.Initialize();
+                else if (arg == "stop") BendyVR.Core.XrManager.Shutdown();
+                Plugin.L.LogInfo($"XR state={BendyVR.Core.XrManager.Current} session={BendyVR.Core.XrManager.SessionState} runtime='{BendyVR.Core.XrManager.RuntimeName}' running={BendyVR.Core.XrManager.IsRunning} XRSettings.enabled={UnityEngine.XR.XRSettings.enabled} device='{UnityEngine.XR.XRSettings.loadedDeviceName}' eye={UnityEngine.XR.XRSettings.eyeTextureWidth}x{UnityEngine.XR.XRSettings.eyeTextureHeight}");
+                break;
+            case "xref": Xref(arg, false); break;
+            case "usedby": Xref(arg, true); break;
+            case "press":
+            {
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                VirtualInput.Tap(Enum.Parse<GameAction>(a[0], true), a.Length > 1 ? float.Parse(a[1]) : 0f);
+                break;
+            }
+            case "move":
+            case "look":
+            {
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(float.Parse).ToArray();
+                if (parts[0] == "move") { _devMove = new Vector2(a[0], a[1]); _devMoveUntil = Time.unscaledTime + a[2]; }
+                else { _devLook = new Vector2(a[0], a[1]); _devLookUntil = Time.unscaledTime + a[2]; }
+                break;
+            }
             case "perf":
                 _perf = arg != "off";
                 _perfStart = Time.unscaledTime;
@@ -235,6 +278,93 @@ public class DevTools : MonoBehaviour
         Plugin.L.LogInfo($"find '{needle}': {n} match(es)");
     }
 
+    private void FindComponent(string typeName)
+    {
+        var n = 0;
+        foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Component>()))
+        {
+            var c = o.Cast<Component>();
+            if (!c.gameObject.scene.IsValid()) continue;
+            if (!string.Equals(c.GetIl2CppType().Name, typeName, StringComparison.OrdinalIgnoreCase)) continue;
+            Plugin.L.LogInfo($"  {(c.gameObject.activeInHierarchy ? "" : "[x] ")}{PathOf(c.transform)}");
+            if (++n >= 100) break;
+        }
+
+        Plugin.L.LogInfo($"findc '{typeName}': {n} match(es)");
+    }
+
+    private void Click(string path)
+    {
+        var t = Resolve(path);
+        if (t == null)
+        {
+            Plugin.L.LogWarning($"Not found: {path}");
+            return;
+        }
+
+        var go = t.gameObject;
+        var data = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current)
+        {
+            button = UnityEngine.EventSystems.PointerEventData.InputButton.Left
+        };
+        UnityEngine.EventSystems.ExecuteEvents.Execute(go, data, UnityEngine.EventSystems.ExecuteEvents.pointerEnterHandler);
+        UnityEngine.EventSystems.ExecuteEvents.Execute(go, data, UnityEngine.EventSystems.ExecuteEvents.pointerDownHandler);
+        UnityEngine.EventSystems.ExecuteEvents.Execute(go, data, UnityEngine.EventSystems.ExecuteEvents.pointerUpHandler);
+        UnityEngine.EventSystems.ExecuteEvents.Execute(go, data, UnityEngine.EventSystems.ExecuteEvents.pointerClickHandler);
+    }
+
+    /// <summary>call TypeName.Method [args...] on the first live component of that type (or a static method).</summary>
+    private void Call(string arg)
+    {
+        var parts = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var dot = parts[0].LastIndexOf('.');
+        var typeName = parts[0][..dot];
+        var methodName = parts[0][(dot + 1)..];
+        var args = parts.Skip(1).ToArray();
+
+        var type = InteropType(typeName);
+        if (type == null)
+        {
+            Plugin.L.LogWarning($"Type not found: {typeName}");
+            return;
+        }
+
+        var method = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
+            .FirstOrDefault(m => m.Name == methodName && m.GetParameters().Length == args.Length);
+        if (method == null)
+        {
+            Plugin.L.LogWarning($"Method not found: {methodName}/{args.Length}");
+            return;
+        }
+
+        object target = null;
+        if (!method.IsStatic)
+        {
+            var il2Type = Il2CppType.From(type);
+            var found = Object.FindObjectOfType(il2Type);
+            if (found == null)
+            {
+                Plugin.L.LogWarning($"No live instance of {typeName}");
+                return;
+            }
+
+            target = Activator.CreateInstance(type, found.Pointer);
+        }
+
+        var ps = method.GetParameters();
+        var values = new object[args.Length];
+        for (var i = 0; i < args.Length; i++)
+        {
+            var pt = ps[i].ParameterType;
+            values[i] = pt == typeof(string) ? args[i]
+                : pt.IsEnum ? Enum.Parse(pt, args[i], true)
+                : Convert.ChangeType(args[i], pt, System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        var result = method.Invoke(target, values);
+        Plugin.L.LogInfo($"call {typeName}.{methodName} -> {result ?? "void"}");
+    }
+
     private void SetActive(string arg)
     {
         var i = arg.LastIndexOf(' ');
@@ -310,9 +440,27 @@ public class DevTools : MonoBehaviour
 
             for (var ty = type; ty != null && ty.Assembly == type.Assembly; ty = ty.BaseType)
             {
-                foreach (var p in ty.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
+                PropertyInfo[] props;
+                try
                 {
-                    if (p.GetIndexParameters().Length > 0 || !p.CanRead) continue;
+                    props = ty.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (var p in props)
+                {
+                    try
+                    {
+                        if (p.GetIndexParameters().Length > 0 || !p.CanRead) continue;
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
                     string val;
                     try
                     {
@@ -335,6 +483,48 @@ public class DevTools : MonoBehaviour
         }
 
         Plugin.L.LogInfo(sb.ToString());
+    }
+
+    // ---------- xrefs (what a native game method calls / who calls it) ----------
+
+    private void Xref(string arg, bool usedBy)
+    {
+        var dot = arg.LastIndexOf('.');
+        var type = InteropType(arg[..dot]);
+        var name = arg[(dot + 1)..];
+        if (type == null)
+        {
+            Plugin.L.LogWarning($"Type not found: {arg[..dot]}");
+            return;
+        }
+
+        foreach (var m in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                     .Where(m => m.Name == name))
+        {
+            var sb = new StringBuilder($"{(usedBy ? "USEDBY" : "XREF")} {type.Name}.{m.Name}({string.Join(",", m.GetParameters().Select(p => p.ParameterType.Name))})\n");
+            try
+            {
+                foreach (var x in usedBy ? XrefScanner.UsedBy(m) : XrefScanner.XrefScan(m))
+                {
+                    if (x.Type == XrefType.Method)
+                    {
+                        var r = x.TryResolve();
+                        if (r != null) sb.AppendLine($"    {r.DeclaringType?.Name}.{r.Name}");
+                    }
+                    else if (!usedBy)
+                    {
+                        var o = x.ReadAsObject();
+                        if (o != null) sb.AppendLine($"    \"{o}\"");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                sb.AppendLine("    scan failed: " + e.Message);
+            }
+
+            Plugin.L.LogInfo(sb.ToString());
+        }
     }
 
     // ---------- screenshots ----------

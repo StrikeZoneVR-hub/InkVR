@@ -9,7 +9,9 @@ GAME="${BENDY_GAME_DIR:-C:/Program Files (x86)/Steam/steamapps/common/Bendy and 
 LOG="$GAME/BepInEx/LogOutput.log"
 DATA="$GAME/BepInEx/BendyVR"
 case "$1" in
-  start) powershell.exe -NoProfile -Command "Start-Process -FilePath '$GAME/Bendy and the Ink Machine.exe' -WorkingDirectory '$GAME' -ArgumentList '$2'" ;;
+  start)
+    args=""; [ -n "$2" ] && args="-ArgumentList '$2'"
+    powershell.exe -NoProfile -Command "Start-Process -FilePath '$GAME/Bendy and the Ink Machine.exe' -WorkingDirectory '$GAME' $args" ;;
   stop) taskkill //F //IM "Bendy and the Ink Machine.exe" >/dev/null 2>&1; echo stopped ;;
   cmd) mkdir -p "$DATA"; printf '%s\n' "$2" >> "$DATA/cmd.txt" ;;
   log) tail -n "${2:-40}" "$LOG" ;;
