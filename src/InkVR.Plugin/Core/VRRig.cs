@@ -183,7 +183,11 @@ public static class VRRig
         if (on == _cinemaActive && _cinemaOrigin.gameObject.activeSelf == on) return;
         _cinemaActive = on;
         _cinemaOrigin.gameObject.SetActive(on);
-        if (on) Recenter();
+        if (on)
+        {
+            Recenter();
+            _cinema?.Refresh();
+        }
 
         if (InGame)
         {

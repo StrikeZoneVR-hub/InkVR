@@ -89,47 +89,105 @@ public static class VirtualInput
 }
 
 [HarmonyPatch(typeof(PlayerInput))]
-internal static class PlayerInputPatches
+public static class PlayerInputPatches
 {
+    /// <summary>Dev: how often the game queries each input (shows which ones a scene actually polls).</summary>
+    public static readonly Dictionary<string, int> Calls = new();
+
+    private static void Count(string name)
+    {
+        Calls.TryGetValue(name, out var n);
+        Calls[name] = n + 1;
+    }
+
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.Any))]
-    private static void Any(ref bool __result) => __result |= VirtualInput.AnyPressed();
+    private static void Any(ref bool __result)
+    {
+        Count("Any");
+        __result |= VirtualInput.AnyPressed();
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.Attack))]
-    private static void Attack(ref bool __result) => __result |= VirtualInput.IsPressed(GameAction.Attack);
+    private static void Attack(ref bool __result)
+    {
+        Count("Attack");
+        __result |= VirtualInput.IsPressed(GameAction.Attack);
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.AttackHold))]
-    private static void AttackHold(ref bool __result) => __result |= VirtualInput.IsHeld(GameAction.Attack);
+    private static void AttackHold(ref bool __result)
+    {
+        Count("AttackHold");
+        __result |= VirtualInput.IsHeld(GameAction.Attack);
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.Run))]
-    private static void Run(ref bool __result) => __result |= VirtualInput.IsHeld(GameAction.Run);
+    private static void Run(ref bool __result)
+    {
+        Count("Run");
+        __result |= VirtualInput.IsHeld(GameAction.Run);
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.RunDown))]
-    private static void RunDown(ref bool __result) => __result |= VirtualInput.IsPressed(GameAction.Run);
+    private static void RunDown(ref bool __result)
+    {
+        Count("RunDown");
+        __result |= VirtualInput.IsPressed(GameAction.Run);
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.Jump))]
-    private static void Jump(ref bool __result) => __result |= VirtualInput.IsPressed(GameAction.Jump);
+    private static void Jump(ref bool __result)
+    {
+        Count("Jump");
+        __result |= VirtualInput.IsPressed(GameAction.Jump);
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.Pause))]
-    private static void Pause(ref bool __result) => __result |= VirtualInput.IsPressed(GameAction.Pause);
+    private static void Pause(ref bool __result)
+    {
+        Count("Pause");
+        __result |= VirtualInput.IsPressed(GameAction.Pause);
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.BackOnPressed))]
-    private static void Back(ref bool __result) => __result |= VirtualInput.IsPressed(GameAction.Back);
+    private static void Back(ref bool __result)
+    {
+        Count("Back");
+        __result |= VirtualInput.IsPressed(GameAction.Back);
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.InteractOnPressed))]
-    private static void InteractPressed(ref bool __result) => __result |= VirtualInput.IsPressed(GameAction.Interact);
+    private static void InteractPressed(ref bool __result)
+    {
+        Count("InteractPressed");
+        __result |= VirtualInput.IsPressed(GameAction.Interact);
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.InteractOnReleased))]
-    private static void InteractReleased(ref bool __result) => __result |= VirtualInput.IsReleased(GameAction.Interact);
+    private static void InteractReleased(ref bool __result)
+    {
+        Count("InteractReleased");
+        __result |= VirtualInput.IsReleased(GameAction.Interact);
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.MoveX))]
-    private static void MoveX(ref float __result) => __result = Combine(__result, VirtualInput.Move.x);
+    private static void MoveX(ref float __result)
+    {
+        Count("MoveX");
+        __result = Combine(__result, VirtualInput.Move.x);
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.MoveY))]
-    private static void MoveY(ref float __result) => __result = Combine(__result, VirtualInput.Move.y);
+    private static void MoveY(ref float __result)
+    {
+        Count("MoveY");
+        __result = Combine(__result, VirtualInput.Move.y);
+    }
 
     [HarmonyPostfix, HarmonyPatch(nameof(PlayerInput.LookX))]
     private static void LookX(float TSpeed, ref float __result)
     {
+        Count("LookX");
         __result = Combine(__result, VirtualInput.Look.x);
         if (!VirtualInput.HeadsetOwnsLook) return;
         VirtualInput.TurnInput = Mathf.Clamp(__result, -1f, 1f);

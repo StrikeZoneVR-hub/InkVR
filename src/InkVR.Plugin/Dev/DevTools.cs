@@ -267,6 +267,30 @@ public class DevTools : MonoBehaviour
             case "trigger":
                 InkVR.Input.XrInput.DevRightTrigger = arg == "off" ? null : float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture);
                 break;
+            case "pad":
+            {
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                InkVR.Input.VirtualGamepad.DevHold(a[0], a.Length > 1 ? float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture) : 0.15f);
+                break;
+            }
+            case "inputstats":
+                Plugin.L.LogInfo("INPUT CALLS " + string.Join(", ", InkVR.Input.PlayerInputPatches.Calls.Select(kv => $"{kv.Key}={kv.Value}")));
+                InkVR.Input.PlayerInputPatches.Calls.Clear();
+                break;
+            case "state":
+            {
+                var gm = GameManager.Instance;
+                Plugin.L.LogInfo($"STATE isPaused={gm.isPaused} isPauseReady={gm.isPauseReady} state={gm.m_GameState} loaded={gm.isGameLoaded} timeScale={Time.timeScale} cursor={Cursor.lockState}/{Cursor.visible}");
+                break;
+            }
+            case "pausegame":
+            {
+                var gm = GameManager.Instance;
+                Plugin.L.LogInfo($"isPaused={gm.isPaused} isPauseReady={gm.isPauseReady} state={gm.m_GameState} dead={gm.isDead} loaded={gm.isGameLoaded} playerLocked={gm.Player?.isLocked} timeScale={Time.timeScale} menu={(gm.m_PauseMenu != null)}");
+                if (arg == "off") gm.UnpauseGame(); else gm.PauseGame();
+                Plugin.L.LogInfo($"-> isPaused={gm.isPaused}");
+                break;
+            }
             case "mirror":
                 UnityEngine.XR.XRSettings.gameViewRenderMode = arg switch
                 {

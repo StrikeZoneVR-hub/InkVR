@@ -15,6 +15,7 @@ public static class ModConfig
     public static ConfigEntry<float> SnapTurnAngle;
     public static ConfigEntry<float> SmoothTurnSpeed;
     public static ConfigEntry<bool> LeftHanded;
+    public static ConfigEntry<bool> InteractWithHand;
     public static ConfigEntry<bool> ReduceFlashes;
 
     // Body
@@ -44,6 +45,7 @@ public static class ModConfig
         SnapTurnAngle = cfg.Bind("Comfort", "SnapTurnAngle", 45f, "Degrees per snap turn.");
         SmoothTurnSpeed = cfg.Bind("Comfort", "SmoothTurnSpeed", 120f, "Degrees per second for smooth turning.");
         LeftHanded = cfg.Bind("Controls", "LeftHanded", false, "Swap the controller roles (move on the right stick, attack with the left trigger).");
+        InteractWithHand = cfg.Bind("Controls", "InteractWithHand", true, "Point at things with your dominant hand to interact (off = look at them, like the flat game).");
         ReduceFlashes = cfg.Bind("Comfort", "ReduceFlashes", false, "Calm the theatre's projector flicker and film scratches.");
 
         ShowHands = cfg.Bind("Body", "ShowHands", true, "Show Henry's hands.");

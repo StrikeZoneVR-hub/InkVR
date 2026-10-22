@@ -22,6 +22,8 @@ public class Cinema
     private float _flickerT;
     private float _scratchUntil;
     private readonly VRPanel _scratch;
+    private readonly List<TMPro.TextMeshPro> _signs = new();
+    private readonly List<(string text, Vector3 pos, float height, Color color)> _signSpecs = new();
 
     public Cinema(Transform origin, Texture screenTexture)
     {
@@ -118,6 +120,16 @@ public class Cinema
         }
     }
 
+    /// <summary>Rebuild the signs (a chapter load resets the game's dynamic font atlases and blanks them).</summary>
+    public void Refresh()
+    {
+        foreach (var t in _signs)
+            if (t != null)
+                Object.Destroy(t.gameObject);
+        _signs.Clear();
+        foreach (var spec in _signSpecs) MakeSign(spec.text, spec.pos, spec.height, spec.color);
+    }
+
     /// <summary>Projector flicker, drifting dust, the odd film scratch.</summary>
     public void Animate()
     {
@@ -163,11 +175,18 @@ public class Cinema
 
     private void Sign(string text, Vector3 pos, float height, Color color)
     {
+        _signSpecs.Add((text, pos, height, color));
+        MakeSign(text, pos, height, color);
+    }
+
+    private void MakeSign(string text, Vector3 pos, float height, Color color)
+    {
         var go = new GameObject("InkVR_Sign");
         go.layer = VRLayers.UI;
         go.transform.SetParent(_root, false);
         go.transform.localPosition = pos;
         var tmp = go.AddComponent<TMPro.TextMeshPro>();
+        _signs.Add(tmp);
         var font = GameFonts.Title;
         if (font != null) tmp.font = font;
         tmp.text = text;

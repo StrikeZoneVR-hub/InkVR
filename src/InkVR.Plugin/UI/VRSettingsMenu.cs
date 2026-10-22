@@ -46,6 +46,7 @@ public static class VRSettingsMenu
         Toggle("CALM THEATRE FLICKER", ModConfig.ReduceFlashes, "ON", "OFF"),
         Category("CONTROLS"),
         Toggle("DOMINANT HAND", ModConfig.LeftHanded, "LEFT", "RIGHT"),
+        Toggle("INTERACT AIM", ModConfig.InteractWithHand, "HAND", "HEAD"),
         Choice("HEIGHT ADJUST", ModConfig.HeightOffset, Range(-0.6f, 0.6f, 0.05f), v => Mathf.Abs(v) < 0.001f ? "NONE" : v > 0 ? $"UP {v * 100:0} CM" : $"DOWN {-v * 100:0} CM"),
         Category("HENRY"),
         Toggle("HANDS", ModConfig.ShowHands, "ON", "OFF"),

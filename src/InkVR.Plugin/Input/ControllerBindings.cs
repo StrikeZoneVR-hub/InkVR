@@ -6,12 +6,12 @@ using UnityEngine;
 namespace InkVR.Input;
 
 /// <summary>
-/// Button-press control scheme (M2). Motion controls come later; every game action is reachable here:
-///   off-hand stick  move         dominant stick  snap/smooth turn
-///   A (dominant)    jump         B (dominant)    back
-///   grips / off-hand trigger     interact
-///   dominant trigger             attack · click in menus
-///   off-hand stick click         sprint          menu button     pause
+/// Button-press control scheme (M2), following the game's own gamepad layout so its button prompts match:
+///   off-hand stick      move (and menu navigation)       dominant stick   snap/smooth turn
+///   A                   jump                             B                back
+///   X / either grip     interact                         dominant trigger weapon (click in menus)
+///   off-hand trigger / off-hand stick click   run        menu button      pause
+/// Motion controls come later; every game action is reachable with buttons now.
 /// </summary>
 public static class ControllerBindings
 {
@@ -34,17 +34,23 @@ public static class ControllerBindings
 
         var dom = Dom;
         var off = Off;
-
-        VirtualInput.Move = Deadzone(off.Stick, 0.15f);
+        VirtualGamepad.Ensure();
         Turn(dom.Stick.x);
 
+        // While the laser points at a menu, the dominant trigger is a mouse click, not the weapon.
         var uiHasPointer = LaserPointer.IsOverInteractive;
-        VirtualInput.SetHeld(GameAction.Jump, dom.Primary && !uiHasPointer);
-        VirtualInput.SetHeld(GameAction.Back, dom.Secondary);
-        VirtualInput.SetHeld(GameAction.Pause, off.Menu);
-        VirtualInput.SetHeld(GameAction.Run, off.StickClick);
-        VirtualInput.SetHeld(GameAction.Interact, !uiHasPointer && (dom.GripPressed || off.GripPressed || off.TriggerPressed));
-        VirtualInput.SetHeld(GameAction.Attack, !uiHasPointer && dom.TriggerPressed);
+        VirtualGamepad.Current = new VirtualGamepad.State
+        {
+            LeftStick = Deadzone(off.Stick, 0.15f),
+            A = dom.Primary,
+            B = dom.Secondary,
+            X = off.Primary || (!uiHasPointer && (dom.GripPressed || off.GripPressed)),
+            Y = off.Secondary,
+            LeftTrigger = off.Trigger,
+            RightTrigger = uiHasPointer ? 0f : dom.Trigger,
+            LeftStickButton = off.StickClick,
+            Menu = off.Menu
+        };
     }
 
     private static void Turn(float x)
