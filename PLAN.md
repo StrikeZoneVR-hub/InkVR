@@ -1,6 +1,6 @@
 # BendyVR — Full 6DoF VR Mod for Bendy and the Ink Machine
 
-Status: **M0 in progress** · Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22
+Status: **M0 done · M1 built, awaiting headset test** · Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22
 
 Target setup: **Quest 3 · Virtual Desktop · VDXR OpenXR runtime** · RTX 4050 Laptop. Release: **open source on GitHub**.
 
@@ -86,7 +86,7 @@ Steam launch keeps DRM, achievements and cloud saves working. Save files are unc
 
 Every milestone ends with a **"Done when"** checklist that you run in the headset. I build, install, launch and read logs on my side, but I can't wear the headset, so your test pass is the sign-off.
 
-### M0 — Recon & toolchain *(risk: low)*
+### M0 — Recon & toolchain *(risk: low)* ✅ done
 - Back up the clean game (Steam "Verify integrity" also restores it).
 - Install the BepInExPack, generate interop assemblies, and add UnityExplorer for live inspection.
 - Decompile the interop assemblies and write `docs/GAME_MAP.md` covering:
@@ -106,7 +106,14 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 - Record a **flat-screen baseline**: frame times at max settings in a heavy area of each chapter.
 - **Done when:** the game runs normally with BepInEx, the plugin logs "BendyVR loaded", and the game map is written.
 
-### M1 — VR core: 6DoF head, stereo rendering, perf gate *(risk: HIGH)*
+### M1 — VR core: 6DoF head, stereo rendering, perf gate *(risk: HIGH)* 🟡 built, awaiting headset test
+> **Result so far (mock runtime, 1512×1680 per eye):** OpenXR injection works through Unity's own OpenXR provider (path A).
+> - In Chapter 1, frame time is ~10.7–11.8 ms with VR tuning: no motion blur or DoF, half-res AO, FXAA.
+> - Before tuning it was ~13.6 ms.
+> - The game is GPU-bound: half resolution gives ~6.4 ms.
+> - Per-effect cost: AO ≈ 3.1 ms full-res / ~1.5 ms half-res, bloom ≈ 1.2 ms, fog ≈ 0.5 ms.
+> - World scale 2.95 units/m (eye height 5.03 units), with stereo eye separation scaled to match.
+
 - XR bootstrap: spike Path A, and fall back to Path B if stripping blocks it.
 - VR camera rig on the player:
   - the headset drives pitch and roll (mouse pitch disabled)

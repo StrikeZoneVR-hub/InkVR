@@ -28,6 +28,7 @@ public class VRRuntime : MonoBehaviour
 
         XrManager.Update();
         VRRig.Update();
+        PerfMonitor.Update();
     }
 
     private void LateUpdate() => VRRig.LateUpdate();

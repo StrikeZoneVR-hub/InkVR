@@ -11,6 +11,7 @@ public static class ModConfig
     public static ConfigEntry<bool> VRDisableMotionBlur;
     public static ConfigEntry<bool> VRDisableDepthOfField;
     public static ConfigEntry<bool> VRAODownsample;
+    public static ConfigEntry<bool> PerfLog;
 
     public static void Bind(ConfigFile cfg)
     {
@@ -19,6 +20,7 @@ public static class ModConfig
         SmoothTurnSpeed = cfg.Bind("Comfort", "SmoothTurnSpeed", 120f, "Degrees per second for smooth turning.");
         WorldScale = cfg.Bind("VR", "WorldScale", 2.95f, "Game units per real-world metre. Henry's eye is 5.03 units above the floor (= 1.70 m at 2.95); doors are 7.4 units (2.5 m).");
         VRDisableMotionBlur = cfg.Bind("Graphics", "DisableMotionBlurInVR", true, "Motion blur smears the whole view when you turn your head.");
+        PerfLog = cfg.Bind("Debug", "LogPerformance", true, "Write VR frame timing to the BepInEx log every 5 seconds (helps tuning).");
         VRAODownsample = cfg.Bind("Graphics", "HalfResAmbientOcclusionInVR", true, "Render ambient occlusion at half resolution (saves ~1.5 ms per frame in VR).");
         VRDisableDepthOfField = cfg.Bind("Graphics", "DisableDepthOfFieldInVR", true, "Your eyes focus naturally in VR; screen-space depth of field blurs what you look at.");
     }
