@@ -1,6 +1,6 @@
 using BepInEx.Configuration;
 
-namespace BendyVR;
+namespace InkVR;
 
 public static class ModConfig
 {

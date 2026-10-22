@@ -4,18 +4,18 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using BendyVR.Input;
+using InkVR.Input;
 using Il2CppInterop.Runtime;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
-namespace BendyVR.Dev;
+namespace InkVR.Dev;
 
 /// <summary>
-/// Development helpers driven by a command file (BepInEx/BendyVR/cmd.txt), so the game
+/// Development helpers driven by a command file (BepInEx/InkVR/cmd.txt), so the game
 /// can be inspected and screenshotted while it runs: one command per line, the file is
-/// deleted once read. Results go to the BepInEx log and BepInEx/BendyVR/{dumps,shots}.
+/// deleted once read. Results go to the BepInEx log and BepInEx/InkVR/{dumps,shots}.
 /// </summary>
 public class DevTools : MonoBehaviour
 {
@@ -164,20 +164,20 @@ public class DevTools : MonoBehaviour
             }
             case "pp":
             {
-                var cam = BendyVR.Core.VRRig.GameCamera ?? GameManager.Instance?.GameCamera?.Camera;
+                var cam = InkVR.Core.VRRig.GameCamera ?? GameManager.Instance?.GameCamera?.Camera;
                 if (cam == null) break;
                 if (arg.Length > 0)
                 {
                     var a = arg.Split(' ');
-                    BendyVR.Rendering.VRGraphics.Set(cam, a[0], a[1] == "1");
+                    InkVR.Rendering.VRGraphics.Set(cam, a[0], a[1] == "1");
                 }
 
-                Plugin.L.LogInfo("PP " + BendyVR.Rendering.VRGraphics.Describe(cam));
+                Plugin.L.LogInfo("PP " + InkVR.Rendering.VRGraphics.Describe(cam));
                 break;
             }
             case "eyes":
             {
-                var cam = BendyVR.Core.VRRig.GameCamera ?? Camera.main;
+                var cam = InkVR.Core.VRRig.GameCamera ?? Camera.main;
                 var l = cam.GetStereoViewMatrix(Camera.StereoscopicEye.Left).inverse.GetColumn(3);
                 var r = cam.GetStereoViewMatrix(Camera.StereoscopicEye.Right).inverse.GetColumn(3);
                 Plugin.L.LogInfo($"EYES {cam.name}: left={(Vector3)l} right={(Vector3)r} separation={Vector3.Distance(l, r):F3} units, camera at {cam.transform.position}, lossyScale={cam.transform.lossyScale.x:F2}, stereoSeparation={cam.stereoSeparation}");
@@ -197,18 +197,18 @@ public class DevTools : MonoBehaviour
                 // head x y z yaw pitch  (metres / degrees, overrides tracking)  |  head off
                 if (arg == "off")
                 {
-                    BendyVR.Core.VRRig.DevHeadOverride = null;
+                    InkVR.Core.VRRig.DevHeadOverride = null;
                     break;
                 }
 
                 var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
-                BendyVR.Core.VRRig.DevHeadOverride = (new Vector3(a[0], a[1], a[2]), Quaternion.Euler(a.Length > 4 ? a[4] : 0, a.Length > 3 ? a[3] : 0, 0));
+                InkVR.Core.VRRig.DevHeadOverride = (new Vector3(a[0], a[1], a[2]), Quaternion.Euler(a.Length > 4 ? a[4] : 0, a.Length > 3 ? a[3] : 0, 0));
                 break;
             }
             case "xr":
-                if (arg == "start") BendyVR.Core.XrManager.Initialize();
-                else if (arg == "stop") BendyVR.Core.XrManager.Shutdown();
-                Plugin.L.LogInfo($"XR state={BendyVR.Core.XrManager.Current} session={BendyVR.Core.XrManager.SessionState} runtime='{BendyVR.Core.XrManager.RuntimeName}' running={BendyVR.Core.XrManager.IsRunning} XRSettings.enabled={UnityEngine.XR.XRSettings.enabled} device='{UnityEngine.XR.XRSettings.loadedDeviceName}' eye={UnityEngine.XR.XRSettings.eyeTextureWidth}x{UnityEngine.XR.XRSettings.eyeTextureHeight}");
+                if (arg == "start") InkVR.Core.XrManager.Initialize();
+                else if (arg == "stop") InkVR.Core.XrManager.Shutdown();
+                Plugin.L.LogInfo($"XR state={InkVR.Core.XrManager.Current} session={InkVR.Core.XrManager.SessionState} runtime='{InkVR.Core.XrManager.RuntimeName}' running={InkVR.Core.XrManager.IsRunning} XRSettings.enabled={UnityEngine.XR.XRSettings.enabled} device='{UnityEngine.XR.XRSettings.loadedDeviceName}' eye={UnityEngine.XR.XRSettings.eyeTextureWidth}x{UnityEngine.XR.XRSettings.eyeTextureHeight}");
                 break;
             case "press":
             {
@@ -247,12 +247,12 @@ public class DevTools : MonoBehaviour
         }
 
         // DontDestroyOnLoad scene: reach it through a temporary object.
-        var probe = new GameObject("BendyVR_DDOLProbe");
+        var probe = new GameObject("InkVR_DDOLProbe");
         DontDestroyOnLoad(probe);
         var ddol = probe.scene.GetRootGameObjects();
         Destroy(probe);
         foreach (var go in ddol)
-            if (go.name != "BendyVR_DDOLProbe")
+            if (go.name != "InkVR_DDOLProbe")
                 yield return go;
     }
 

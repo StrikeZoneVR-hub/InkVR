@@ -1,19 +1,19 @@
-using BendyVR.Input;
-using BendyVR.UI;
+using InkVR.Input;
+using InkVR.UI;
 using UnityEngine;
 using UnityEngine.XR;
 
-namespace BendyVR.Core;
+namespace InkVR.Core;
 
 /// <summary>
 /// Owns the VR camera setup. In menus a mod-owned rig shows the game UI on a panel in a dark room;
 /// in gameplay the game's own camera is moved under a head-tracked, world-scaled origin on the player.
 ///
 ///   PlayerController (yaw = your head yaw, so movement is head-relative)
-///     BendyVR_Origin   at the capsule's feet, scale = WorldScale (game units per metre)
+///     InkVR_Origin   at the capsule's feet, scale = WorldScale (game units per metre)
 ///       GameCamera_PostProcess (+WeaponCam, InvisibleCam)   ← tracked by Unity XR
-///       BendyVR_UICamera   (layer 31 only: UI panel + fade)  ← tracked by Unity XR
-///       BendyVR_UIPanel
+///       InkVR_UICamera   (layer 31 only: UI panel + fade)  ← tracked by Unity XR
+///       InkVR_UIPanel
 /// </summary>
 public static class VRRig
 {
@@ -123,12 +123,12 @@ public static class VRRig
     {
         if (_menuOrigin != null) return;
 
-        var root = new GameObject("BendyVR_MenuRig");
+        var root = new GameObject("InkVR_MenuRig");
         Object.DontDestroyOnLoad(root);
         root.transform.position = new Vector3(0, -500, 0); // away from anything the game draws
         _menuOrigin = root.transform;
 
-        _menuCam = new GameObject("BendyVR_MenuCamera").AddComponent<Camera>();
+        _menuCam = new GameObject("InkVR_MenuCamera").AddComponent<Camera>();
         _menuCam.transform.SetParent(_menuOrigin, false);
         _menuCam.clearFlags = CameraClearFlags.SolidColor;
         _menuCam.backgroundColor = new Color(0.03f, 0.025f, 0.015f);
@@ -137,7 +137,7 @@ public static class VRRig
         _menuCam.farClipPlane = 100f;
         _menuCam.depth = 0;
 
-        _menuPanel = new VRPanel("BendyVR_MenuPanel", _menuOrigin, UICapture.Texture, Color.white, 0);
+        _menuPanel = new VRPanel("InkVR_MenuPanel", _menuOrigin, UICapture.Texture, Color.white, 0);
         _menuPanel.SetSize(MenuPanelWidth, MenuPanelWidth * UICapture.Height / UICapture.Width);
         _menuPanel.Transform.localPosition = new Vector3(0, 1.6f, MenuPanelDistance);
     }
@@ -152,7 +152,7 @@ public static class VRRig
         _player = player;
         _cc = player.CharacterController;
 
-        var origin = new GameObject("BendyVR_Origin").transform;
+        var origin = new GameObject("InkVR_Origin").transform;
         origin.SetParent(player.transform, false);
         origin.localPosition = FeetLocal();
         origin.localRotation = Quaternion.identity;
@@ -165,7 +165,7 @@ public static class VRRig
         _gameCam.transform.localRotation = Quaternion.identity;
         _gameCam.cullingMask &= ~VRLayers.UIMask;
 
-        _uiCam = new GameObject("BendyVR_UICamera").AddComponent<Camera>();
+        _uiCam = new GameObject("InkVR_UICamera").AddComponent<Camera>();
         _uiCam.transform.SetParent(_origin, false);
         _uiCam.clearFlags = CameraClearFlags.Depth;
         _uiCam.cullingMask = VRLayers.UIMask;
@@ -173,7 +173,7 @@ public static class VRRig
         _uiCam.farClipPlane = 20f * Scale;
         _uiCam.depth = 50;
 
-        _gamePanel = new VRPanel("BendyVR_UIPanel", _origin, UICapture.Texture, Color.white, 0);
+        _gamePanel = new VRPanel("InkVR_UIPanel", _origin, UICapture.Texture, Color.white, 0);
         _gamePanel.SetSize(GamePanelWidth, GamePanelWidth * UICapture.Height / UICapture.Width);
         _panelYaw = 0;
 
@@ -265,7 +265,7 @@ public static class VRRig
         if (cam == null) return;
         if (_fade == null || _fade.GameObject == null)
         {
-            _fade = new VRPanel("BendyVR_Fade", cam.transform, Texture2D.whiteTexture, Color.clear, 100);
+            _fade = new VRPanel("InkVR_Fade", cam.transform, Texture2D.whiteTexture, Color.clear, 100);
             _fade.Transform.localPosition = new Vector3(0, 0, 0.1f);
             _fade.SetSize(1f, 1f);
         }

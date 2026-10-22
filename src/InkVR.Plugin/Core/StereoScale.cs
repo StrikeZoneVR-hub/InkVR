@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace BendyVR.Core;
+namespace InkVR.Core;
 
 /// <summary>
 /// Unity applies the runtime's eye offsets (real metres) relative to the camera without the rig's

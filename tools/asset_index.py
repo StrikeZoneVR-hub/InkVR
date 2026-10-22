@@ -2,7 +2,7 @@
 Writes analysis/asset_index.tsv: file, type, name, path_id, extra."""
 import os, sys, UnityPy
 from UnityPy.enums import ClassIDType as C
-GAME = os.environ.get("BENDY_GAME_DIR", r"C:\Program Files (x86)\Steam\steamapps\common\Bendy and the Ink Machine")
+GAME = os.environ.get("INKVR_GAME_DIR", r"C:\Program Files (x86)\Steam\steamapps\common\Bendy and the Ink Machine")
 DATA = os.path.join(GAME, "Bendy and the Ink Machine_Data")
 WANT = {C.GameObject, C.Mesh, C.Texture2D, C.Sprite, C.AnimationClip, C.AudioClip, C.Material, C.Shader, C.Font, C.MonoBehaviour}
 files = [f for f in os.listdir(DATA) if f.startswith(("level", "sharedassets", "resources.assets", "globalgamemanagers")) and not f.endswith((".resS", ".resource"))]

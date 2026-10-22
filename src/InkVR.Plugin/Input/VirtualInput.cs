@@ -3,7 +3,7 @@ using HarmonyLib;
 using TMG.Controls;
 using UnityEngine;
 
-namespace BendyVR.Input;
+namespace InkVR.Input;
 
 /// <summary>
 /// Game actions the mod can drive. Every source (VR controllers, dev commands) writes here,
@@ -34,7 +34,7 @@ public static class VirtualInput
     public static float TurnInput;
 
     /// <summary>In VR the headset aims the camera; stick look turns the play space instead (see VRRig).</summary>
-    public static bool HeadsetOwnsLook => BendyVR.Core.XrManager.IsRunning && BendyVR.Core.VRRig.InGame;
+    public static bool HeadsetOwnsLook => InkVR.Core.XrManager.IsRunning && InkVR.Core.VRRig.InGame;
 
     /// <summary>Set the held state of an action for this frame; edges become Pressed/Released.</summary>
     public static void SetHeld(GameAction action, bool held)

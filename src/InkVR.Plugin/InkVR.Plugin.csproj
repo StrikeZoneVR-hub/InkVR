@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <AssemblyName>BendyVR</AssemblyName>
-    <RootNamespace>BendyVR</RootNamespace>
+    <AssemblyName>InkVR</AssemblyName>
+    <RootNamespace>InkVR</RootNamespace>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>disable</Nullable>
@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <Target Name="DeployToGame" AfterTargets="Build" Condition="Exists('$(BepInExDir)')">
-    <MakeDir Directories="$(BepInExDir)plugins\BendyVR" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExDir)plugins\BendyVR" />
+    <MakeDir Directories="$(BepInExDir)plugins\InkVR" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExDir)plugins\InkVR" />
   </Target>
 </Project>

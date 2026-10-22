@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
-namespace BendyVR.Core;
+namespace InkVR.Core;
 
 /// <summary>Maps DllImport library names to absolute paths (one resolver per assembly is allowed).</summary>
 public static class NativeLibs

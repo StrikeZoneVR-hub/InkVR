@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace BendyVR.Core;
+namespace InkVR.Core;
 
 /// <summary>Per-frame driver for the VR systems. Lives on the plugin's persistent manager object.</summary>
 public class VRRuntime : MonoBehaviour

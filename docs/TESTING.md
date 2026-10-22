@@ -1,8 +1,8 @@
-# Testing BendyVR
+# Testing InkVR
 
 ## Current build: M1 (VR core)
 
-Everything is already installed into your game folder (BepInEx, the BendyVR plugin, Unity's OpenXR provider).
+Everything is already installed into your game folder (BepInEx, the InkVR plugin, Unity's OpenXR provider).
 
 ### Start it
 1. Start **Virtual Desktop** and connect your Quest 3 (VDXR is your active OpenXR runtime).
@@ -10,7 +10,7 @@ Everything is already installed into your game folder (BepInEx, the BendyVR plug
 3. The game starts in VR after about a second. The desktop window mirrors your left eye.
 
 Turn VR off without uninstalling: set `Enabled = false` under `[VR]` in
-`BepInEx\config\com.bendyvr.mod.cfg`.
+`BepInEx\config\com.strikezonevr.inkvr.cfg`.
 
 ### Controls in M1
 Quest controllers are not hooked up until M2. Use an **Xbox-style gamepad** (or keyboard and mouse):

@@ -2,7 +2,7 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.PostProcessing;
 
-namespace BendyVR.Rendering;
+namespace InkVR.Rendering;
 
 /// <summary>
 /// VR adjustments to the game's PostProcessing (v1) stack. Effects that smear or break in a headset

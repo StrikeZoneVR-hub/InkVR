@@ -2,12 +2,12 @@
 # Dev helper. Usage:
 #   tools/game.sh start            launch the game directly (BepInEx loads via winhttp.dll)
 #   tools/game.sh stop             kill the game
-#   tools/game.sh cmd "<command>"  send a DevTools command (see src/BendyVR.Plugin/Dev/DevTools.cs)
+#   tools/game.sh cmd "<command>"  send a DevTools command (see src/InkVR.Plugin/Dev/DevTools.cs)
 #   tools/game.sh log [n]          tail the BepInEx log
 #   tools/game.sh wait "<regex>" [timeout_s]  wait until the log matches
-GAME="${BENDY_GAME_DIR:-C:/Program Files (x86)/Steam/steamapps/common/Bendy and the Ink Machine}"
+GAME="${INKVR_GAME_DIR:-C:/Program Files (x86)/Steam/steamapps/common/Bendy and the Ink Machine}"
 LOG="$GAME/BepInEx/LogOutput.log"
-DATA="$GAME/BepInEx/BendyVR"
+DATA="$GAME/BepInEx/InkVR"
 case "$1" in
   start)
     args=""; [ -n "$2" ] && args="-ArgumentList '$2'"

@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace BendyVR.Core;
+namespace InkVR.Core;
 
 /// <summary>
 /// Entry points of Unity's native OpenXR provider (UnityOpenXR.dll from com.unity.xr.openxr 1.17.x),

@@ -2,18 +2,18 @@ using System.IO;
 using BepInEx;
 using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
-using BendyVR.Core;
-using BendyVR.Dev;
+using InkVR.Core;
+using InkVR.Dev;
 using HarmonyLib;
 using UnityEngine;
 
-namespace BendyVR;
+namespace InkVR;
 
 [BepInPlugin(Guid, Name, Version)]
 public class Plugin : BasePlugin
 {
-    public const string Guid = "com.bendyvr.mod";
-    public const string Name = "BendyVR";
+    public const string Guid = "com.strikezonevr.inkvr";
+    public const string Name = "InkVR";
     public const string Version = "0.1.0";
 
     internal static ManualLogSource L;
@@ -22,7 +22,7 @@ public class Plugin : BasePlugin
     public override void Load()
     {
         L = Log;
-        DataDir = Path.Combine(Paths.BepInExRootPath, "BendyVR");
+        DataDir = Path.Combine(Paths.BepInExRootPath, "InkVR");
         Directory.CreateDirectory(DataDir);
 
         L.LogInfo($"{Name} {Version} loading. Unity {Application.unityVersion}, game {Application.version}");

@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace BendyVR.UI;
+namespace InkVR.UI;
 
 /// <summary>A world-space quad on the VR UI layer showing a texture, drawn on top of the scene.</summary>
 public class VRPanel

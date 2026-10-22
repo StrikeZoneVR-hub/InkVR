@@ -1,4 +1,4 @@
-# BendyVR — Full 6DoF VR Mod for Bendy and the Ink Machine
+# InkVR — Full 6DoF VR Mod for Bendy and the Ink Machine
 
 Status: **M0 done · M1 built, awaiting headset test** · Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22
 
@@ -55,9 +55,9 @@ Goals (all required):
 ## 3. Architecture
 
 ```
-BendyVR/
+InkVR/
 ├─ src/
-│  ├─ BendyVR.Plugin/            BepInEx 6 IL2CPP plugin (C#, net6.0)
+│  ├─ InkVR.Plugin/            BepInEx 6 IL2CPP plugin (C#, net6.0)
 │  │  ├─ Core/                   XR bootstrap (Path A/B), camera rig, frame timing, logging
 │  │  ├─ Input/                  OpenXR actions/profiles, InControl virtual device, haptics
 │  │  ├─ Locomotion/             smooth move, turning, sprint/jump/crouch, room-scale collision
@@ -68,15 +68,15 @@ BendyVR/
 │  │  ├─ Cinematics/             camera-takeover handling, comfort modes, fades
 │  │  ├─ Rendering/              stereo fixes, head-locked effect fixes, perf telemetry
 │  │  └─ Chapters/               per-chapter patches (Ch1–Ch5, Archives)
-│  ├─ BendyVR.Launcher/          WPF .NET 10 launcher + installer
-│  └─ BendyVR.Shared/            settings schema used by both plugin and launcher
-├─ unity/BendyVR.Assets/         Unity 2022.3.62f2 project → AssetBundles (body, hands, VR shaders)
+│  ├─ InkVR.Launcher/          WPF .NET 10 launcher + installer
+│  └─ InkVR.Shared/            settings schema used by both plugin and launcher
+├─ unity/InkVR.Assets/         Unity 2022.3.62f2 project → AssetBundles (body, hands, VR shaders)
 ├─ tools/                        build/deploy/run scripts, frame-time CSV analyzer
 ├─ docs/GAME_MAP.md              game classes and hooks discovered in M0
 └─ PLAN.md
 ```
 
-Runtime flow: **Launcher** (artwork, checks, closing animation) → launches through **Steam** with a VR-mode flag → **BepInEx** loads `BendyVR.Plugin` → XR bootstrap → VR rig replaces the player camera → input, interaction, body, UI and cinematics systems patch the game through Harmony hooks found in M0.
+Runtime flow: **Launcher** (artwork, checks, closing animation) → launches through **Steam** with a VR-mode flag → **BepInEx** loads `InkVR.Plugin` → XR bootstrap → VR rig replaces the player camera → input, interaction, body, UI and cinematics systems patch the game through Harmony hooks found in M0.
 
 Steam launch keeps DRM, achievements and cloud saves working. Save files are unchanged, so VR and flat saves stay interchangeable.
 
@@ -104,7 +104,7 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
   - confirm whether any player body or hand model exists (I expect none)
 - Set up the repo, the solution skeleton and the dev loop (`tools/deploy.ps1` builds and copies the plugin, `tools/run.ps1` launches and tails the log).
 - Record a **flat-screen baseline**: frame times at max settings in a heavy area of each chapter.
-- **Done when:** the game runs normally with BepInEx, the plugin logs "BendyVR loaded", and the game map is written.
+- **Done when:** the game runs normally with BepInEx, the plugin logs "InkVR loaded", and the game map is written.
 
 ### M1 — VR core: 6DoF head, stereo rendering, perf gate *(risk: HIGH)* 🟡 built, awaiting headset test
 > **Result so far (mock runtime, 1512×1680 per eye):** OpenXR injection works through Unity's own OpenXR provider (path A).
@@ -188,7 +188,7 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
   - **Body:** show body, height and arm-span calibration, IK options
   - **Graphics & Performance:** render scale, dynamic resolution, AA, VR toggles for head-locked effects, perf overlay
   - **Interface:** wrist HUD, subtitle placement, prompt style
-- Settings apply live and save to `BepInEx/config/BendyVR.cfg`, shared with the launcher.
+- Settings apply live and save to `BepInEx/config/InkVR.cfg`, shared with the launcher.
 - Full UI pass, with every screen placed in world space and readable:
   - main menu and pause menu (pause summons in front of you)
   - subtitles (lazy head-follow) and audio-log captions

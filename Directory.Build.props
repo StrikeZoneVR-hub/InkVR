@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
-    <!-- Override on the command line or with the BENDY_GAME_DIR environment variable. -->
-    <GameDir Condition="'$(GameDir)' == '' and '$(BENDY_GAME_DIR)' != ''">$(BENDY_GAME_DIR)</GameDir>
+    <!-- Override on the command line or with the INKVR_GAME_DIR environment variable. -->
+    <GameDir Condition="'$(GameDir)' == '' and '$(INKVR_GAME_DIR)' != ''">$(INKVR_GAME_DIR)</GameDir>
     <GameDir Condition="'$(GameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Bendy and the Ink Machine</GameDir>
     <GameDir>$([MSBuild]::EnsureTrailingSlash('$(GameDir)'))</GameDir>
     <BepInExDir>$(GameDir)BepInEx\</BepInExDir>

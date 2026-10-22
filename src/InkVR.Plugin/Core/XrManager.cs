@@ -8,7 +8,7 @@ using UnityEngine;
 using UnityEngine.SubsystemsImplementation;
 using UnityEngine.XR;
 
-namespace BendyVR.Core;
+namespace InkVR.Core;
 
 /// <summary>
 /// Brings up OpenXR inside the (non-XR) game build: loads Unity's native OpenXR provider, creates the
@@ -52,7 +52,7 @@ public static class XrManager
         try
         {
             if (!File.Exists(Path.Combine(PluginDir, "UnityOpenXR.dll")) || !File.Exists(Path.Combine(PluginDir, "openxr_loader.dll")))
-                return Fail("UnityOpenXR.dll / openxr_loader.dll missing from the game's Plugins folder. Run the BendyVR installer.");
+                return Fail("UnityOpenXR.dll / openxr_loader.dll missing from the game's Plugins folder. Run the InkVR installer.");
 
             OpenXRNative.Resolve(PluginDir);
             OpenXRNative.SetSuccessfullyInitialized(false);

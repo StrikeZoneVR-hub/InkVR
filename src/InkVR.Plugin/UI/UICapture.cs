@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace BendyVR.UI;
+namespace InkVR.UI;
 
 /// <summary>
 /// The game draws all of its UI with cameras under "[UI MANAGER]" (screen-space canvases).
@@ -21,7 +21,7 @@ public static class UICapture
         {
             if (_rt == null)
             {
-                _rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32) { name = "BendyVR_UI", useMipMap = false, antiAliasing = 1 };
+                _rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32) { name = "InkVR_UI", useMipMap = false, antiAliasing = 1 };
                 _rt.Create();
                 Object.DontDestroyOnLoad(_rt);
             }

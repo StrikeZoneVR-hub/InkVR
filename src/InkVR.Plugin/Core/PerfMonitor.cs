@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.XR;
 
-namespace BendyVR.Core;
+namespace InkVR.Core;
 
 /// <summary>Logs VR frame timing every few seconds (frame time, GPU time from the runtime, dropped frames).</summary>
 public static class PerfMonitor

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace BendyVR.UI;
+namespace InkVR.UI;
 
 /// <summary>Reads the game's black/white full-screen fades (ScreenBlockerController canvas groups).</summary>
 public static class ScreenFade
