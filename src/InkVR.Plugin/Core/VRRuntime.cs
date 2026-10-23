@@ -31,8 +31,9 @@ public class VRRuntime : MonoBehaviour
         VRRig.Update();
         PerfMonitor.Update();
 
-        if (XrManager.IsRunning && !Mathf.Approximately(UnityEngine.XR.XRSettings.eyeTextureResolutionScale, ModConfig.RenderScale.Value))
-            UnityEngine.XR.XRSettings.eyeTextureResolutionScale = ModConfig.RenderScale.Value;
+        AutoResolution.Update();
+        Body.InkStains.Tick();
+        UI.VRSettingsMenu.Update();
     }
 
     private void LateUpdate() => VRRig.LateUpdate();

@@ -27,6 +27,23 @@ public static class Hands
     private static Vector3 _handRestPos;
     private static Quaternion _handRestRot;
 
+    /// <summary>The paintable parts of one hand and arm (empty until the hands are built).</summary>
+    public static List<StainPart> StainParts(Hand hand) => (hand == Hand.Left ? _left : _right)?.Stains;
+
+    public static Vector3 PalmPosition(Hand hand) => (hand == Hand.Left ? _left : _right)?.WristPosition ?? Vector3.zero;
+
+    /// <summary>World bounds around one hand and forearm.</summary>
+    public static Bounds Bounds(Hand hand)
+    {
+        var parts = StainParts(hand);
+        if (parts == null || parts.Count == 0) return default;
+        var b = parts[0].R.bounds;
+        foreach (var p in parts)
+            if (p.R != null && p.R.gameObject.activeInHierarchy)
+                b.Encapsulate(p.R.bounds);
+        return b;
+    }
+
     /// <summary>Dev/testing: tracking-space grip poses used instead of the controllers.</summary>
     public static (Vector3 pos, Quaternion rot)? DevLeft, DevRight;
 
@@ -44,14 +61,25 @@ public static class Hands
 
         var scale = VRRig.ActiveScale;
         var layer = VRRig.CinemaActive || !VRRig.InGame ? VRLayers.UI : 0;
+        PoseBoth(scale, layer, Time.unscaledDeltaTime);
+    }
+
+    /// <summary>Re-pose with the newest controller poses just before rendering (no animation step).</summary>
+    public static void LatePose()
+    {
+        if (_left == null || _right == null || !XrManager.IsRunning || !ModConfig.ShowHands.Value) return;
+        PoseBoth(VRRig.ActiveScale, VRRig.CinemaActive || !VRRig.InGame ? VRLayers.UI : 0, 0f);
+    }
+
+    private static void PoseBoth(float scale, int layer, float dt)
+    {
         var holding = HoldingWeapon();
-        Pose(_left, Hand.Left, DevLeft, scale, layer, false);
-        Pose(_right, Hand.Right, DevRight, scale, layer, holding && ControllerBindings.Dominant == Hand.Right);
-        if (holding && ControllerBindings.Dominant == Hand.Left) Pose(_left, Hand.Left, DevLeft, scale, layer, true);
+        Pose(_left, Hand.Left, DevLeft, scale, layer, holding && ControllerBindings.Dominant == Hand.Left, dt);
+        Pose(_right, Hand.Right, DevRight, scale, layer, holding && ControllerBindings.Dominant == Hand.Right, dt);
         AttachHeldItem();
     }
 
-    private static void Pose(HandModel model, Hand hand, (Vector3 pos, Quaternion rot)? dev, float scale, int layer, bool fist)
+    private static void Pose(HandModel model, Hand hand, (Vector3 pos, Quaternion rot)? dev, float scale, int layer, bool fist, float dt)
     {
         var c = XrInput.Get(hand);
         var valid = dev.HasValue || (XrInput.Ready && c.PoseValid);
@@ -76,7 +104,7 @@ public static class Hands
             thumb = 0.3f;
         }
 
-        model.Animate(index, grip, thumb, Time.unscaledDeltaTime);
+        model.Animate(index, grip, thumb, dt);
 
         if (ModConfig.ShowArms.Value)
         {
@@ -119,9 +147,11 @@ public static class Hands
     {
         void Set(string key, Texture2D tex)
         {
-            if (Materials.TryGetValue(key, out var m))
+            if (Materials.TryGetValue(key, out var m) && m != null)
             {
+                var old = m.GetTexture("_MainTex");
                 m.SetTexture("_MainTex", tex);
+                if (old != null && old.Pointer != tex.Pointer) Object.Destroy(old);
                 return;
             }
 
@@ -153,6 +183,7 @@ public static class Hands
             var fresh = InkMaterials.GameSurface(tex.Cast<Texture2D>(), kv.Value.name);
             kv.Value.shader = fresh.shader;
             kv.Value.CopyPropertiesFromMaterial(fresh);
+            InkStains.AdoptShader(kv.Value, tex.name);
         }
 
         _usingFallbackShader = false;
@@ -182,7 +213,12 @@ public static class Hands
     {
         var ch = CurrentChapter();
         if (ch == _chapter) return;
-        if (_chapter != -1) BuildMaterials(InkLevel());
+        if (_chapter != -1)
+        {
+            BuildMaterials(InkLevel());
+            InkStains.Rebase();
+        }
+
         _chapter = ch;
     }
 

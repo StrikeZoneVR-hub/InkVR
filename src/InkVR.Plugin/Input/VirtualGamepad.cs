@@ -28,6 +28,15 @@ public static class VirtualGamepad
 
     public static void DevHold(string button, float seconds) => DevUntil[button.ToLowerInvariant()] = Time.unscaledTime + seconds;
 
+    // Dev/testing: hold the left stick (stick x y seconds).
+    private static Vector2 _devStick;
+    private static float _devStickUntil;
+    public static void DevStick(Vector2 v, float seconds)
+    {
+        _devStick = v;
+        _devStickUntil = Time.unscaledTime + seconds;
+    }
+
     private static bool Dev(string b) => DevUntil.TryGetValue(b, out var t) && Time.unscaledTime < t;
     private static InputDevice _device;
     private static Il2CppSystem.Action<ulong, float> _callback;
@@ -65,18 +74,29 @@ public static class VirtualGamepad
         }
     }
 
+    /// <summary>The state the game sees this frame: the controllers plus any dev/test holds.</summary>
+    public static State Effective
+    {
+        get
+        {
+            var s = Current;
+            s.A |= Dev("a");
+            s.B |= Dev("b");
+            s.X |= Dev("x");
+            s.Y |= Dev("y");
+            s.Menu |= Dev("menu");
+            s.LeftStickButton |= Dev("ls");
+            if (Dev("lt")) s.LeftTrigger = 1;
+            if (Dev("rt")) s.RightTrigger = 1;
+            if (Time.unscaledTime < _devStickUntil) s.LeftStick = _devStick;
+            return s;
+        }
+    }
+
     private static void OnUpdateDevices(ulong tick, float dt)
     {
         if (_device == null) return;
-        var s = Current;
-        s.A |= Dev("a");
-        s.B |= Dev("b");
-        s.X |= Dev("x");
-        s.Y |= Dev("y");
-        s.Menu |= Dev("menu");
-        s.LeftStickButton |= Dev("ls");
-        if (Dev("lt")) s.LeftTrigger = 1;
-        if (Dev("rt")) s.RightTrigger = 1;
+        var s = Effective;
         _device.UpdateLeftStickWithValue(s.LeftStick, tick, dt);
         _device.UpdateRightStickWithValue(Vector2.zero, tick, dt); // VR turning is handled by InkVR, never the game's look
         _device.UpdateWithState(InputControlType.Action1, s.A, tick, dt);

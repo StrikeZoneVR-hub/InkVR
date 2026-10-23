@@ -22,12 +22,17 @@ public static class ModConfig
     public static ConfigEntry<bool> ShowHands;
     public static ConfigEntry<bool> ShowArms;
     public static ConfigEntry<float> HeldItemPitch;
+    public static ConfigEntry<bool> InkOnHands;
+    public static ConfigEntry<float> InkFadeMinutes;
 
     // Graphics
     public static ConfigEntry<bool> VRDisableMotionBlur;
     public static ConfigEntry<bool> VRDisableDepthOfField;
     public static ConfigEntry<bool> VRAODownsample;
     public static ConfigEntry<float> RenderScale;
+    public static ConfigEntry<bool> DynamicResolution;
+    public static ConfigEntry<float> MinRenderScale;
+    public static ConfigEntry<bool> LaserPointer;
 
     // Debug
     public static ConfigEntry<bool> PerfLog;
@@ -66,11 +71,16 @@ public static class ModConfig
         ShowHands = cfg.Bind("Body", "ShowHands", true, "Show Henry's hands.");
         ShowArms = cfg.Bind("Body", "ShowArms", true, "Show Henry's forearms and sleeves.");
         HeldItemPitch = cfg.Bind("Body", "HeldItemPitch", 0f, "Extra pitch (degrees) applied to held weapons and items.");
+        InkOnHands = cfg.Bind("Body", "InkOnHands", true, "Ink from spills, splats, pools, drips and ink bursts gets onto Henry's hands and sleeves.");
+        InkFadeMinutes = cfg.Bind("Body", "InkFadeMinutes", 3f, "How long fresh ink takes to dry and fade back to the chapter's usual stains.");
 
         VRDisableMotionBlur = cfg.Bind("Graphics", "DisableMotionBlurInVR", true, "Motion blur smears the whole view when you turn your head.");
         VRDisableDepthOfField = cfg.Bind("Graphics", "DisableDepthOfFieldInVR", true, "Your eyes focus naturally in VR; screen-space depth of field blurs what you look at.");
         VRAODownsample = cfg.Bind("Graphics", "HalfResAmbientOcclusionInVR", true, "Render ambient occlusion at half resolution (saves ~1.5 ms per frame in VR).");
-        RenderScale = cfg.Bind("Graphics", "RenderScale", 1.0f, "Headset render resolution multiplier (1.0 = the runtime's recommended resolution).");
+        RenderScale = cfg.Bind("Graphics", "RenderScale", 1.0f, "Headset render resolution multiplier (1.0 = the runtime's recommended resolution). With DynamicResolution this is the most it will use.");
+        DynamicResolution = cfg.Bind("Graphics", "DynamicResolution", true, "Lower the resolution a little when the graphics card can't keep up with the headset's refresh rate, and raise it again when it can (smooth frame rate first).");
+        MinRenderScale = cfg.Bind("Graphics", "MinRenderScale", 0.7f, "The lowest DynamicResolution may go.");
+        LaserPointer = cfg.Bind("Controls", "LaserPointer", false, "Show a laser from your hand to click menus (the thumbstick and A always work).");
 
         PerfLog = cfg.Bind("Debug", "LogPerformance", true, "Write VR frame timing to the BepInEx log every 5 seconds (helps tuning).");
     }

@@ -31,6 +31,9 @@ public class HandModel
     private readonly Finger _thumb;
     private readonly Transform _hourHand, _minuteHand;
     private readonly List<Renderer> _renderers = new();
+
+    /// <summary>The skin and sleeve parts ink can get onto.</summary>
+    public readonly List<StainPart> Stains = new();
     private readonly Dictionary<string, Material> _materials = new();
     private readonly float _side;
 
@@ -57,7 +60,7 @@ public class HandModel
         var palm = new MeshBuilder();
         palm.Tube(new[] { new Vector3(0, 0, 0.0f), new Vector3(0, 0.002f, 0.03f), new Vector3(0, 0.003f, 0.065f), new Vector3(0, 0.003f, 0.088f) },
             new[] { 0.027f, 0.039f, 0.043f, 0.040f }, Vector3.up, 18, true, true, new Vector2(1f, 0.36f));
-        Part("Palm", _wrist, palm, material("palm"), 0.0018f);
+        Part("Palm", _wrist, palm, material("palm"), 0.0018f, stain: true);
 
         // Fingers: index, middle, ring, pinky.
         float[] xs = { -0.030f, -0.0095f, 0.0105f, 0.0285f };
@@ -79,7 +82,14 @@ public class HandModel
                 var r0 = radii[f] * (1f - 0.05f * j);
                 var seg = new MeshBuilder();
                 seg.Tube(new[] { Vector3.zero, new Vector3(0, 0, lengths[f][j]) }, new[] { r0, r0 * 0.95f }, Vector3.up, 12, j == 0, true);
-                Part($"Seg{f}_{j}", joint, seg, material(j == 2 ? "tip" : "finger"), 0.0015f);
+                Part($"Seg{f}_{j}", joint, seg, material(j == 2 ? "tip" : "finger"), 0.0015f, stain: true);
+                if (j > 0)
+                {
+                    // The finger's middle/end knuckle: a slight bulge, wider than the segments either side.
+                    var bump = new MeshBuilder();
+                    bump.Ellipsoid(new Vector3(0, 0.0012f, 0), new Vector3(r0 * 1.16f, r0 * 1.1f, r0 * 0.8f), Quaternion.identity, 12, 7);
+                    Part($"Joint{f}_{j}", joint, bump, material("finger"), 0.0011f, stain: true);
+                }
                 joints[j] = joint;
                 parentT = joint;
                 pos = new Vector3(0, 0, lengths[f][j]);
@@ -87,12 +97,17 @@ public class HandModel
 
             _fingers[f] = new Finger { Joints = joints, Rest = new[] { 8f, 10f, 6f }, Fist = new[] { 82f, 96f, 58f }, Spread = spread[f] * _side };
 
+            // Knuckle on the back of the hand where the finger meets it.
+            var knuckle = new MeshBuilder();
+            knuckle.Ellipsoid(new Vector3(xs[f] * _side, 0.0104f, zs[f] - 0.006f), new Vector3(radii[f] * 1.02f, 0.0058f, radii[f] * 1.0f), Quaternion.identity, 12, 7);
+            Part($"Knuckle{f}", _wrist, knuckle, material("palm"), 0.0012f, stain: true);
+
             // Henry's wedding band (Linda), on the left ring finger.
             if (left && f == 2)
             {
                 var ring = new MeshBuilder();
-                ring.Torus(new Vector3(0, 0, 0.011f), Vector3.forward, radii[f] + 0.0011f, 0.0016f, 20, 8);
-                Part("WeddingBand", joints[0], ring, material("gold"), 0);
+                ring.Torus(new Vector3(0, 0, 0.012f), Vector3.forward, radii[f] + 0.0017f, 0.0025f, 24, 10);
+                Part("WeddingBand", joints[0], ring, material("gold"), 0.0007f);
             }
         }
 
@@ -112,7 +127,7 @@ public class HandModel
             if (j == 0) joint.localRotation = Quaternion.LookRotation(thumbDir, thumbUp);
             var seg = new MeshBuilder();
             seg.Tube(new[] { Vector3.zero, new Vector3(0, 0, thumbLen[j]) }, new[] { thumbRad[j], thumbRad[j] * 0.93f }, Vector3.up, 12, true, true);
-            Part($"ThumbSeg_{j}", joint, seg, material(j == 2 ? "tip" : "finger"), 0.0015f);
+            Part($"ThumbSeg_{j}", joint, seg, material(j == 2 ? "tip" : "finger"), 0.0015f, stain: true);
             thumbJoints[j] = joint;
             thumbParent = joint;
             thumbPos = new Vector3(0, 0, thumbLen[j]);
@@ -128,54 +143,61 @@ public class HandModel
         var fore = new MeshBuilder();
         fore.Tube(new[] { Vector3.zero, new Vector3(0, 0, ForearmLength * 0.5f), new Vector3(0, 0, ForearmLength) },
             new[] { 0.040f, 0.034f, 0.026f }, Vector3.up, 16, false, false, new Vector2(1f, 0.82f));
-        Part("ForearmSkin", _forearm, fore, material("forearm"), 0.0022f);
+        Part("ForearmSkin", _forearm, fore, material("forearm"), 0.0022f, stain: true);
         var sleeve = new MeshBuilder();
         var cuff = ForearmLength * 0.48f;
         sleeve.Tube(new[] { new Vector3(0, 0, -0.01f), new Vector3(0, 0, cuff * 0.6f), new Vector3(0, 0, cuff - 0.03f), new Vector3(0, 0, cuff - 0.012f), new Vector3(0, 0, cuff) },
             new[] { 0.050f, 0.047f, 0.046f, 0.052f, 0.049f }, Vector3.up, 18, false, false, new Vector2(1f, 0.85f));
-        Part("RolledSleeve", _forearm, sleeve, material("sleeveRolled"), 0.0026f);
+        Part("RolledSleeve", _forearm, sleeve, material("sleeveRolled"), 0.0026f, stain: true, sleeve: true);
 
         _elbow = new GameObject("Elbow").transform;
         _elbow.SetParent(_arm, false);
         var elbow = new MeshBuilder();
         elbow.Ellipsoid(Vector3.zero, new Vector3(0.05f, 0.048f, 0.05f), Quaternion.identity, 14, 8);
-        Part("ElbowSleeve", _elbow, elbow, material("sleeve"), 0.0026f);
+        Part("ElbowSleeve", _elbow, elbow, material("sleeve"), 0.0026f, stain: true, sleeve: true);
 
         _upperArm = new GameObject("UpperArm").transform;
         _upperArm.SetParent(_arm, false);
         var upper = new MeshBuilder();
         upper.Tube(new[] { Vector3.zero, new Vector3(0, 0, UpperArmLength) }, new[] { 0.055f, 0.050f }, Vector3.up, 16, true, false, new Vector2(1f, 0.9f));
-        Part("UpperSleeve", _upperArm, upper, material("sleeve"), 0.0026f);
+        Part("UpperSleeve", _upperArm, upper, material("sleeve"), 0.0026f, stain: true, sleeve: true);
 
         // Wristwatch on the left wrist, its hands following your real clock.
         if (left)
         {
+            // A sturdy 1930s wristwatch: wide leather strap, brass drum case with a crown, cream dial.
             var band = new MeshBuilder();
-            band.Tube(new[] { new Vector3(0, 0, -0.026f), new Vector3(0, 0, -0.008f) }, new[] { 0.0285f, 0.0285f }, Vector3.up, 18, false, false, new Vector2(1f, 0.84f));
-            Part("WatchStrap", _wrist, band, material("strap"), 0.0007f);
+            band.Tube(new[] { new Vector3(0, 0, -0.032f), new Vector3(0, 0, -0.009f) }, new[] { 0.0296f, 0.0296f }, Vector3.up, 20, false, false, new Vector2(1f, 0.84f));
+            Part("WatchStrap", _wrist, band, material("strap"), 0.0009f, stain: true);
             var face = new GameObject("WatchFace").transform;
             face.SetParent(_wrist, false);
-            face.localPosition = new Vector3(0, 0.0255f, -0.017f);
+            face.localPosition = new Vector3(0, 0.0243f, -0.0205f);
+            var drum = new MeshBuilder();
+            drum.Tube(new[] { Vector3.zero, new Vector3(0, 0.0068f, 0) }, new[] { 0.0188f, 0.0180f }, Vector3.forward, 26, true, true);
+            Part("WatchCase", face, drum, material("gold"), 0.0011f);
+            var crown = new MeshBuilder();
+            crown.Tube(new[] { new Vector3(0, 0.0034f, 0.0178f), new Vector3(0, 0.0034f, 0.0218f) }, new[] { 0.0029f, 0.0029f }, Vector3.up, 10, true, true);
+            Part("WatchCrown", face, crown, material("gold"), 0.0007f);
             var dial = new MeshBuilder();
-            dial.Ellipsoid(Vector3.zero, new Vector3(0.0135f, 0.0042f, 0.0135f), Quaternion.identity, 20, 10);
-            Part("WatchDial", face, dial, material("dial"), 0.0007f);
-            _hourHand = WatchHand(face, 0.0065f, material("ink"));
-            _minuteHand = WatchHand(face, 0.0095f, material("ink"));
+            dial.Ellipsoid(new Vector3(0, 0.0068f, 0), new Vector3(0.0162f, 0.0016f, 0.0162f), Quaternion.identity, 26, 8);
+            Part("WatchDial", face, dial, material("dial"), 0);
+            _hourHand = WatchHand(face, 0.0088f, 0.0013f, material("ink"));
+            _minuteHand = WatchHand(face, 0.0128f, 0.0009f, material("ink"));
         }
     }
 
-    private Transform WatchHand(Transform face, float length, Material m)
+    private Transform WatchHand(Transform face, float length, float width, Material m)
     {
         var pivot = new GameObject("WatchHand").transform;
         pivot.SetParent(face, false);
-        pivot.localPosition = new Vector3(0, 0.0043f, 0);
+        pivot.localPosition = new Vector3(0, 0.0087f, 0);
         var mb = new MeshBuilder();
-        mb.Tube(new[] { Vector3.zero, new Vector3(0, 0, length) }, new[] { 0.0007f, 0.0004f }, Vector3.up, 6, true, true, new Vector2(1f, 0.4f));
+        mb.Tube(new[] { Vector3.zero, new Vector3(0, 0, length) }, new[] { width, width * 0.45f }, Vector3.up, 6, true, true, new Vector2(1f, 0.4f));
         Part("Hand", pivot, mb, m, 0);
         return pivot;
     }
 
-    private void Part(string name, Transform parent, MeshBuilder mb, Material material, float outline)
+    private void Part(string name, Transform parent, MeshBuilder mb, Material material, float outline, bool stain = false, bool sleeve = false)
     {
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
@@ -184,6 +206,11 @@ public class HandModel
         r.sharedMaterial = material;
         r.shadowCastingMode = ShadowCastingMode.Off;
         _renderers.Add(r);
+        if (stain)
+        {
+            var part = InkStains.Register(go.transform, r, material, mb, sleeve);
+            if (part != null) Stains.Add(part);
+        }
         if (outline <= 0) return;
         var o = new GameObject(name + "_Ink");
         o.transform.SetParent(go.transform, false);

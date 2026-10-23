@@ -204,6 +204,11 @@ public class MeshBuilder
         Tri(i0, i2, i1);
     }
 
+    /// <summary>Copies of the built geometry (for painting ink onto the mesh's texture at a touched point).</summary>
+    public Vector3[] VertexArray => _v.ToArray();
+    public Vector3[] NormalArray => _n.ToArray();
+    public Vector2[] UvArray => _uv.ToArray();
+
     public Mesh ToMesh(string name)
     {
         var m = new Mesh { name = name };
@@ -273,6 +278,8 @@ public static class InkMaterials
             if (reference.HasProperty("_BendyEffect")) m.SetTexture("_BendyEffect", reference.GetTexture("_BendyEffect"));
         }
 
+        // Level loads unload assets nothing references; InkVR's materials are swapped around at runtime.
+        m.hideFlags |= HideFlags.DontUnloadUnusedAsset;
         Object.DontDestroyOnLoad(m);
         return m;
     }

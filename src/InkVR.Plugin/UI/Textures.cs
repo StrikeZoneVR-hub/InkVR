@@ -138,6 +138,7 @@ public class InkCanvas
         var t = new Texture2D(W, H, TextureFormat.RGBA32, mips) { name = name, wrapMode = wrap ? TextureWrapMode.Repeat : TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear, anisoLevel = 4 };
         t.SetPixels(Px);
         t.Apply(mips, true);
+        t.hideFlags |= HideFlags.DontUnloadUnusedAsset;
         Object.DontDestroyOnLoad(t);
         return t;
     }

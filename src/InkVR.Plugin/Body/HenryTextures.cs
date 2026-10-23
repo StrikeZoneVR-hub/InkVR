@@ -13,6 +13,17 @@ namespace InkVR.Body;
 public static class HenryTextures
 {
     public static readonly Color Ink = new(0.045f, 0.03f, 0.022f, 1f);
+
+    /// <summary>The pixels of each generated texture by name (the textures themselves are GPU-only), so ink can be painted onto copies.</summary>
+    public static readonly System.Collections.Generic.Dictionary<string, (int W, int H, Color32[] Px)> Pixels = new();
+
+    private static Texture2D Keep(InkCanvas c, string name)
+    {
+        var px = new Color32[c.Px.Length];
+        for (var i = 0; i < px.Length; i++) px[i] = c.Px[i];
+        Pixels[name] = (c.W, c.H, px);
+        return c.ToTexture(name);
+    }
     private static readonly Color Skin = new(0.82f, 0.58f, 0.33f, 1f);
     private static readonly Color SkinShade = new(0.60f, 0.38f, 0.19f, 1f);
     private static readonly Color Shirt = new(0.94f, 0.87f, 0.66f, 1f);
@@ -52,7 +63,7 @@ public static class HenryTextures
         }
 
         c.Grain(0.08f);
-        return c.ToTexture(tip ? "InkVR_HenryFingerTip" : "InkVR_HenryFinger");
+        return Keep(c, tip ? "InkVR_HenryFingerTip" : "InkVR_HenryFinger");
     }
 
     /// <summary>Palm and back of the hand (flattened tube, v from wrist to knuckles).</summary>
@@ -77,7 +88,7 @@ public static class HenryTextures
         var blots = Mathf.RoundToInt(inkLevel * 6);
         for (var i = 0; i < blots; i++) c.InkBlot(c.Rand(0, c.W), c.Rand(120, c.H), c.Rand(5, 10 + inkLevel * 12), Ink);
         c.Grain(0.08f);
-        return c.ToTexture("InkVR_HenryPalm");
+        return Keep(c, "InkVR_HenryPalm");
     }
 
     /// <summary>Forearm skin (v from elbow to wrist), with a few drawn hairs.</summary>
@@ -95,7 +106,7 @@ public static class HenryTextures
         var drips = Mathf.RoundToInt(inkLevel * 4);
         for (var i = 0; i < drips; i++) c.InkBlot(c.Rand(0, c.W), c.Rand(c.H * 0.6f, c.H), c.Rand(5, 12), Ink);
         c.Grain(0.08f);
-        return c.ToTexture("InkVR_HenryForearm");
+        return Keep(c, "InkVR_HenryForearm");
     }
 
     /// <summary>Shirt sleeve: folds, seam, and the rolled cuff band at the wrist end (v = 1).</summary>
@@ -122,7 +133,7 @@ public static class HenryTextures
         }
 
         c.Grain(0.07f);
-        return c.ToTexture("InkVR_HenrySleeve");
+        return Keep(c, rolledEnd ? "InkVR_HenrySleeveRolled" : "InkVR_HenrySleeve");
     }
 
     public static Texture2D Strap(int seed)
@@ -132,7 +143,7 @@ public static class HenryTextures
         c.Stroke(0, c.H - 6, c.W, c.H - 6, 1.0f, new Color(0.6f, 0.5f, 0.35f), 0.2f, 0.7f);
         for (var x = 0; x < c.W; x += 64) c.Stroke(x, 0, x, c.H, 1.6f, Ink, 0.2f); // band holes/links
         c.Grain(0.1f);
-        return c.ToTexture("InkVR_HenryStrap");
+        return Keep(c, "InkVR_HenryStrap");
     }
 
     /// <summary>Watch dial on the top cap of an ellipsoid (v=1 is the dial centre, v=0.5 its rim).</summary>
@@ -157,13 +168,13 @@ public static class HenryTextures
         }
 
         c.Grain(0.06f);
-        return c.ToTexture("InkVR_HenryDial");
+        return Keep(c, "InkVR_HenryDial");
     }
 
     public static Texture2D Flat(Color color, string name)
     {
         var c = new InkCanvas(16, 16, color);
-        return c.ToTexture(name);
+        return Keep(c, name);
     }
 
     private static void ShadeUnderside(InkCanvas c, Color shade)

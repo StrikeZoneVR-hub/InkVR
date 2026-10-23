@@ -26,6 +26,14 @@ public static class LaserPointer
 
     public static void Update()
     {
+        if (!ModConfig.LaserPointer.Value)
+        {
+            Release();
+            Show(false);
+            IsOverInteractive = false;
+            return;
+        }
+
         var panel = VRRig.PointerPanel;
         var c = ControllerBindings.Dom;
         if (!XrInput.Ready || panel == null || !panel.Visible || !c.PoseValid || EventSystem.current == null)

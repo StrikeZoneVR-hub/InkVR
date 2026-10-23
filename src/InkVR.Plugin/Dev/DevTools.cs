@@ -175,6 +175,148 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo("PP " + InkVR.Rendering.VRGraphics.Describe(cam));
                 break;
             }
+            case "optstate":
+            {
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<OptionsMenuController>()))
+                {
+                    var c = o.Cast<OptionsMenuController>();
+                    if (!c.gameObject.activeInHierarchy) continue;
+                    var labels = new List<string>();
+                    if (c.m_ActiveMenuItemButtons != null)
+                        foreach (var b in c.m_ActiveMenuItemButtons) labels.Add(b == null ? "null" : b.name);
+                    Plugin.L.LogInfo($"OPTSTATE item={c.m_CurrentMenuItem} selected={c.m_SelectedIndex} max={c.m_IndexMax} active=[{string.Join(", ", labels)}] vrOpen={InkVR.UI.VRSettingsMenu.AnyOpen(c)} vrNav={InkVR.UI.VRSettingsMenu.NavSelectedFor(c)} esSelected={UnityEngine.EventSystems.EventSystem.current?.currentSelectedGameObject?.name} advArrows={c.m_AdvancedBtn.m_Arrows?.name}:{c.m_AdvancedBtn.m_Arrows?.activeSelf}");
+                }
+
+                break;
+            }
+            case "inkscan":
+            {
+                // inkscan [radius]: renderers/particles that look like ink, near the player
+                var radius = arg.Length > 0 ? float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture) : 60f;
+                var center = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
+                var groups = new Dictionary<string, (int n, Vector3 size, string example)>();
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Renderer>()))
+                {
+                    var r = o.Cast<Renderer>();
+                    if (!r.gameObject.scene.IsValid() || !r.gameObject.activeInHierarchy || !r.enabled) continue;
+                    if (Vector3.Distance(r.bounds.center, center) > radius) continue;
+                    var m = r.sharedMaterial;
+                    var tex = m != null && m.HasProperty("_MainTex") && m.mainTexture != null ? m.mainTexture.name : "-";
+                    var key = $"{r.GetIl2CppType().Name} | go={r.name} | mat={m?.name} | shader={m?.shader?.name} | tex={tex}";
+                    var hay = key.ToLowerInvariant();
+                    if (!(hay.Contains("ink") || hay.Contains("drip") || hay.Contains("puddle") || hay.Contains("splat") || hay.Contains("spill") || hay.Contains("decal") || hay.Contains("goo") || hay.Contains("flow"))) continue;
+                    var gk = $"{r.GetIl2CppType().Name} | mat={m?.name} | shader={m?.shader?.name} | tex={tex}";
+                    groups.TryGetValue(gk, out var g);
+                    groups[gk] = (g.n + 1, r.bounds.size, g.example ?? PathOf(r.transform));
+                }
+
+                foreach (var kv in groups.OrderByDescending(k => k.Value.n))
+                    Plugin.L.LogInfo($"INK x{kv.Value.n} {kv.Key} | size~{kv.Value.size} | e.g. {kv.Value.example}");
+                Plugin.L.LogInfo($"INK scan done ({groups.Count} groups within {radius})");
+                break;
+            }
+            case "inkburst":
+                InkVR.Body.InkWorld.Splatter(arg.Length > 0 ? int.Parse(arg) : 14);
+                break;
+            case "inkstate":
+                Plugin.L.LogInfo($"INKSTATE decals={InkVR.Body.InkWorld.DecalCount} pools={InkVR.Body.InkWorld.PoolCount} emitters={InkVR.Body.InkWorld.ParticleCount} parts={InkVR.Body.InkStains.Parts.Count} splats={InkVR.Body.InkStains.SplatCount}");
+                break;
+            case "inkdebug":
+            {
+                foreach (var part in InkVR.Body.InkStains.Parts.Take(6))
+                {
+                    var r = part.R;
+                    var used = r.sharedMaterial;
+                    var tex = used?.GetTexture("_MainTex");
+                    var dark = 0;
+                    for (var i = 0; i < part.Px.Length; i++) if (part.Px[i].r < 40) dark++;
+                    var gpu = part.Tex.GetPixel(part.W / 2, part.H / 2);
+                    Plugin.L.LogInfo($"INKDBG {part.T.name}: mat={used?.name} isOurs={(used != null && used.Pointer == part.Mat.Pointer)} tex={tex?.name} isOursTex={(tex != null && tex.Pointer == part.Tex.Pointer)} darkPx={dark}/{part.Px.Length} stained={part.Stained} dirty={part.Dirty} texFormat={part.Tex.format} readable={part.Tex.isReadable} gpuMid={gpu}");
+                }
+
+                break;
+            }
+            case "inktouch":
+            {
+                // Teleport next to the nearest ink splat and press the right hand onto it.
+                var player = GameManager.Instance.Player;
+                if (!InkVR.Body.InkWorld.NearestDecalPoint(player.transform.position, out var point, out var normal))
+                {
+                    Plugin.L.LogInfo("inktouch: no splat with mesh data");
+                    break;
+                }
+
+                var flat = Vector3.ProjectOnPlane(normal, Vector3.up);
+                var stand = Mathf.Abs(normal.y) > 0.7f ? point + new Vector3(0.6f, 0, 0.6f) : point + flat.normalized * 1.8f;
+                var cc = player.CharacterController;
+                cc.enabled = false;
+                player.transform.position = new Vector3(stand.x, player.transform.position.y + (Mathf.Abs(normal.y) > 0.7f ? point.y - (player.transform.position.y + cc.center.y - cc.height / 2) : 0), stand.z);
+                cc.enabled = true;
+                InkVR.Core.VRRig.DevPendingTouch = point;
+                Plugin.L.LogInfo($"inktouch: splat at {point} normal {normal}, standing at {stand}");
+                break;
+            }
+            case "vpscale":
+            {
+                var v = float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture);
+                var d = InkVR.Core.XrManager.Display;
+                d.scaleOfAllViewports = v;
+                Plugin.L.LogInfo($"scaleOfAllViewports={d.scaleOfAllViewports} supportsViewportScaling={d.supportedTextureLayouts}");
+            }
+                break;
+            case "cfg":
+            {
+                // cfg Section.Key value  (session only, not saved)
+                var a = arg.Split(' ');
+                var dot = a[0].IndexOf('.');
+                foreach (var kv in ModConfig.File)
+                {
+                    if (kv.Key.Section != a[0][..dot] || kv.Key.Key != a[0][(dot + 1)..]) continue;
+                    var saveOld = ModConfig.File.SaveOnConfigSet;
+                    ModConfig.File.SaveOnConfigSet = false;
+                    kv.Value.SetSerializedValue(a[1]);
+                    ModConfig.File.SaveOnConfigSet = saveOld;
+                    Plugin.L.LogInfo($"cfg {a[0]} = {kv.Value.BoxedValue}");
+                }
+
+                break;
+            }
+            case "stick":
+            {
+                var a = arg.Split(' ').Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                InkVR.Input.VirtualGamepad.DevStick(new Vector2(a[0], a[1]), a.Length > 2 ? a[2] : 1f);
+                break;
+            }
+            case "trace":
+                InkVR.Core.VRRig.DevTraceFrames = int.Parse(arg);
+                break;
+            case "methods":
+            {
+                // methods <TypeName> [filter]: list a game type's methods (interop reflection)
+                var a = arg.Split(' ');
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    Type t;
+                    try { t = asm.GetTypes().FirstOrDefault(x => x.Name == a[0]); } catch { continue; }
+                    if (t == null) continue;
+                    var names = t.GetMethods(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly)
+                        .Select(m => m.Name).Where(n => a.Length < 2 || n.IndexOf(a[1], StringComparison.OrdinalIgnoreCase) >= 0).Distinct().OrderBy(n => n);
+                    var all = names.ToList();
+                    for (var i = 0; i < all.Count; i += 40)
+                        Plugin.L.LogInfo($"METHODS {t.FullName} : {t.BaseType?.FullName} [{i}]: {string.Join(", ", all.Skip(i).Take(40))}");
+                    if (t.IsEnum) Plugin.L.LogInfo($"ENUM {t.Name}: {string.Join(", ", Enum.GetNames(t))}");
+                    var props = t.GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.DeclaredOnly)
+                        .Select(p => $"{p.Name}:{p.PropertyType.Name}");
+                    Plugin.L.LogInfo($"PROPS {t.Name}: {string.Join(", ", props)}");
+                }
+
+                break;
+            }
+            case "stereo":
+                if (arg == "noscale") InkVR.Core.VRRig.DevNoStereoScale = true;
+                else if (arg == "scale") InkVR.Core.VRRig.DevNoStereoScale = false;
+                else InkVR.Core.VRRig.DevStereoReport = true;
+                break;
             case "eyes":
             {
                 var cam = InkVR.Core.VRRig.GameCamera ?? Camera.main;
@@ -251,9 +393,9 @@ public class DevTools : MonoBehaviour
                 var a = arg == "demo" || arg.Length == 0 ? new float[] { 0.17f, 1.38f, 0.32f, -35f, 0f }
                     : arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
                 if (a.Length == 1) a = new[] { 0.17f, 1.38f, 0.32f, a[0], 0f };
-                if (a.Length < 5) a = a.Concat(new float[5 - a.Length]).ToArray();
-                InkVR.Body.Hands.DevRight = (new Vector3(a[0], a[1], a[2]), Quaternion.Euler(a[3], a[4], 0));
-                InkVR.Body.Hands.DevLeft = (new Vector3(-a[0], a[1], a[2]), Quaternion.Euler(a[3], -a[4], 0));
+                if (a.Length < 6) a = a.Concat(new float[6 - a.Length]).ToArray();
+                InkVR.Body.Hands.DevRight = (new Vector3(a[0], a[1], a[2]), Quaternion.Euler(a[3], a[4], a[5]));
+                InkVR.Body.Hands.DevLeft = (new Vector3(-a[0], a[1], a[2]), Quaternion.Euler(a[3], -a[4], -a[5]));
                 break;
             }
             case "aim":

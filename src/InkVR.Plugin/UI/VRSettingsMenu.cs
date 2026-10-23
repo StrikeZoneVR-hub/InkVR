@@ -28,8 +28,12 @@ public static class VRSettingsMenu
     {
         public OptionsMenuController Controller;
         public GameObject Root;
+        public MenuItemButton NavButton;
         public readonly List<Row> Rows = new();
         public bool Open => Root != null && Root.activeSelf;
+        public int Selected;
+        public float OpenedAt;
+        public bool NavSelected;
     }
 
     private static readonly Dictionary<IntPtr, Page> Pages = new();
@@ -43,20 +47,24 @@ public static class VRSettingsMenu
         Toggle("TURNING", ModConfig.SnapTurn, "SNAP", "SMOOTH"),
         Choice("SNAP ANGLE", ModConfig.SnapTurnAngle, new[] { 30f, 45f, 60f, 90f }, v => $"{v:0} DEGREES"),
         Choice("SMOOTH TURN SPEED", ModConfig.SmoothTurnSpeed, new[] { 60f, 90f, 120f, 150f, 180f, 240f }, v => $"{v:0} PER SEC"),
+        Choice("WORLD SIZE", ModConfig.WorldScale, WorldScales, v => $"{2.95f / v * 100f:0}%"),
         Toggle("CALM THEATRE FLICKER", ModConfig.ReduceFlashes, "ON", "OFF"),
         Category("CONTROLS"),
         Toggle("DOMINANT HAND", ModConfig.LeftHanded, "LEFT", "RIGHT"),
         Toggle("INTERACT AIM", ModConfig.InteractWithHand, "HAND", "HEAD"),
         Choice("HEIGHT ADJUST", ModConfig.HeightOffset, Range(-0.6f, 0.6f, 0.05f), v => Mathf.Abs(v) < 0.001f ? "NONE" : v > 0 ? $"UP {v * 100:0} CM" : $"DOWN {-v * 100:0} CM"),
+        Toggle("LASER POINTER", ModConfig.LaserPointer, "ON", "OFF"),
         Category("HENRY"),
         Toggle("HANDS", ModConfig.ShowHands, "ON", "OFF"),
         Toggle("ARMS & SLEEVES", ModConfig.ShowArms, "ON", "OFF"),
         Category("GRAPHICS"),
         Choice("RENDER SCALE", ModConfig.RenderScale, Range(0.6f, 1.5f, 0.1f), v => $"{v * 100:0}%"),
+        Toggle("AUTO RESOLUTION", ModConfig.DynamicResolution, "ON", "OFF"),
         Toggle("HALF-RES AMBIENT OCCLUSION", ModConfig.VRAODownsample, "ON", "OFF"),
-        Toggle("MOTION BLUR", ModConfig.VRDisableMotionBlur, "OFF", "ON"),
-        Toggle("DEPTH OF FIELD", ModConfig.VRDisableDepthOfField, "OFF", "ON"),
     };
+
+    // Game units per metre; shown as world size relative to Henry's eye height (2.95 = 100%).
+    private static readonly float[] WorldScales = { 4.21f, 3.93f, 3.69f, 3.47f, 3.28f, 3.11f, 2.95f, 2.81f, 2.68f, 2.57f, 2.46f };
 
     private static Row Category(string label) => new() { Label = label };
 
@@ -123,8 +131,28 @@ public static class VRSettingsMenu
         SetText(go.transform.Find("Label"), "VR SETTINGS");
         var baseButton = go.GetComponent<TMG.UI.Controls.BaseUIButton>();
         if (baseButton != null) baseButton.add_OnClick(Handler(() => Show(page, true)));
-        var arrows = FindChildStartingWith(go.transform, "Arrows");
-        if (arrows != null) arrows.gameObject.SetActive(false);
+        if (button.m_Arrows != null) button.m_Arrows.SetActive(false);
+        page.NavButton = button;
+        AddToNavigation(ctrl, page);
+    }
+
+    /// <summary>Put VR SETTINGS in the game's own list of Options entries so the thumbstick reaches it.</summary>
+    internal static void AddToNavigation(OptionsMenuController ctrl) => AddToNavigation(ctrl, null);
+
+    private static void AddToNavigation(OptionsMenuController ctrl, Page page)
+    {
+        if (page == null && !Pages.TryGetValue(ctrl.Pointer, out page)) return;
+        if (page.NavButton == null) return;
+        foreach (var list in new[] { ctrl.m_OptionsMenuItemButtons, ctrl.m_ActiveMenuItemButtons })
+        {
+            if (list == null || list.Contains(page.NavButton)) continue;
+            var at = list.IndexOf(ctrl.m_AdvancedBtn);
+            if (at < 0) continue; // the active list belongs to another page right now
+            list.Insert(at + 1, page.NavButton);
+        }
+
+        if (ctrl.m_CurrentMenuItem == OptionsMenuController.MenuItem.OPTIONS && ctrl.m_ActiveMenuItemButtons != null)
+            ctrl.m_IndexMax = ctrl.m_ActiveMenuItemButtons.Count - 1;
     }
 
     private static void BuildPage(OptionsMenuController ctrl, Page page)
@@ -175,6 +203,10 @@ public static class VRSettingsMenu
             page.Rows.Add(row);
         }
 
+        // A few more rows than the game's own pages: tighten the list so it clears the credit.
+        nav.localScale = new Vector3(0.88f, 0.88f, 1f);
+        var navRt = nav.GetComponent<RectTransform>();
+        if (navRt != null) navRt.anchoredPosition += new Vector2(0, 18f);
         AddCredit(root.transform, title);
         root.SetActive(false);
     }
@@ -188,11 +220,11 @@ public static class VRSettingsMenu
         var rt = go.GetComponent<RectTransform>();
         rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta = new Vector2(1400, 70);
-        rt.anchoredPosition = new Vector2(0, -430);
+        rt.sizeDelta = new Vector2(1400, 60);
+        rt.anchoredPosition = new Vector2(0, -462);
         var text = go.GetComponent<TextMeshProUGUI>();
         SetText(go.transform, Credit);
-        text.fontSize = Mathf.Max(28f, text.fontSize * 0.38f);
+        text.fontSize = Mathf.Max(24f, text.fontSize * 0.27f);
         text.alignment = TextAlignmentOptions.Center;
         text.enableWordWrapping = false;
         text.raycastTarget = false;
@@ -202,6 +234,12 @@ public static class VRSettingsMenu
     {
         row.Step(dir);
         if (row.Item != null) Layout(row.Item, row.Label + ":", row.Value());
+        var index = page.Rows.IndexOf(row);
+        if (index >= 0 && index != page.Selected)
+        {
+            page.Selected = index;
+            Highlight(page);
+        }
         Input.XrInput.Haptic(Input.ControllerBindings.Dominant, 0.2f, 0.02f);
     }
 
@@ -228,10 +266,203 @@ public static class VRSettingsMenu
         Plugin.L.LogInfo(vr ? "VR settings opened" : "VR settings closed");
         page.Controller.m_OptionsMenu.SetActive(!vr);
         page.Root.SetActive(vr);
+        _waitRelease = true;
+        _holdGameInput = true;
         if (vr)
+        {
+            page.OpenedAt = Time.unscaledTime;
+            page.Selected = 0;
             foreach (var row in page.Rows)
                 if (row.Item != null)
                     Layout(row.Item, row.Label + ":", row.Value());
+            Highlight(page);
+        }
+    }
+
+    // ---------------- thumbstick / keyboard navigation ----------------
+
+    private static float _repeatAt;
+    private static int _heldDir;
+    private static bool _waitRelease = true;
+
+    /// <summary>True while the VR page is open: the game's own Options input is paused (see the Update patch).</summary>
+    internal static bool AnyOpen(OptionsMenuController ctrl) => Pages.TryGetValue(ctrl.Pointer, out var p) && p.Open;
+
+    private static bool _prevUp, _prevDown, _prevA, _prevB;
+
+    // After InkVR acts on a press, the game must not act on the same press too.
+    private static bool _holdGameInput;
+
+    internal static bool NavSelectedFor(OptionsMenuController ctrl) => Pages.TryGetValue(ctrl.Pointer, out var p) && p.NavSelected;
+
+    /// <summary>
+    /// Runs before the game's Options Update. The game's list only cycles SETTINGS/ADVANCED, so moving
+    /// down from ADVANCED (or up from SETTINGS) lands on VR SETTINGS here instead; while it is selected
+    /// InkVR handles the stick and buttons. Returns false to skip the game's update for this frame.
+    /// </summary>
+    internal static bool BeforeOptionsUpdate(OptionsMenuController ctrl)
+    {
+        if (!Pages.TryGetValue(ctrl.Pointer, out var page)) return true;
+        if (page.Open) return false;
+
+        var pad = Input.VirtualGamepad.Effective;
+        bool up = pad.LeftStick.y > 0.6f || UnityEngine.Input.GetKey(KeyCode.UpArrow);
+        bool down = pad.LeftStick.y < -0.6f || UnityEngine.Input.GetKey(KeyCode.DownArrow);
+        bool a = pad.A || UnityEngine.Input.GetKey(KeyCode.Return);
+        bool b = pad.B || UnityEngine.Input.GetKey(KeyCode.Escape);
+        var upEdge = up && !_prevUp;
+        var downEdge = down && !_prevDown;
+        var aEdge = a && !_prevA;
+        var bEdge = b && !_prevB;
+        (_prevUp, _prevDown, _prevA, _prevB) = (up, down, a, b);
+        if (_holdGameInput)
+        {
+            if (up || down || a || b || Mathf.Abs(pad.LeftStick.x) > 0.5f) return false;
+            _holdGameInput = false;
+        }
+
+        var onOptions = page.NavButton != null && ctrl.m_CurrentMenuItem == OptionsMenuController.MenuItem.OPTIONS &&
+                        ctrl.m_OptionsMenu != null && ctrl.m_OptionsMenu.activeInHierarchy;
+        if (!onOptions)
+        {
+            if (page.NavSelected) SelectNav(page, false);
+            return true;
+        }
+
+        var advanced = ctrl.m_OptionsMenuItemButtons.IndexOf(ctrl.m_AdvancedBtn);
+        if (!page.NavSelected)
+        {
+            if ((downEdge && ctrl.m_SelectedIndex == advanced) || (upEdge && ctrl.m_SelectedIndex == 0))
+            {
+                SelectNav(page, true);
+                _holdGameInput = true;
+                return false;
+            }
+
+            return true;
+        }
+
+        if (upEdge || downEdge)
+        {
+            // Hand the highlight back to the game's list (just the highlight: nothing is activated).
+            SelectNav(page, false);
+            var index = upEdge ? advanced : 0;
+            ctrl.m_SelectedIndex = index;
+            var target = ctrl.m_OptionsMenuItemButtons[index];
+            if (target != null && target.m_Arrows != null) target.m_Arrows.SetActive(true);
+            _holdGameInput = true;
+        }
+        else if (aEdge)
+        {
+            SelectNav(page, false);
+            Show(page, true);
+        }
+        else if (bEdge)
+        {
+            SelectNav(page, false);
+            return true; // the game's own back
+        }
+
+        return false;
+    }
+
+    private static void SelectNav(Page page, bool on)
+    {
+        page.NavSelected = on;
+        var ctrl = page.Controller;
+        if (on)
+        {
+            ctrl.DeselectAllCurrentMenuItems();
+            foreach (var b in ctrl.m_OptionsMenuItemButtons)
+                if (b != null && b != page.NavButton)
+                {
+                    b.Deselect();
+                    if (b.m_Arrows != null) b.m_Arrows.SetActive(false);
+                }
+        }
+
+        var arrows = page.NavButton.m_Arrows ?? FindChildStartingWith(page.NavButton.transform, "Arrows")?.gameObject;
+        if (arrows != null) arrows.SetActive(on);
+        if (on) Input.XrInput.Haptic(Input.ControllerBindings.OffHand, 0.12f, 0.015f);
+    }
+
+    /// <summary>Every frame: move through the open VR page with the stick (arrow keys), change with left/right or A, back with B.</summary>
+    public static void Update()
+    {
+        foreach (var page in Pages.Values)
+        {
+            if (!page.Open || page.Rows.Count == 0) continue;
+            var pad = Input.VirtualGamepad.Effective;
+            var up = pad.LeftStick.y > 0.6f || UnityEngine.Input.GetKey(KeyCode.UpArrow);
+            var down = pad.LeftStick.y < -0.6f || UnityEngine.Input.GetKey(KeyCode.DownArrow);
+            var left = pad.LeftStick.x < -0.6f || UnityEngine.Input.GetKey(KeyCode.LeftArrow);
+            var right = pad.LeftStick.x > 0.6f || UnityEngine.Input.GetKey(KeyCode.RightArrow);
+            var confirm = pad.A || UnityEngine.Input.GetKey(KeyCode.Return) || UnityEngine.Input.GetKey(KeyCode.Space);
+            var back = pad.B || UnityEngine.Input.GetKey(KeyCode.Escape) || UnityEngine.Input.GetKey(KeyCode.Backspace);
+
+            // The press that opened the page has to be let go first.
+            if (_waitRelease || Time.unscaledTime - page.OpenedAt < 0.2f)
+            {
+                _waitRelease = up || down || left || right || confirm || back;
+                return;
+            }
+
+            if (back)
+            {
+                Show(page, false);
+                return;
+            }
+
+            var dir = up ? 1 : down ? 2 : left ? 3 : right ? 4 : confirm ? 5 : 0;
+            if (dir == 0)
+            {
+                _heldDir = 0;
+                return;
+            }
+
+            var repeat = dir == _heldDir;
+            if (repeat && (dir == 5 || Time.unscaledTime < _repeatAt)) return; // A never auto-repeats
+            _repeatAt = Time.unscaledTime + (repeat ? 0.14f : 0.42f);
+            _heldDir = dir;
+
+            switch (dir)
+            {
+                case 1:
+                    page.Selected = (page.Selected - 1 + page.Rows.Count) % page.Rows.Count;
+                    Highlight(page);
+                    break;
+                case 2:
+                    page.Selected = (page.Selected + 1) % page.Rows.Count;
+                    Highlight(page);
+                    break;
+                case 3:
+                    Change(page, page.Rows[page.Selected], -1);
+                    break;
+                default:
+                    Change(page, page.Rows[page.Selected], +1);
+                    break;
+            }
+
+            Input.XrInput.Haptic(Input.ControllerBindings.OffHand, 0.12f, 0.015f);
+            return;
+        }
+    }
+
+    /// <summary>The selected row shows its arrows and reads brighter, like the game's own option pages.</summary>
+    private static void Highlight(Page page)
+    {
+        for (var i = 0; i < page.Rows.Count; i++)
+        {
+            var item = page.Rows[i].Item;
+            if (item == null) continue;
+            var on = i == page.Selected;
+            SetArrows(item.transform.Find("Left"), item.transform.Find("Right"), on);
+            foreach (var name in new[] { "Label", "Status" })
+            {
+                var t = item.transform.Find(name)?.GetComponent<TextMeshProUGUI>();
+                if (t != null) t.alpha = on ? 1f : 0.6f;
+            }
+        }
     }
 
     /// <summary>Back out of the VR page to the Options list instead of leaving Options entirely.</summary>
@@ -314,4 +545,12 @@ internal static class OptionsMenuPatches
 
     [HarmonyPrefix, HarmonyPatch(nameof(OptionsMenuController.OnDisposed))]
     private static void Disposed(OptionsMenuController __instance) => VRSettingsMenu.Forget(__instance);
+
+    // Opening the Options list rebuilds its navigation: keep VR SETTINGS in it.
+    [HarmonyPostfix, HarmonyPatch(nameof(OptionsMenuController.ShowOptionsMenu))]
+    private static void AfterShowOptions(OptionsMenuController __instance) => VRSettingsMenu.AddToNavigation(__instance);
+
+    // VR SETTINGS in the Options list, and the VR page's own navigation while it is open.
+    [HarmonyPrefix, HarmonyPatch("Update")]
+    private static bool BeforeUpdate(OptionsMenuController __instance) => VRSettingsMenu.BeforeOptionsUpdate(__instance);
 }

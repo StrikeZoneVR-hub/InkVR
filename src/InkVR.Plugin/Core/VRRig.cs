@@ -1,3 +1,6 @@
+using Action = System.Action;
+using Exception = System.Exception;
+using Il2CppInterop.Runtime;
 using InkVR.Body;
 using InkVR.Input;
 using InkVR.UI;
@@ -65,6 +68,9 @@ public static class VRRig
 
     public static void Update()
     {
+        // Game logic only ever sees real positions: undo last frame's between-physics-steps offset.
+        MotionSmoothing.Remove();
+
         if (!XrManager.IsRunning)
         {
             if (_cinemaOrigin != null) _cinemaOrigin.gameObject.SetActive(false);
@@ -79,6 +85,7 @@ public static class VRRig
 
         EnsureCinema();
         SetCinema(!InGame || IsPaused());
+        HookPreCull();
         ApplyHeadPose();
     }
 
@@ -87,10 +94,19 @@ public static class VRRig
         if (!XrManager.IsRunning) return;
         ApplyHeadPose();
 
+        if (InGame && !_cinemaActive && Mathf.Abs(_origin.localScale.x - Scale) > 1e-4f)
+        {
+            // WORLD SIZE changed in the VR menu: rescale the play space around the feet.
+            _origin.localScale = Vector3.one * Scale;
+            _uiCam.nearClipPlane = 0.02f * Scale;
+            _uiCam.farClipPlane = 20f * Scale;
+        }
+
         if (InGame && !_cinemaActive)
         {
             ApplySmoothTurn();
             FollowHeadWithBody();
+            MotionSmoothing.Apply(_origin);
             PlaceGamePanel();
             Rendering.VRGraphics.Update(_gameCam);
         }
@@ -98,8 +114,64 @@ public static class VRRig
         _cinema?.Animate();
         UpdateFade();
         Hands.Update();
+        InkWorld.Update();
         LaserPointer.Update();
         if (InGame && !_cinemaActive) ScaleStereo();
+        if (DevPendingTouch.HasValue && InGame && !_cinemaActive)
+        {
+            // Grip pose so the palm/fingers reach the point: grip half a hand-length back from it.
+            var local = _origin.InverseTransformPoint(DevPendingTouch.Value) - Vector3.up * ModConfig.HeightOffset.Value;
+            var head = HeadLocalPosition;
+            var dir = (local - head).normalized;
+            Body.Hands.DevRight = (local - dir * 0.06f, Quaternion.LookRotation(Vector3.ProjectOnPlane(dir, Vector3.up).sqrMagnitude > 1e-4f ? Vector3.ProjectOnPlane(dir, Vector3.up) : Vector3.forward) * Quaternion.Euler(60, 0, 0));
+        }
+
+        if (DevTraceFrames > 0 && _player != null)
+        {
+            DevTraceFrames--;
+            var p = _player.transform.position;
+            Plugin.L.LogInfo($"TRACE f={Time.frameCount} t={Time.time:F4} dt={Time.deltaTime * 1000:F1}ms fixedT={Time.fixedTime:F4} fdt={Time.fixedDeltaTime * 1000:F1}ms player=({p.x:F3},{p.z:F3}) cam=({_gameCam.transform.position.x:F3},{_gameCam.transform.position.z:F3})");
+        }
+
+        if (DevStereoReport)
+        {
+            DevStereoReport = false;
+            StereoReport();
+        }
+    }
+
+    /// <summary>Dev: a world point the right hand should be pressed onto (set by "inktouch").</summary>
+    public static Vector3? DevPendingTouch;
+
+    /// <summary>Dev: log player/camera positions for this many frames.</summary>
+    public static int DevTraceFrames;
+
+    /// <summary>Dev: log the eye poses Unity renders with, before and after InkVR's world scaling.</summary>
+    public static bool DevStereoReport;
+
+    private static void StereoReport()
+    {
+        var cam = _cinemaActive || !InGame ? _cinemaCam : _gameCam;
+        if (cam == null) return;
+        Vector3 Pos(Matrix4x4 view) => view.inverse.GetColumn(3);
+        var sl = Pos(cam.GetStereoViewMatrix(Camera.StereoscopicEye.Left));
+        var sr = Pos(cam.GetStereoViewMatrix(Camera.StereoscopicEye.Right));
+        cam.ResetStereoViewMatrices();
+        var dl = Pos(cam.GetStereoViewMatrix(Camera.StereoscopicEye.Left));
+        var dr = Pos(cam.GetStereoViewMatrix(Camera.StereoscopicEye.Right));
+        if (InGame && !_cinemaActive) StereoScale.Apply(cam, Scale);
+        var c = cam.transform.position;
+        var trackL = InputTracking.GetLocalPosition(XRNode.LeftEye);
+        var trackR = InputTracking.GetLocalPosition(XRNode.RightEye);
+        var trackC = InputTracking.GetLocalPosition(XRNode.CenterEye);
+        string V(Vector3 v) => $"({v.x:F4}, {v.y:F4}, {v.z:F4})";
+        Plugin.L.LogInfo($"STEREO cam={cam.name} pos={V(c)} lossyScale={cam.transform.lossyScale.x:F2} scale={ActiveScale:F2}");
+        Plugin.L.LogInfo($"STEREO unity default: sep={Vector3.Distance(dl, dr):F4} mid-cam={V((dl + dr) / 2 - c)} | left-cam={V(dl - c)}");
+        Plugin.L.LogInfo($"STEREO after InkVR:   sep={Vector3.Distance(sl, sr):F4} mid-cam={V((sl + sr) / 2 - c)}");
+        var pl = cam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left);
+        var pr = cam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Right);
+        Plugin.L.LogInfo($"STEREO proj L m00={pl.m00:F4} m02={pl.m02:F4} m11={pl.m11:F4} m12={pl.m12:F4} | R m00={pr.m00:F4} m02={pr.m02:F4} | eyeTex={XRSettings.eyeTextureWidth}x{XRSettings.eyeTextureHeight} fov={cam.fieldOfView:F1} customProj={!cam.usePhysicalProperties}");
+        Plugin.L.LogInfo($"STEREO tracking (m):  IPD={Vector3.Distance(trackL, trackR):F4} centre={V(trackC)} eyeMid-centre={V((trackL + trackR) / 2 - trackC)}");
     }
 
     private static bool IsPaused()
@@ -134,6 +206,50 @@ public static class VRRig
             _gameCam.transform.SetLocalPositionAndRotation(pos, rot);
             _uiCam.transform.SetLocalPositionAndRotation(pos, rot);
         }
+    }
+
+    // ---------------- late pose ----------------
+
+    private static Camera.CameraCallback _preCull;
+    private static int _latePoseFrame = -1;
+    private static bool _latePoseSeen;
+
+    /// <summary>
+    /// Right before the first head camera is culled (after Unity's before-render tracking update), pose the
+    /// head and hands again with the newest tracking, so what is drawn matches the pose sent to the headset.
+    /// LateUpdate's pose stays as the fallback if this callback never arrives.
+    /// </summary>
+    private static void HookPreCull()
+    {
+        if (_preCull != null) return;
+        try
+        {
+            _preCull = DelegateSupport.ConvertDelegate<Camera.CameraCallback>(new System.Action<Camera>(OnPreCull));
+            var existing = Camera.onPreCull;
+            Camera.onPreCull = existing == null ? _preCull : Il2CppSystem.Delegate.Combine(existing, _preCull).Cast<Camera.CameraCallback>();
+        }
+        catch (Exception e)
+        {
+            Plugin.L.LogWarning("Late head pose unavailable (Camera.onPreCull): " + e.Message);
+        }
+    }
+
+    private static void OnPreCull(Camera cam)
+    {
+        if (cam == null || Time.frameCount == _latePoseFrame || !XrManager.IsRunning) return;
+        var ours = _cinemaActive || !InGame ? cam == _cinemaCam : _origin != null && cam.transform.IsChildOf(_origin);
+        if (!ours) return;
+        _latePoseFrame = Time.frameCount;
+        if (!_latePoseSeen)
+        {
+            _latePoseSeen = true;
+            Plugin.L.LogInfo("Late head pose active (posed right before rendering)");
+        }
+
+        ApplyHeadPose();
+        Input.XrInput.LocatePoses();
+        Hands.LatePose();
+        if (InGame && !_cinemaActive) ScaleStereo();
     }
 
     /// <summary>Tracking-space pose (metres) to world, through whichever rig is active.</summary>
@@ -281,6 +397,7 @@ public static class VRRig
 
     private static void DetachFromPlayer()
     {
+        MotionSmoothing.Reset();
         _player = null;
         _origin = null;
         _gameCam = null;
@@ -354,8 +471,17 @@ public static class VRRig
     }
 
     /// <summary>Every stereo camera inside the scaled origin (game, weapon, invisible, UI cameras).</summary>
+    /// <summary>Dev: switch InkVR's eye-separation scaling off to compare.</summary>
+    public static bool DevNoStereoScale;
+
     private static void ScaleStereo()
     {
+        if (DevNoStereoScale)
+        {
+            foreach (var cam in _origin.GetComponentsInChildren<Camera>()) cam.ResetStereoViewMatrices();
+            return;
+        }
+
         foreach (var cam in _origin.GetComponentsInChildren<Camera>())
             if (cam.enabled && cam.targetTexture == null)
                 StereoScale.Apply(cam, Scale);

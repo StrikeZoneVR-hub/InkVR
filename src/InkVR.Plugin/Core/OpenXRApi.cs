@@ -260,10 +260,25 @@ public static unsafe class OpenXRApi
         return result;
     }
 
+    // Time spent blocked in xrWaitFrame: the runtime holds the app there when it is ahead of the display,
+    // so it is the frame's spare time (the headroom automatic resolution works from).
+    private static long _waitTicksSum, _waitCount;
+
+    /// <summary>Average milliseconds spent waiting in xrWaitFrame since the last call (and the call count).</summary>
+    public static (double avgMs, long count) TakeWaitStats()
+    {
+        var ticks = System.Threading.Interlocked.Exchange(ref _waitTicksSum, 0);
+        var n = System.Threading.Interlocked.Exchange(ref _waitCount, 0);
+        return (n > 0 ? ticks * 1000.0 / System.Diagnostics.Stopwatch.Frequency / n : -1, n);
+    }
+
     [UnmanagedCallersOnly]
     private static int HookWaitFrame(ulong session, void* info, XrFrameState* state)
     {
+        var t0 = System.Diagnostics.Stopwatch.GetTimestamp();
         var result = ((delegate* unmanaged<ulong, void*, XrFrameState*, int>)_realWaitFrame)(session, info, state);
+        System.Threading.Interlocked.Add(ref _waitTicksSum, System.Diagnostics.Stopwatch.GetTimestamp() - t0);
+        System.Threading.Interlocked.Increment(ref _waitCount);
         if (result >= 0 && state != null)
         {
             System.Threading.Interlocked.Exchange(ref _predictedDisplayTime, state->predictedDisplayTime);

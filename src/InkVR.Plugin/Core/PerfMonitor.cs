@@ -33,9 +33,11 @@ public static class PerfMonitor
         display.TryGetDisplayRefreshRate(out var hz);
         var dropped = display.TryGetDroppedFrameCount(out var d1) && _droppedAtStart >= 0 ? d1 - _droppedAtStart : -1;
         var gpuAvg = _gpuSamples > 0 ? _gpuSum / _gpuSamples : -1;
+        var head = InputTracking.GetLocalPosition(XRNode.CenterEye);
         Plugin.L.LogInfo(
             $"VRPERF frame {elapsed / _frames * 1000f:F2} ms avg ({_frames / elapsed:F1} fps), worst {_worst * 1000f:F1} ms | " +
-            $"GPU {gpuAvg:F2} ms | dropped {dropped} | {hz:F0} Hz | eye {XRSettings.eyeTextureWidth}x{XRSettings.eyeTextureHeight} | " +
+            $"GPU {gpuAvg:F2} ms | dropped {dropped} | {hz:F0} Hz | eye {XRSettings.eyeTextureWidth}x{XRSettings.eyeTextureHeight} ({XRSettings.eyeTextureResolutionScale:P0}) | " +
+            $"head {head.y:F2} m, IPD {StereoScale.MeasuredIpd * 1000f:F1} mm, eyes {StereoScale.RenderedSeparation:F3} u (prescaled {StereoScale.PreScaled}), scale {VRRig.ActiveScale:F2} | " +
             $"scene {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
 
         _start = Time.unscaledTime;
