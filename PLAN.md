@@ -1,6 +1,6 @@
 # InkVR — Full 6DoF VR Mod for Bendy and the Ink Machine
 
-Status: **Test build 0.4.0 ready for your third headset test**: the first motion controls (swing to hit, hand hover, hand-aimed guns) plus the shrinking and footstep-noise fixes. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1). Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22; full body (M7) is for the full release.
+Status: **Test build 0.4.0 ready for your third headset test**: the first motion controls (swing to hit, hand hover, hand-aimed guns) plus the shrinking and footstep-noise fixes, and the menus now play in a full 1930s picture palace. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1). Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22; full body (M7) is for the full release.
 
 Target setup: **Quest 3 · Virtual Desktop · VDXR OpenXR runtime** · RTX 4050 Laptop. Release: **open source on GitHub**.
 
@@ -22,7 +22,7 @@ Each test build goes to your headset before the next one starts, and your feedba
 |---|---|---|
 | 0.2.0 | VR core, button controls, Henry's hands, launcher, theatre menus, VR SETTINGS | ✅ tested |
 | 0.3.x | Correct world scale (AUTO = your height), single light beams, smooth walking, ink on the hands, hand-hover interaction | ✅ tested |
-| **0.4.0** | **Motion controls part 1:** swing the axe, pipe or plunger with your arm; guns fire where your hand points; no more shrinking while walking; no more footstep/landing spam | 🟡 **your test now** |
+| **0.4.0** | **Motion controls part 1:** swing the axe, pipe or plunger with your arm; guns fire where your hand points; no more shrinking while walking; no more footstep/landing spam; the menu theatre built out into a full 1930s picture palace | 🟡 **your test now** |
 | 0.5.0 | **Motion controls part 2 (finishes M4):** throw Bacon Soup cans with your arm (Ch4), pull levers and turn valves by hand where the game has them, two-handed Tommy Gun, eat soup by raising it to your mouth, weapon holster | next |
 | 0.6.0 | **Cutscenes & scripted moments (M6):** knockouts, falls, Sammy/Bendy grabs, deaths, the Ch1 floor collapse; your head always stays yours; fades on cuts; optional Cinema mode | |
 | 0.7.0 | **UI pass (rest of M5):** world-space subtitles, readable prompts, note viewer, VR button glyphs, chapter cards, credits | |
@@ -224,7 +224,7 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 - **Done when:** Ch1–2 are playable with physical interactions only, and combat feels good.
 
 ### M5 — VR settings menu (game style) + full UI pass *(risk: medium)* 🟡 partly built
-> Built: a VR SETTINGS page in the game's Options menu (main and pause), made from the game's own widgets, with "VR MOD MADE BY STRIKEZONEVR" at the bottom. The title, pause and loading screens play on a projector screen in a small studio theatre. Still to do: the rest of the full UI pass.
+> Built: a VR SETTINGS page in the game's Options menu (main and pause), made from the game's own widgets, with "VR MOD MADE BY STRIKEZONEVR" at the bottom. The title, pause and loading screens play on the big screen of a full 1930s picture palace (0.4.0): stage, velvet drapes and footlights under a gilded proscenium with Bendy's face, organ grilles, about 480 velvet seats, sconce-lit walls with cartoon posters and chapter lobby cards, a balcony with a chasing-light marquee, the projection booth and its beam, a coffered ceiling and chandelier, and ink dripping down the walls. It's built and painted in code (no shipped art; the posters use the game's own images via the launcher), with the lighting baked in, so it costs about nothing to draw. Still to do: the rest of the full UI pass.
 - Add a **VR tab to the game's own Options menu**, on both the main menu and the pause menu. It's built at runtime by cloning the game's real buttons, sliders, toggles, tab headers, fonts, sprites, DOTween transitions, menu sounds and I2 localisation, so it looks native.
 - Settings:
   - **Comfort:** move direction, turn mode/angle/speed, vignette, cutscene comfort mode

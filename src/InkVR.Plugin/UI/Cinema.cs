@@ -5,74 +5,73 @@ using UnityEngine;
 namespace InkVR.UI;
 
 /// <summary>
-/// The theatre the title screen, pause menu and loading screens play in: a big framed screen in a
-/// dark Joey Drew Studios screening room, curtains, worn floorboards and a flickering projector beam
-/// from the booth behind you. Everything is painted at runtime in the game's ink style.
+/// The theatre the title screen, pause menu and loading screens play in: the game's UI on a big framed
+/// screen in a 1930s picture palace (<see cref="Theatre"/>), lit by a flickering projector beam from the
+/// booth behind you, with dust drifting through it and the odd film scratch.
 /// </summary>
 public class Cinema
 {
-    private const float ScreenWidth = 4.6f, ScreenDistance = 4.0f, ScreenCenterY = 1.75f;
-
     public readonly VRPanel Screen;
     private readonly VRPanel _grain;
     private readonly Material _beamMat;
-    private readonly List<Transform> _motes = new();
-    private readonly List<Vector3> _moteVel = new();
     private readonly Transform _root;
+    private readonly Theatre _theatre;
     private float _flickerT;
     private float _scratchUntil;
     private readonly VRPanel _scratch;
     private readonly List<TMPro.TextMeshPro> _signs = new();
-    private readonly List<(string text, Vector3 pos, float height, Color color)> _signSpecs = new();
 
     public Cinema(Transform origin, Texture screenTexture)
     {
         _root = new GameObject("InkVR_Theatre").transform;
         _root.SetParent(origin, false);
-        var h = ScreenWidth * 9f / 16f;
-        var screenPos = new Vector3(0, ScreenCenterY, ScreenDistance);
+        var w = Theatre.ScreenWidth;
+        var h = w * 9f / 16f;
+        var screenPos = new Vector3(0, Theatre.ScreenCenterY, Theatre.ScreenZ);
 
-        // Screen (the game's UI) with a slight film grain over it.
+        // Screen (the game's UI) with a slight film grain over it. Depth-tested, so your hands pass in front.
         Screen = new VRPanel("InkVR_CinemaScreen", _root, screenTexture, Color.white, 0);
-        Screen.SetSize(ScreenWidth, h);
+        Screen.SetSize(w, h);
         Screen.Transform.localPosition = screenPos;
+        Screen.ZTest(UnityEngine.Rendering.CompareFunction.LessEqual);
         _grain = new VRPanel("InkVR_CinemaGrain", _root, Textures.Grain, new Color(1, 0.95f, 0.85f, 0.05f), 2);
-        _grain.SetSize(ScreenWidth, h);
+        _grain.SetSize(w, h);
         _grain.Transform.localPosition = screenPos - Vector3.forward * 0.005f;
+        _grain.ZTest(UnityEngine.Rendering.CompareFunction.LessEqual);
         _scratch = new VRPanel("InkVR_CinemaScratch", _root, Scratches(), new Color(0, 0, 0, 0.35f), 3);
-        _scratch.SetSize(ScreenWidth, h);
+        _scratch.SetSize(w, h);
         _scratch.Transform.localPosition = screenPos - Vector3.forward * 0.006f;
+        _scratch.ZTest(UnityEngine.Rendering.CompareFunction.LessEqual);
         _scratch.Visible = false;
+        Flat("InkVR_CinemaFrame", FrameTexture(), new Vector3(w + 0.5f, h + 0.5f, 1), screenPos + Vector3.forward * 0.02f, Quaternion.identity, -2);
 
-        // Frame, curtains, valance with the studio's name, floor.
-        Flat("InkVR_CinemaFrame", FrameTexture(), new Vector3(ScreenWidth + 0.5f, h + 0.5f, 1), screenPos + Vector3.forward * 0.02f, Quaternion.identity, -2);
-        var curtain = CurtainTexture();
-        Flat("InkVR_CurtainL", curtain, new Vector3(2.6f, 4.6f, 1), new Vector3(-(ScreenWidth / 2 + 1.35f), 2.3f, ScreenDistance - 0.25f), Quaternion.Euler(0, -14, 0), -3);
-        Flat("InkVR_CurtainR", curtain, new Vector3(2.6f, 4.6f, 1), new Vector3(ScreenWidth / 2 + 1.35f, 2.3f, ScreenDistance - 0.25f), Quaternion.Euler(0, 14, 0), -3);
-        Flat("InkVR_Valance", ValanceTexture(), new Vector3(ScreenWidth + 3.4f, 1.0f, 1), new Vector3(0, ScreenCenterY + h / 2 + 0.55f, ScreenDistance - 0.3f), Quaternion.identity, -1);
-        Flat("InkVR_Floor", FloorTexture(), new Vector3(14, 14, 1), new Vector3(0, 0, 2), Quaternion.Euler(90, 0, 0), -5);
-        Sign("JOEY DREW STUDIOS", new Vector3(0, ScreenCenterY + h / 2 + 0.58f, ScreenDistance - 0.33f), 0.26f, new Color(0.93f, 0.82f, 0.55f));
-        Sign("InkVR  -  VR mod made by StrikeZoneVR", new Vector3(0, ScreenCenterY - h / 2 - 0.22f, ScreenDistance - 0.05f), 0.11f, new Color(0.8f, 0.7f, 0.5f, 0.85f));
+        // The picture palace around it.
+        _theatre = new Theatre(_root);
+        Refresh();
 
-        // Projector beam from the booth behind and above you, with dust drifting through it.
-        var projector = new Vector3(0, 3.1f, -2.6f);
+        // Projector beam from the booth window at the back, over your head to the screen.
+        var projector = Theatre.Projector;
         _beamMat = new Material(Shader.Find("UI/Default")) { renderQueue = 3900 };
         _beamMat.SetInt("unity_GUIZTestMode", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
         var beam = new MeshBuilder();
-        var hw = ScreenWidth / 2;
+        var hw = w / 2;
         var hh = h / 2;
-        var corners = new[]
+        // Nested shells, so the beam's edges fade into the dark instead of ending in a hard line.
+        foreach (var shell in new[] { 0.45f, 0.62f, 0.78f, 0.91f, 1.02f })
         {
-            screenPos + new Vector3(-hw, -hh, -0.01f), screenPos + new Vector3(hw, -hh, -0.01f),
-            screenPos + new Vector3(hw, hh, -0.01f), screenPos + new Vector3(-hw, hh, -0.01f)
-        };
-        var near = new Color(1f, 0.9f, 0.68f, 0.16f);
-        var far = new Color(1f, 0.9f, 0.68f, 0.06f);
-        for (var i = 0; i < 4; i++)
-        {
-            var a = corners[i];
-            var b = corners[(i + 1) % 4];
-            beam.Quad(projector, projector, b, a, near, near, far, far);
+            var corners = new[]
+            {
+                screenPos + new Vector3(-hw, -hh, -0.01f) * shell, screenPos + new Vector3(hw, -hh, -0.01f) * shell,
+                screenPos + new Vector3(hw, hh, -0.01f) * shell, screenPos + new Vector3(-hw, hh, -0.01f) * shell
+            };
+            var near = new Color(1f, 0.9f, 0.68f, 0.03f);
+            var far = new Color(1f, 0.9f, 0.68f, 0.011f);
+            for (var i = 0; i < 4; i++)
+            {
+                var a = corners[i];
+                var b = corners[(i + 1) % 4];
+                beam.Quad(projector, projector, b, a, near, near, far, far);
+            }
         }
 
         var beamGo = new GameObject("InkVR_ProjectorBeam");
@@ -83,7 +82,7 @@ public class Cinema
         beamRenderer.sharedMaterial = _beamMat;
         beamRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-        // Light bouncing off the screen onto the audience (lights Henry's hands; layer 31 only).
+        // Light from the screen onto the audience, and from the house behind (lights Henry's hands; layer 31 only).
         var bounce = new GameObject("InkVR_ScreenLight").AddComponent<Light>();
         bounce.transform.SetParent(_root, false);
         bounce.transform.localRotation = Quaternion.LookRotation(new Vector3(0, -0.35f, -1f));
@@ -97,27 +96,9 @@ public class Cinema
         fill.transform.localRotation = Quaternion.LookRotation(new Vector3(0, -0.6f, 1f));
         fill.type = LightType.Directional;
         fill.color = new Color(0.9f, 0.75f, 0.5f);
-        fill.intensity = 0.35f;
+        fill.intensity = 0.75f;
         fill.cullingMask = VRLayers.UIMask;
         fill.shadows = LightShadows.None;
-
-        var lens = new VRPanel("InkVR_ProjectorLens", _root, Textures.SoftDot, new Color(1f, 0.92f, 0.7f, 0.9f), 5);
-        lens.SetSize(0.35f, 0.35f);
-        lens.Transform.localPosition = projector;
-        lens.Transform.localRotation = Quaternion.LookRotation(projector - screenPos);
-
-        var rng = new System.Random(3);
-        for (var i = 0; i < 40; i++)
-        {
-            var mote = new VRPanel("InkVR_Mote", _root, Textures.SoftDot, new Color(1f, 0.95f, 0.8f, 0.5f), 4);
-            var t = (float)rng.NextDouble();
-            var p = Vector3.Lerp(projector, screenPos, 0.15f + t * 0.8f);
-            p += new Vector3(((float)rng.NextDouble() - 0.5f) * hw * 2 * t, ((float)rng.NextDouble() - 0.5f) * hh * 2 * t, 0);
-            mote.Transform.localPosition = p;
-            mote.SetSize(0.012f, 0.012f);
-            _motes.Add(mote.Transform);
-            _moteVel.Add(new Vector3(((float)rng.NextDouble() - 0.5f) * 0.03f, ((float)rng.NextDouble() - 0.4f) * 0.02f, ((float)rng.NextDouble() - 0.5f) * 0.03f));
-        }
     }
 
     /// <summary>Rebuild the signs (a chapter load resets the game's dynamic font atlases and blanks them).</summary>
@@ -127,10 +108,10 @@ public class Cinema
             if (t != null)
                 Object.Destroy(t.gameObject);
         _signs.Clear();
-        foreach (var spec in _signSpecs) MakeSign(spec.text, spec.pos, spec.height, spec.color);
+        foreach (var spec in _theatre.Signs) MakeSign(spec);
     }
 
-    /// <summary>Projector flicker, drifting dust, the odd film scratch.</summary>
+    /// <summary>Projector flicker, the theatre's lights, drifting dust, the odd film scratch.</summary>
     public void Animate()
     {
         if (_root == null || !_root.gameObject.activeInHierarchy) return;
@@ -155,13 +136,8 @@ public class Cinema
         }
 
         var head = Core.VRRig.Head;
-        for (var i = 0; i < _motes.Count; i++)
-        {
-            var m = _motes[i];
-            m.localPosition += _moteVel[i] * dt;
-            if (m.localPosition.y > 3.2f || m.localPosition.y < 0.6f) _moteVel[i] = new Vector3(_moteVel[i].x, -_moteVel[i].y, _moteVel[i].z);
-            if (head != null) m.rotation = Quaternion.LookRotation(m.position - head.position);
-        }
+        var eye = head != null ? _root.InverseTransformPoint(head.position) : new Vector3(0, 1.6f, 0);
+        _theatre.Animate(_flickerT, flicker, calm, eye);
     }
 
     private void Flat(string name, Texture2D tex, Vector3 size, Vector3 pos, Quaternion rot, int order)
@@ -173,29 +149,26 @@ public class Cinema
         p.ZTest(UnityEngine.Rendering.CompareFunction.LessEqual);
     }
 
-    private void Sign(string text, Vector3 pos, float height, Color color)
-    {
-        _signSpecs.Add((text, pos, height, color));
-        MakeSign(text, pos, height, color);
-    }
-
-    private void MakeSign(string text, Vector3 pos, float height, Color color)
+    private void MakeSign(Theatre.SignSpec spec)
     {
         var go = new GameObject("InkVR_Sign");
         go.layer = VRLayers.UI;
         go.transform.SetParent(_root, false);
-        go.transform.localPosition = pos;
+        go.transform.localPosition = spec.Pos;
+        go.transform.localRotation = spec.Rot;
         var tmp = go.AddComponent<TMPro.TextMeshPro>();
         _signs.Add(tmp);
         var font = GameFonts.Title;
         if (font != null) tmp.font = font;
-        tmp.text = text;
-        tmp.fontSize = height * 10f;
-        tmp.color = color;
+        tmp.text = spec.Text;
+        tmp.fontSize = spec.Height * 10f;
+        tmp.color = spec.Color;
         tmp.alignment = TMPro.TextAlignmentOptions.Center;
         tmp.enableWordWrapping = false;
-        tmp.rectTransform.sizeDelta = new Vector2(8, height * 2);
-        tmp.fontMaterial.renderQueue = 4010; // instance material: in front of the valance/frame, never the game's own UI
+        tmp.rectTransform.sizeDelta = new Vector2(spec.Width, spec.Height * 2);
+        var mat = tmp.fontMaterial; // instance material: drawn after the theatre, hidden behind walls like everything else
+        mat.renderQueue = 4010;
+        mat.SetFloat("unity_GUIZTestMode", (float)UnityEngine.Rendering.CompareFunction.LessEqual);
     }
 
     // ---------------- painted textures ----------------
@@ -236,80 +209,6 @@ public class Cinema
 
         c.Grain(0.15f);
         return c.ToTexture("InkVR_Frame", false);
-    }
-
-    private static Texture2D CurtainTexture()
-    {
-        var c = new InkCanvas(256, 512, new Color(0.22f, 0.14f, 0.08f), 5);
-        for (var x = 0; x < c.W; x++)
-        {
-            // Vertical folds: shade by a sine, ink line in each fold.
-            var s = Mathf.Sin(x / (float)c.W * Mathf.PI * 2 * 6);
-            for (var y = 0; y < c.H; y++)
-            {
-                var shade = 0.55f + 0.45f * (s * 0.5f + 0.5f);
-                var p = c.Px[y * c.W + x];
-                c.Px[y * c.W + x] = new Color(p.r * shade, p.g * shade, p.b * shade, 1);
-            }
-        }
-
-        for (var i = 0; i < 6; i++)
-        {
-            var x = (i + 0.75f) * c.W / 6f;
-            c.Stroke(x, 0, x + c.Rand(-4, 4), c.H, 2.2f, Ink, 1.2f, 0.8f);
-            c.Hatch(x - 18, 0, 14, c.H, 80, 7, 1.0f, Ink, 0.35f);
-        }
-
-        c.Grain(0.12f);
-        return c.ToTexture("InkVR_Curtain");
-    }
-
-    private static Texture2D ValanceTexture()
-    {
-        var c = new InkCanvas(512, 96, new Color(0.18f, 0.11f, 0.06f), 9);
-        // Scalloped lower edge.
-        for (var x = 0; x < c.W; x++)
-        {
-            var edge = 18 + 12 * Mathf.Abs(Mathf.Sin(x / (float)c.W * Mathf.PI * 10));
-            for (var y = 0; y < edge; y++) c.Px[y * c.W + x] = Color.clear;
-            c.Dot(x, edge, 1.3f, Ink);
-        }
-
-        c.Stroke(0, c.H - 6, c.W, c.H - 6, 2.5f, Ink);
-        c.Hatch(0, 30, c.W, 50, 15, 9, 0.9f, Ink, 0.25f);
-        c.Grain(0.12f);
-        return c.ToTexture("InkVR_Valance");
-    }
-
-    private static Texture2D FloorTexture()
-    {
-        var c = new InkCanvas(512, 512, new Color(0.16f, 0.11f, 0.07f), 21);
-        var plank = 512 / 10f;
-        for (var i = 0; i <= 10; i++) c.Stroke(i * plank, 0, i * plank, c.H, 1.8f, Ink, 0.8f);
-        for (var i = 0; i < 10; i++)
-        {
-            var y = c.Rand(0, c.H);
-            c.Stroke(i * plank, y, (i + 1) * plank, y, 1.4f, Ink, 0.4f);
-            for (var g = 0; g < 6; g++)
-            {
-                var gx = i * plank + c.Rand(6, plank - 6);
-                var gy = c.Rand(0, c.H);
-                c.Stroke(gx, gy, gx + c.Rand(-2, 2), gy + c.Rand(20, 60), 0.8f, Ink, 0.4f, 0.5f);
-            }
-        }
-
-        // Fade to darkness away from the middle (the room's edges vanish into the dark).
-        for (var y = 0; y < c.H; y++)
-        for (var x = 0; x < c.W; x++)
-        {
-            var d = Vector2.Distance(new Vector2(x, y), new Vector2(256, 300)) / 256f;
-            var f = Mathf.Clamp01(1.15f - d);
-            var p = c.Px[y * c.W + x];
-            c.Px[y * c.W + x] = new Color(p.r * f, p.g * f, p.b * f, 1);
-        }
-
-        c.Grain(0.2f);
-        return c.ToTexture("InkVR_Floor", false);
     }
 
     private static Texture2D Scratches()

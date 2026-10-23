@@ -601,7 +601,7 @@ namespace InkVR.Launcher
             sheet.Children.Add(Look.Text("VERSION " + Version + "  ·  TEST BUILD", 34, Paint.StampRed).At(x, 246));
             var text = string.Join("\n\n", new[]
             {
-                "A fan-made VR mod for Bendy and the Ink Machine: play every chapter in a Quest 3 (or any OpenXR headset) with Henry's own hands, and watch the menus on a projector screen in a little studio theatre.",
+                "A fan-made VR mod for Bendy and the Ink Machine: play every chapter in a Quest 3 (or any OpenXR headset) with Henry's own hands, and watch the menus on the big screen of a 1930s picture palace.",
                 "Unofficial. Not made, endorsed or supported by Joey Drew Studios Inc. The Bendy artwork you see here is read from your own copy of the game and never leaves your PC.",
                 "Built with BepInEx (LGPL 2.1), HarmonyX (MIT), Il2CppInterop (LGPL 3.0) and Unity's OpenXR plugin (downloaded from Unity). Lettering: Bangers by Vernon Adams (SIL Open Font License). Texture decoding after bcdec by Sergii Kudlai (MIT).",
             });

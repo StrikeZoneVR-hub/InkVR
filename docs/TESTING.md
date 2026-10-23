@@ -11,6 +11,15 @@ WORLD SIZE: AUTO now puts your eyes at Henry's height by itself, so UP 60 CM wou
 
 ### What changed since 0.3.1
 
+**The menus now play in a full 1930s picture palace**
+The title screen, pause menu and loading screens are on the big screen of an old movie theatre, and you can look all around it:
+- **In front:** the stage, with velvet drapes, footlights, two of Bendy's cardboard cut-outs, and a gilded arch with Bendy's face and JOEY DREW STUDIOS above it.
+- **Either side of the stage:** organ grilles and the exit doors.
+- **Around you:** rows of velvet seats stepping up behind you, and sconce-lit walls with cartoon posters ("Bendy in SENT", "THE DANCING DEMON"...) and lobby cards of the five chapters.
+- **Behind and above:** a balcony with a "DREAMS COME TRUE" marquee whose bulbs chase, the projection booth with its flickering beam overhead, a coffered ceiling with a chandelier, and ink running down the walls.
+
+The screen is bigger and further away (6.6 m wide at 6 m) but looks the same size as before, so the menus read just as well. Your hands now pass in front of it properly. CALM THEATRE FLICKER also steadies the marquee and the sconces.
+
 **You no longer shrink as you walk**
 0.3.1 kept re-measuring your height while you played and resized the world on the spot, so you seemed to shrink as you walked. The size is now decided once as each level starts, and again when you resume from pause, and then it stays put. Henry's feet are also pinned to the floor, so your height can't drift.
 
@@ -31,6 +40,8 @@ For the Tommy Gun in Chapter 3. GUN AIM: HEAD brings back the flat game's look-t
 MELEE and GUN AIM are in VR SETTINGS → CONTROLS, and in the launcher under OPTIONS → WEAPONS. The launcher's HEIGHT option now covers ±60 cm, like the one in the game.
 
 ### What to check
+- [ ] At the title screen and the pause menu, look all around the theatre (behind you and up too): it should feel like a real old movie palace, with nothing flickering wrongly or looking broken.
+- [ ] The menus on the screen are as easy to read and use as before.
 - [ ] In Chapter 1, you stay the same size the whole time you walk around.
 - [ ] Walking is quiet apart from Henry's own footsteps.
 - [ ] In Chapter 2, pick up the axe: hold a hand on it and press grip or X.
@@ -47,6 +58,7 @@ Verified on Unity's simulated OpenXR runtime, in test sessions that never write 
 - **Glitch guard:** a tracking jump (149 m/s) was ignored.
 - **Earlier fixes:** the world size stayed fixed while walking, and Henry stayed grounded in all 200 sampled frames.
 - **Menus:** both new settings show and fit in the in-game VR SETTINGS page and the launcher.
+- **The theatre:** I checked it looking front, left, right, behind and up, at the title screen and paused in Chapter 1. It draws in under 2 ms a frame and takes about 1.6 s to build once, at startup.
 
 Not yet verified:
 - **Gun aim:** a directly loaded Chapter 3 can't open the weapon station, so I couldn't hold the Tommy Gun.
