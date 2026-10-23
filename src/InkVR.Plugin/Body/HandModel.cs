@@ -351,12 +351,12 @@ public class HandModel
         }
 
         var name = IsLeft ? "LifelikeHand_L" : "LifelikeHand_R";
-        var built = sb.BuildSeparate(_wrist, bones, _wrist, material, name, out var ink);
-        foreach (var (renderer, geometry, key) in built)
+        var built = sb.BuildSeparate(_wrist, bones, _wrist, material, name, out var ink, out var bind);
+        foreach (var piece in built)
         {
-            _renderers.Add(renderer);
-            if (key == "lifeNail") continue;
-            var part = InkStains.Register(renderer.transform, renderer, renderer.sharedMaterial, geometry, false);
+            _renderers.Add(piece.Renderer);
+            if (piece.Material == "lifeNail") continue;
+            var part = InkStains.RegisterSkinned(piece.Renderer, piece.Geometry, piece.Weights, bones, bind, InkRegion.Hand);
             if (part != null) Stains.Add(part);
         }
 
@@ -386,7 +386,7 @@ public class HandModel
         _renderers.Add(r);
         if (stain)
         {
-            var part = InkStains.Register(go.transform, r, material, mb, sleeve);
+            var part = InkStains.Register(go.transform, r, material, mb, sleeve, sleeve || go.name.Contains("Forearm") ? InkRegion.Arm : InkRegion.Hand);
             if (part != null) Stains.Add(part);
         }
         if (outline <= 0) return;

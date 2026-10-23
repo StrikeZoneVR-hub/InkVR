@@ -154,7 +154,10 @@ public static class VRRig
         MeleeSwing.DevPreUpdate();
         Hands.Update();
         if (InGame && !_cinemaActive) MeleeSwing.Update();
+        WeaponHandling.Update();
+        Input.PhysicalInteract.Update();
         InkWorld.Update();
+        Footprints.Update();
         LaserPointer.Update();
         if (InGame && !_cinemaActive) ScaleStereo();
         if (DevLookAt.HasValue && InGame && !_cinemaActive)

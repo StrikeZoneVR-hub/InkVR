@@ -25,7 +25,7 @@ public static class BodyTextures
     private static Texture2D Done(InkCanvas c, string name, float grain = 0.08f)
     {
         c.Grain(grain);
-        return c.ToTexture(name);
+        return HenryTextures.Keep(c, name); // keeps the pixels too, so ink can be painted onto Henry's clothes
     }
 
     /// <summary>Darken towards the sides and back, for a drawn, two-tone look.</summary>

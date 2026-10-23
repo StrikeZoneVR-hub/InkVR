@@ -13,10 +13,14 @@ namespace InkVR.Body;
 
 /// <summary>
 /// Finds the ink in each level and gets it onto Henry when he touches it:
-///   splat decals on floors and walls  → a blot where a finger or palm brushes them
-///   ink pools / flooded floors        → whatever dips under the surface is coated
-///   ink drip and splash particles     → drops that land on a hand or sleeve
-///   the game's own ink burst on the player (scares, ink attacks) → a splatter over both arms
+///   splat decals on floors and walls  → a blot where a finger or palm brushes them; inky soles from floor puddles
+///   ink pools / flooded floors        → whatever dips under the surface is coated: hands, and with the full
+///                                       body, shoes and trousers up to the ink line (the game's own "walking in
+///                                       ink" footsteps count too); head under → soaked from head to toe
+///   pouring ink                       → whatever stands in the stream
+///   ink drip and splash particles     → drops that land on a hand, a sleeve, shoulders, clothes
+///   the game's own ink burst on the player (scares, ink attacks) → a splatter over the arms and the front
+/// Fresh ink keeps dripping off Henry for a while, and inky soles leave footprints (<see cref="Footprints"/>).
 /// </summary>
 public static class InkWorld
 {
@@ -37,12 +41,13 @@ public static class InkWorld
 
     private static readonly List<Decal> Decals = new();
     private static readonly List<Pool> Pools = new();
+    private static readonly List<Pool> Falls = new();
     private static readonly List<ParticleSystem> Particles = new();
     private static readonly List<ParticleSystem> Bursts = new();
     private static readonly Dictionary<IntPtr, int> BurstCounts = new();
     private static Il2CppStructArray<ParticleSystem.Particle> _particleBuf;
     private static string _scene;
-    private static float _nextScan, _nextContact, _nextDip, _nextParticles;
+    private static float _nextScan, _nextContact, _nextDip, _nextParticles, _nextBody, _nextDrip, _lastSoak = -10;
     private static int _scans;
 
     public static int DecalCount => Decals.Count;
@@ -102,6 +107,7 @@ public static class InkWorld
         {
             _scene = scene;
             _scans = 0;
+            Footprints.Clear();
             _nextScan = Time.unscaledTime + 2f;
         }
 
@@ -131,6 +137,18 @@ public static class InkWorld
             CatchDrops();
         }
 
+        if (Time.unscaledTime >= _nextBody)
+        {
+            _nextBody = Time.unscaledTime + 0.2f;
+            Wading();
+        }
+
+        if (Time.unscaledTime >= _nextDrip)
+        {
+            _nextDrip = Time.unscaledTime + 0.1f;
+            DripOff();
+        }
+
         Droplets.Update();
     }
 
@@ -140,6 +158,7 @@ public static class InkWorld
     {
         Decals.Clear();
         Pools.Clear();
+        Falls.Clear();
         Particles.Clear();
         Bursts.Clear();
         var player = GameManager.Instance?.Player;
@@ -169,6 +188,14 @@ public static class InkWorld
                 continue;
             }
 
+            // Ink pouring down (from pipes, through the ceiling): tall, narrow, named for it.
+            if (shader.IndexOf("Ink", StringComparison.OrdinalIgnoreCase) >= 0 && r.bounds.size.y > 1.5f && r.bounds.size.x * r.bounds.size.z < 9f
+                && (name.Contains("fall") || name.Contains("pour") || name.Contains("stream") || name.Contains("flow") || name.Contains("gush") || name.Contains("spout")))
+            {
+                Falls.Add(new Pool { R = r });
+                continue;
+            }
+
             if (name.Contains("ink_splat") || name.Contains("inksplat") || name.Contains("ink_puddle") || name.Contains("inkpuddle") || name.Contains("ink_spill"))
             {
                 var d = BuildDecal(r);
@@ -180,7 +207,7 @@ public static class InkWorld
         foreach (var d in Decals)
             if (d.Tris != null)
                 meshed++;
-        Plugin.L.LogInfo($"Ink in this level: {Decals.Count} splats ({meshed} with surface data), {Pools.Count} pools, {Particles.Count} drip/splash emitters, {Bursts.Count} player bursts ({(Time.realtimeSinceStartup - t0) * 1000f:F0} ms)");
+        Plugin.L.LogInfo($"Ink in this level: {Decals.Count} splats ({meshed} with surface data), {Pools.Count} pools, {Falls.Count} pours, {Particles.Count} drip/splash emitters, {Bursts.Count} player bursts ({(Time.realtimeSinceStartup - t0) * 1000f:F0} ms)");
     }
 
     private static Decal BuildDecal(Renderer r)
@@ -316,7 +343,8 @@ public static class InkWorld
                     if (p.R == null || !p.R.gameObject.activeInHierarchy) continue;
                     var pb = p.R.bounds;
                     if (pb.min.y > surface || pb.max.y < deepest || pb.max.x < b.min.x || pb.min.x > b.max.x || pb.max.z < b.min.z || pb.min.z > b.max.z) continue;
-                    dipped += InkStains.Coat(p, surface, 0.85f);
+                    InkStains.Coat(p, surface, 0.85f);
+                    dipped++;
                 }
             }
 
@@ -328,10 +356,15 @@ public static class InkWorld
         }
     }
 
+    private static Bounds _bodyBounds;
+
     private static void CatchDrops()
     {
         if (Particles.Count == 0) return;
         var reach = 0.05f * VRRig.ActiveScale;
+        var body = BodyParts();
+        var haveBody = body != null && BodyBounds(body, out _bodyBounds);
+        var now = Time.unscaledTime;
         foreach (var ps in Particles)
         {
             if (ps == null || !ps.isPlaying) continue;
@@ -339,28 +372,52 @@ public static class InkWorld
             if (psr == null) continue;
             var area = psr.bounds;
             area.Expand(reach * 2f);
-            foreach (var (hand, parts) in HandsParts())
-            {
-                if (parts == null) continue;
-                var handBounds = Hands.Bounds(hand);
-                if (!area.Intersects(handBounds)) continue;
+            var nearLeft = area.Intersects(Hands.Bounds(Hand.Left));
+            var nearRight = area.Intersects(Hands.Bounds(Hand.Right));
+            var nearBody = haveBody && area.Intersects(_bodyBounds);
+            if (!nearLeft && !nearRight && !nearBody) continue;
 
-                var max = ps.main.maxParticles;
-                if (_particleBuf == null || _particleBuf.Length < max) _particleBuf = new Il2CppStructArray<ParticleSystem.Particle>(Mathf.Max(max, 256));
-                var n = ps.GetParticles(_particleBuf);
-                var local = IsLocalSpace(ps, psr);
-                for (var i = 0; i < n; i++)
+            var max = ps.main.maxParticles;
+            if (_particleBuf == null || _particleBuf.Length < max) _particleBuf = new Il2CppStructArray<ParticleSystem.Particle>(Mathf.Max(max, 256));
+            var n = ps.GetParticles(_particleBuf);
+            var local = IsLocalSpace(ps, psr);
+            for (var i = 0; i < n; i++)
+            {
+                var pos = _particleBuf[i].m_Position;
+                if (local) pos = ps.transform.TransformPoint(pos);
+                foreach (var (hand, parts) in HandsParts())
                 {
-                    var pos = _particleBuf[i].m_Position;
-                    if (local) pos = ps.transform.TransformPoint(pos);
+                    if (parts == null || !(hand == Hand.Left ? nearLeft : nearRight)) continue;
+                    var handBounds = Hands.Bounds(hand);
                     if (!handBounds.Contains(pos) && handBounds.SqrDistance(pos) > reach * reach) continue;
                     var hit = NearestPart(parts, pos, reach * 1.5f);
-                    if (hit == null || Time.unscaledTime - hit.LastSplat < 0.12f) continue;
+                    if (hit == null || now - hit.LastSplat < 0.12f) continue;
                     InkStains.Splat(hit, pos, 0.007f, 0.9f);
                     XrInput.Haptic(hand, 0.15f, 0.02f);
                 }
+
+                if (!nearBody || !_bodyBounds.Contains(pos)) continue;
+                var part = NearestPart(body, pos, reach * 1.5f);
+                if (part == null || now - part.LastSplat < 0.12f) continue;
+                // Drops from above land on the shoulders and the top of the clothes; the splat finds the nearest surface.
+                InkStains.Splat(part, pos, 0.012f, 0.9f);
             }
         }
+    }
+
+    private static bool BodyBounds(List<StainPart> parts, out Bounds b)
+    {
+        b = default;
+        var any = false;
+        foreach (var p in parts)
+        {
+            if (!p.Visible) continue;
+            if (!any) b = p.R.bounds;
+            else b.Encapsulate(p.R.bounds);
+            any = true;
+        }
+
+        return any;
     }
 
     /// <summary>Particles simulated in the emitter's local space need moving into the world (the setting isn't readable in this build: infer it).</summary>
@@ -433,7 +490,225 @@ public static class InkWorld
             XrInput.Haptic(hand, 0.6f, 0.15f);
             Droplets.Spawn(Hands.PalmPosition(hand), 3);
         }
+
+        // With the full body, the burst hits the front of Henry too: chest and shirt most, legs some.
+        var body = BodyParts();
+        if (body == null) return;
+        var travel = VRRig.Head != null ? -VRRig.Head.forward : Vector3.back;
+        travel.y = 0;
+        travel = travel.normalized + Vector3.down * 0.2f;
+        foreach (var p in body)
+            if (p.Visible)
+                InkStains.SplashFrom(p, travel, p.Region == InkRegion.Torso ? perHand + 6 : p.Region == InkRegion.Legs ? perHand / 2 : 2, 0.95f, 0.012f, 0.035f);
     }
+
+    // ---------------- the full body, the feet ----------------
+
+    /// <summary>Henry's clothes, when the full body is showing.</summary>
+    private static List<StainPart> BodyParts() => Hands.Body?.Stains;
+
+    private static float BodyK => VRRig.ActiveScale * Mathf.Clamp(VRRig.StandingEyeHeight / HenryBody.EyeHeight, 0.75f, 1.35f);
+
+    /// <summary>Dev: the surface (world y) of the ink you're standing in, or null.</summary>
+    public static float? WadeSurface { get; private set; }
+
+    public static string WadeWhy = "";
+
+    /// <summary>Dev: pretend the ink is this deep (metres of Henry above the floor; null = off).</summary>
+    public static float? DevWadeDepth;
+
+    /// <summary>
+    /// Feet in ink: the pools around you, and the game's own idea of it (its ink footsteps; deep ink slows you).
+    /// Shoes and trousers get coated up to the ink line; soles get loaded for footprints; head under = soaked.
+    /// </summary>
+    private static void Wading()
+    {
+        var player = GameManager.Instance?.Player;
+        var headT = VRRig.Head;
+        if (player == null || headT == null) return;
+        var k = BodyK;
+        var head = headT.position;
+        var ground = Hands.GroundAt(head);
+        float? surface = null;
+        var why = "";
+        var under = false;
+        foreach (var pool in Pools)
+        {
+            if (pool.R == null || !pool.R.enabled || !pool.R.gameObject.activeInHierarchy) continue;
+            var b = pool.R.bounds;
+            if (head.x < b.min.x || head.x > b.max.x || head.z < b.min.z || head.z > b.max.z) continue;
+            var top = b.max.y;
+            if (top < ground - 0.05f * k) continue; // a pool below this floor
+            if (top > head.y)
+            {
+                // Over your eyes, but not a pool on the floor above: you're under the ink.
+                if (top - head.y < 0.5f * k) under = true;
+                continue;
+            }
+
+            if (!surface.HasValue || top > surface.Value) surface = top;
+            why = "pool " + pool.R.name;
+        }
+
+        var type = player.CurrentFootstepType;
+        if (type == FootstepTypes.INK || type == FootstepTypes.INK_STAIRS)
+        {
+            surface = Mathf.Max(surface ?? float.MinValue, ground + 0.035f * k);
+            why += " ink underfoot";
+        }
+        else if (type == FootstepTypes.INK_DEEP)
+        {
+            surface = Mathf.Max(surface ?? float.MinValue, ground + 0.24f * k);
+            why += " deep ink";
+        }
+
+        if (DevWadeDepth.HasValue)
+        {
+            surface = ground + DevWadeDepth.Value * k;
+            why = "dev";
+        }
+
+        var inInk = surface.HasValue && surface.Value > ground - 0.01f * k;
+        WadeSurface = inInk ? surface : null;
+        WadeWhy = why.Trim();
+        Footprints.InInk = inInk;
+        if (inInk) Footprints.WetBoth(1f);
+        else FloorPuddles(ground, k);
+
+        var parts = BodyParts();
+        if (parts != null)
+            foreach (var p in parts)
+            {
+                if (!inInk)
+                {
+                    p.CoatLine = float.MinValue;
+                    continue;
+                }
+
+                if (!p.Visible) continue;
+                var line = surface.Value;
+                if (line <= p.CoatLine + 0.01f * k && Time.unscaledTime - p.CoatTime < 1.5f) continue;
+                InkStains.Coat(p, line, 0.92f, 0.018f * k);
+                p.CoatLine = line;
+                p.CoatTime = Time.unscaledTime;
+            }
+
+        if (under) Soak("went under the ink");
+        if (Falls.Count > 0) Pours(head, ground, k);
+    }
+
+    /// <summary>Soaked from head to toe (fallen in, or the dev "drench" test).</summary>
+    public static void Soak(string why)
+    {
+        if (Time.unscaledTime - _lastSoak < 2f) return;
+        _lastSoak = Time.unscaledTime;
+        foreach (var (hand, parts) in HandsParts())
+        {
+            if (parts == null) continue;
+            foreach (var p in parts) InkStains.Soak(p, 0.95f);
+            XrInput.Haptic(hand, 0.7f, 0.3f);
+        }
+
+        var body = BodyParts();
+        if (body != null)
+            foreach (var p in body)
+                InkStains.Soak(p, 0.95f);
+        Footprints.WetBoth(1f);
+        Plugin.L.LogInfo($"Henry is soaked in ink ({why})");
+    }
+
+    /// <summary>Standing in pouring ink: whatever is in the stream gets coated.</summary>
+    private static void Pours(Vector3 head, float ground, float k)
+    {
+        var body = BodyParts();
+        foreach (var f in Falls)
+        {
+            if (f.R == null || !f.R.enabled || !f.R.gameObject.activeInHierarchy) continue;
+            var b = f.R.bounds;
+            if (body != null)
+                foreach (var p in body)
+                    if (p.Visible && p.R.bounds.Intersects(b))
+                        InkStains.CoatInside(p, b, 0.85f);
+            foreach (var (hand, parts) in HandsParts())
+            {
+                if (parts == null) continue;
+                var wet = false;
+                foreach (var p in parts)
+                    if (p.Visible && p.R.bounds.Intersects(b))
+                    {
+                        InkStains.CoatInside(p, b, 0.85f);
+                        wet = true;
+                    }
+
+                if (wet) XrInput.Haptic(hand, 0.2f, 0.1f);
+            }
+
+            if (head.x > b.min.x && head.x < b.max.x && head.z > b.min.z && head.z < b.max.z && b.min.y < ground + 0.3f * k) Footprints.WetBoth(0.8f);
+        }
+    }
+
+    /// <summary>Stepping in an ink puddle on the floor: that sole picks it up (and prints for a few steps).</summary>
+    private static void FloorPuddles(float ground, float k)
+    {
+        if (Decals.Count == 0 || VRRig.Head == null) return;
+        var body = Hands.Body;
+        var head = VRRig.Head.position;
+        for (var foot = 0; foot < 2; foot++)
+        {
+            var at = body != null ? (foot == 0 ? body.FootLeft : body.FootRight) : new Vector3(head.x, ground, head.z);
+            foreach (var d in Decals)
+            {
+                if (d.R == null) continue;
+                var b = d.B;
+                if (b.size.y > 0.3f * k) continue; // only flat splats on the floor
+                if (at.x < b.min.x || at.x > b.max.x || at.z < b.min.z || at.z > b.max.z) continue;
+                if (Mathf.Abs(at.y - b.center.y) > 0.15f * k) continue;
+                if (new Vector2(at.x - d.Centre.x, at.z - d.Centre.z).magnitude > d.Radius * 0.62f + 0.05f * k) continue;
+                Footprints.Wet(foot, 0.55f);
+                if (body != null)
+                {
+                    var sole = new Bounds(new Vector3(at.x, at.y + 0.01f * k, at.z), new Vector3(0.4f, 0.05f, 0.4f) * k);
+                    foreach (var p in body.Stains)
+                        if (p.Visible && (p.Region == InkRegion.Feet || p.BaseName.Contains("Belt")))
+                            InkStains.CoatInside(p, sole, 0.7f);
+                }
+
+                break;
+            }
+        }
+    }
+
+    private static readonly System.Random DripRng = new(99);
+
+    /// <summary>Fresh ink keeps dripping: off hands and sleeves now and then, off a soaked body a lot.</summary>
+    private static void DripOff()
+    {
+        var now = Time.unscaledTime;
+
+        void From(List<StainPart> parts, float rate)
+        {
+            if (parts == null) return;
+            foreach (var p in parts)
+            {
+                if (!p.Visible || p.WetUntil <= now) continue;
+                var wet = Mathf.Clamp01((p.WetUntil - now) / 20f);
+                if (DripRng.NextDouble() > rate * wet) continue;
+                var wv = p.WorldVerts();
+                var low = wv[DripRng.Next(wv.Length)];
+                for (var i = 0; i < 8; i++)
+                {
+                    var v = wv[DripRng.Next(wv.Length)];
+                    if (v.y < low.y) low = v;
+                }
+
+                Droplets.Spawn(low, 1);
+            }
+        }
+
+        foreach (var (_, parts) in HandsParts()) From(parts, 0.05f);
+        From(BodyParts(), 0.12f);
+    }
+
 
     private static int _surfaceMask = -1;
     private static int _maskPlayerLayer = -1;

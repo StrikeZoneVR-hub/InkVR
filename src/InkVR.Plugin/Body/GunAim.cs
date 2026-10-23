@@ -25,6 +25,11 @@ public static class GunAim
         if (!c.PoseValid) return true;
 
         VRRig.TrackingToWorld(c.AimPosition, c.AimRotation, out var from, out var rot);
+        if (WeaponHandling.TwoHandAim(out var twoFrom, out var twoRot))
+        {
+            from = twoFrom;
+            rot = twoRot;
+        }
         var dir = rot * Vector3.forward;
         var range = __instance.m_WeaponRange > 0 ? __instance.m_WeaponRange : 100f;
         var mask = ~__instance.m_IgnoreLayers.value;

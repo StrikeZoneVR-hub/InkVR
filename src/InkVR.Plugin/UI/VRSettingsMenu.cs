@@ -54,11 +54,13 @@ public static class VRSettingsMenu
         Toggle("INTERACT", ModConfig.InteractWithHand, "HAND HOVER", "LOOK AT IT"),
         Toggle("MELEE", ModConfig.PhysicalMelee, "SWING YOUR ARM", "BUTTON ONLY"),
         Toggle("GUN AIM", ModConfig.AimGunsWithHand, "HAND", "HEAD"),
+        MotionControls(),
         Choice("HEIGHT ADJUST", ModConfig.HeightOffset, Range(-0.6f, 0.6f, 0.05f), v => Mathf.Abs(v) < 0.001f ? "NONE" : v > 0 ? $"UP {v * 100:0} CM" : $"DOWN {-v * 100:0} CM"),
         Toggle("LASER POINTER", ModConfig.LaserPointer, "ON", "OFF"),
         Category("HENRY"),
         Pick("BODY", ModConfig.BodyMode, new[] { "Full", "Arms", "Hands", "None" }, new[] { "FULL BODY", "ARMS & HANDS", "HANDS ONLY", "NONE" }),
         Pick("STYLE", ModConfig.BodyStyle, new[] { "Lifelike", "Toon" }, new[] { "LIFELIKE", "TOON" }),
+        Toggle("INK ON HENRY", ModConfig.InkOnHands, "ON", "OFF"),
         Category("GRAPHICS"),
         Choice("RENDER SCALE", ModConfig.RenderScale, Range(0.6f, 1.5f, 0.1f), v => $"{v * 100:0}%"),
         Toggle("AUTO RESOLUTION", ModConfig.DynamicResolution, "ON", "OFF"),
@@ -93,6 +95,33 @@ public static class VRSettingsMenu
         Value = () => entry.Value ? whenTrue : whenFalse,
         Step = _ => entry.Value = !entry.Value
     };
+
+    /// <summary>
+    /// The hand-motion extras in one row (the page has room for one more): valves, levers and soup by hand,
+    /// throwing with your arm, two hands on guns, the shoulder holster. The launcher has each on its own.
+    /// </summary>
+    private static Row MotionControls()
+    {
+        var entries = new[] { ModConfig.PhysicalInteractions, ModConfig.PhysicalThrow, ModConfig.TwoHandedGuns, ModConfig.Holster };
+        return new Row
+        {
+            Label = "MOTION CONTROLS",
+            Value = () =>
+            {
+                var on = 0;
+                foreach (var e in entries)
+                    if (e.Value)
+                        on++;
+                return on == entries.Length ? "ALL BY HAND" : on == 0 ? "BUTTONS" : "SOME (SEE LAUNCHER)";
+            },
+            Step = _ =>
+            {
+                var all = true;
+                foreach (var e in entries) all &= e.Value;
+                foreach (var e in entries) e.Value = !all;
+            }
+        };
+    }
 
     private static Row Pick(string label, ConfigEntry<string> entry, string[] values, string[] names) => new()
     {
@@ -230,9 +259,9 @@ public static class VRSettingsMenu
         }
 
         // A few more rows than the game's own pages: tighten the list so it clears the credit.
-        nav.localScale = new Vector3(0.8f, 0.8f, 1f);
+        nav.localScale = new Vector3(0.72f, 0.72f, 1f);
         var navRt = nav.GetComponent<RectTransform>();
-        if (navRt != null) navRt.anchoredPosition += new Vector2(0, 18f);
+        if (navRt != null) navRt.anchoredPosition += new Vector2(0, 30f);
         AddCredit(root.transform, title);
         root.SetActive(false);
     }

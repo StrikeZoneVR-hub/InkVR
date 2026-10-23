@@ -247,8 +247,35 @@ public sealed class HenryBody
         return SkinWeight.Blend(b1, b2, w2 / (w1 + w2));
     }
 
-    private void Assemble(Func<string, Material> material) =>
-        _renderers.AddRange(_skin.BuildCombined(_root, _bones, _bones[(int)B.Pelvis], material, _root.name));
+    /// <summary>Henry's clothes as paintable pieces (ink from the world gets onto them).</summary>
+    public readonly List<StainPart> Stains = new();
+
+    /// <summary>A foot has just come down: which (0 left, 1 right), where (ground, world) and which way it points (yaw).</summary>
+    public event Action<int, Vector3, float> FootPlanted;
+
+    private void Assemble(Func<string, Material> material)
+    {
+        // One renderer per material, so each piece of clothing carries its own paintable texture.
+        var pieces = _skin.BuildSeparate(_root, _bones, _bones[(int)B.Pelvis], material, _root.name, out var outline, out var bind);
+        foreach (var piece in pieces)
+        {
+            _renderers.Add(piece.Renderer);
+            var region = RegionOf(piece.Material);
+            if (region == null) continue;
+            var part = InkStains.RegisterSkinned(piece.Renderer, piece.Geometry, piece.Weights, _bones, bind, region.Value);
+            if (part != null) Stains.Add(part);
+        }
+
+        if (outline != null) _renderers.Add(outline);
+    }
+
+    private static InkRegion? RegionOf(string material) => material switch
+    {
+        "toonShirt" or "studioShirt" or "vest" or "tie" or "braces" => InkRegion.Torso,
+        "toonHips" or "studioHips" or "toonTrousers" or "studioTrousers" or "belt" => InkRegion.Legs,
+        "toonShoe" or "studioBoot" => InkRegion.Feet,
+        _ => null // gold buttons and buckles stay shiny
+    };
 
     public void SetVisible(bool on)
     {
@@ -450,6 +477,7 @@ public sealed class HenryBody
             _feet[i].Stepping = false;
             _feet[i].Planted = _feet[i].To;
             _feet[i].Yaw = _feet[i].ToYaw;
+            FootPlanted?.Invoke(i, _feet[i].Planted, _feet[i].Yaw + (i == 0 ? -7f : 7f));
         }
 
         if (_feet[0].Stepping || _feet[1].Stepping) return;

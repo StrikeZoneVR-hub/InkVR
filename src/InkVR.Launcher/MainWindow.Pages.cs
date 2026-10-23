@@ -215,7 +215,7 @@ namespace InkVR.Launcher
                     case QuestPart.Primary: return dominant ? ("JUMP", null) : ("INTERACT", null);
                     case QuestPart.Secondary: return dominant ? ("BACK", "IN MENUS") : (null, null);
                     case QuestPart.Menu: return ("PAUSE", null);
-                    case QuestPart.Grip: return ("INTERACT", "EITHER HAND");
+                    case QuestPart.Grip: return ("GRAB / USE", "EITHER HAND");
                     default: return (null, null);
                 }
             }
@@ -294,9 +294,10 @@ namespace InkVR.Launcher
 
             var notes = string.Join("\n", new[]
             {
-                "LOOK AROUND WITH YOUR HEAD. TURNING (SNAP OR SMOOTH) AND WORLD SIZE ARE IN OPTIONS.",
-                "MENUS: THUMBSTICK TO MOVE, A TO SELECT, B TO GO BACK (A LASER POINTER IS IN OPTIONS).",
-                "SWING THE AXE WITH YOUR ARM TO HIT. GUNS FIRE WHERE YOUR HAND POINTS. HOLD A HAND OVER THINGS TO USE THEM.",
+                "LOOK AROUND WITH YOUR HEAD. TURNING AND WORLD SIZE ARE IN OPTIONS.",
+                "MENUS: THUMBSTICK MOVES, A SELECTS, B GOES BACK (OR TURN ON THE LASER POINTER).",
+                "SWING THE AXE TO HIT. HOLD THE TRIGGER, SWING AND LET GO TO THROW. GUNS FIRE WHERE YOUR HAND POINTS (GRIP THE FRONT TOO FOR TWO HANDS).",
+                "GRIP A VALVE AND TURN IT, A LEVER AND PULL IT, SOUP AND BRING IT TO YOUR MOUTH. REACH OVER YOUR SHOULDER AND GRIP TO HOLSTER.",
             });
             var memo = Look.MemoText(notes, 26, Paint.Ink, 1180, 0.9);
             memo.TextAlignment = TextAlignment.Center;
@@ -520,7 +521,6 @@ namespace InkVR.Launcher
             Row("RENDER SCALE", scales.Select(s => Math.Round(s * 100) + "%").ToArray(), Nearest(scales, cfg?.GetFloat("Graphics", "RenderScale", 1) ?? 1), i => cfg.Set("Graphics", "RenderScale", scales[i]), has);
             Row("AUTO RESOLUTION", new[] { "ON", "OFF" }, has && !cfg.GetBool("Graphics", "DynamicResolution", true) ? 1 : 0, i => cfg.Set("Graphics", "DynamicResolution", i == 0), has);
             Row("LIGHT BEAMS", new[] { "ON", "OFF" }, has && !cfg.GetBool("Graphics", "VolumetricLightInVR", true) ? 1 : 0, i => cfg.Set("Graphics", "VolumetricLightInVR", i == 0), has);
-            Row("INK ON HANDS", new[] { "ON", "OFF" }, has && !cfg.GetBool("Body", "InkOnHands", true) ? 1 : 0, i => cfg.Set("Body", "InkOnHands", i == 0), has);
             Row("LASER POINTER", new[] { "OFF", "ON" }, has && cfg.GetBool("Controls", "LaserPointer", false) ? 1 : 0, i => cfg.Set("Controls", "LaserPointer", i == 1), has);
             Row("REDUCE FLASHES", new[] { "OFF", "ON" }, _reduce ? 1 : 0, i =>
             {
@@ -531,7 +531,7 @@ namespace InkVR.Launcher
 
             col = 1;
             Header("LAUNCHER", 1);
-            y = 230;
+            y = 222;
             Row("OPENING ANIMATION", new[] { "ON", "OFF" }, LauncherSettings.PlayIntro ? 0 : 1, i => LauncherSettings.PlayIntro = i == 0);
             Row("SOUNDS", new[] { "ON", "OFF" }, LauncherSettings.Sounds ? 0 : 1, i =>
             {
@@ -546,23 +546,28 @@ namespace InkVR.Launcher
                 WindowState = i == 1 ? WindowState.Maximized : WindowState.Normal;
             });
 
-            Header("HENRY", 1, 410);
-            y = 480;
+            Header("HENRY", 1, 372);
+            y = 434;
             var bodies = new[] { "Full", "Arms", "Hands", "None" };
             Row("BODY", new[] { "FULL BODY", "ARMS & HANDS", "HANDS ONLY", "NONE" }, Math.Max(0, Array.IndexOf(bodies, cfg?.Get("Body", "Mode") ?? "Full")), i => cfg.Set("Body", "Mode", bodies[i]), has);
             var styles = new[] { "Lifelike", "Toon" };
             Row("STYLE", new[] { "LIFELIKE", "TOON" }, Math.Max(0, Array.IndexOf(styles, cfg?.Get("Body", "Style") ?? "Lifelike")), i => cfg.Set("Body", "Style", styles[i]), has);
             Row("MELEE", new[] { "SWING YOUR ARM", "BUTTON ONLY" }, has && !cfg.GetBool("Controls", "PhysicalMelee", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalMelee", i == 0), has);
             Row("GUN AIM", new[] { "HAND", "HEAD" }, has && !cfg.GetBool("Controls", "AimGunsWithHand", true) ? 1 : 0, i => cfg.Set("Controls", "AimGunsWithHand", i == 0), has);
+            Row("INK ON HENRY", new[] { "ON", "OFF" }, has && !cfg.GetBool("Body", "InkOnHands", true) ? 1 : 0, i => cfg.Set("Body", "InkOnHands", i == 0), has);
+            Row("VALVES, LEVERS, SOUP", new[] { "BY HAND", "PRESS" }, has && !cfg.GetBool("Controls", "PhysicalInteractions", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalInteractions", i == 0), has);
+            Row("THROWING", new[] { "SWING & LET GO", "BUTTON" }, has && !cfg.GetBool("Controls", "PhysicalThrow", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalThrow", i == 0), has);
+            Row("TWO-HANDED GUNS", new[] { "ON", "OFF" }, has && !cfg.GetBool("Controls", "TwoHandedGuns", true) ? 1 : 0, i => cfg.Set("Controls", "TwoHandedGuns", i == 0), has);
+            Row("HOLSTER", new[] { "OVER THE SHOULDER", "OFF" }, has && !cfg.GetBool("Controls", "Holster", true) ? 1 : 0, i => cfg.Set("Controls", "Holster", i == 0), has);
 
             var memo = Look.MemoText(has
-                ? "The IN VR settings are the same ones as VR SETTINGS in the game's Options menu. Changes here apply the next time the game starts."
-                : "Find the game first (VR CHECK) to change the IN VR settings.", 22, Paint.Ink, 640, 0.85);
-            sheet.Children.Add(memo.At(910, 700));
+                ? "These are the same settings as VR SETTINGS in the game's Options menu. Changes here apply the next time the game starts."
+                : "Find the game first (VR CHECK) to change the IN VR and HENRY settings.", 22, Paint.Ink, 640, 0.85);
+            sheet.Children.Add(memo.At(910, 888));
 
             var x0 = 910.0;
             var locate = SmallButton("LOCATE GAME", LocateGame, 38);
-            sheet.Children.Add(locate.At(x0, 830));
+            sheet.Children.Add(locate.At(x0, 965));
             if (_game != null && ModInstaller.InstalledVersion(_game) != null)
             {
                 var uninstall = SmallButton("UNINSTALL INKVR", () => ShowNote("UNINSTALL INKVR?",
@@ -580,7 +585,7 @@ namespace InkVR.Launcher
                             ShowNote("COULDN'T UNINSTALL", ex.Message);
                         }
                     }), 38);
-                sheet.Children.Add(uninstall.At(x0 + locate.TextWidth + 70, 830));
+                sheet.Children.Add(uninstall.At(x0 + locate.TextWidth + 70, 965));
             }
         }
 

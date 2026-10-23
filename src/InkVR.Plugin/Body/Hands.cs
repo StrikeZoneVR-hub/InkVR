@@ -181,7 +181,7 @@ public static class Hands
     }
 
     /// <summary>The ground under a point: the theatre floor, or the level's floor by a short ray down (stairs, ramps).</summary>
-    private static float GroundAt(Vector3 above)
+    internal static float GroundAt(Vector3 above)
     {
         var origin = VRRig.ActiveOrigin;
         var floor = origin != null ? origin.position.y : above.y - 1.6f;
@@ -382,6 +382,8 @@ public static class Hands
         var c = ControllerBindings.Dom;
         if (!c.PoseValid) return;
         VRRig.TrackingToWorld(c.GripPosition, c.AimRotation, out var gripWorld, out var aimWorld);
+        // Two hands on a gun: it points from the dominant hand towards the one holding its front.
+        if (WeaponHandling.TwoHandAim(out _, out var twoHands)) aimWorld = twoHands;
         var rot = aimWorld * Quaternion.Euler(ModConfig.HeldItemPitch.Value, 0, 0) * Quaternion.Inverse(_handRestRot);
         _handContainer.rotation = rot;
         _handContainer.position = gripWorld - rot * Vector3.Scale(_handRestPos, _handContainer.lossyScale);

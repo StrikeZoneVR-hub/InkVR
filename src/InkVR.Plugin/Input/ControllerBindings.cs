@@ -39,12 +39,16 @@ public static class ControllerBindings
 
         // While the laser points at a menu, the dominant trigger is a mouse click, not the weapon.
         var uiHasPointer = LaserPointer.IsOverInteractive;
+        // A grip taken by a hand gesture (valve, lever, soup), the gun's front or the holster isn't "interact".
+        var (claimL, claimR) = PhysicalInteract.ClaimGrips();
+        var domGrip = dom.GripPressed && !(Dominant == Hand.Left ? claimL : claimR);
+        var offGrip = off.GripPressed && !(OffHand == Hand.Left ? claimL : claimR);
         VirtualGamepad.Current = new VirtualGamepad.State
         {
             LeftStick = Deadzone(off.Stick, 0.15f),
             A = dom.Primary,
             B = dom.Secondary,
-            X = off.Primary || (!uiHasPointer && (dom.GripPressed || off.GripPressed)),
+            X = off.Primary || (!uiHasPointer && (domGrip || offGrip)),
             Y = off.Secondary,
             LeftTrigger = off.Trigger,
             RightTrigger = uiHasPointer ? 0f : dom.Trigger,

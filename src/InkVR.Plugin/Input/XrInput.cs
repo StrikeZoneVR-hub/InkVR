@@ -62,6 +62,9 @@ public static unsafe class XrInput
     public static (Vector3 pos, Quaternion rot)? DevRightAim;
     public static float? DevRightTrigger;
 
+    /// <summary>Dev/testing: forces the grips (mock runtime has no controllers).</summary>
+    public static float? DevRightGrip, DevLeftGrip;
+
     internal static void ApplyDev()
     {
         if (DevRightAim.HasValue)
@@ -74,6 +77,8 @@ public static unsafe class XrInput
         }
 
         if (DevRightTrigger.HasValue) Right.Trigger = DevRightTrigger.Value;
+        if (DevRightGrip.HasValue) Right.Grip = DevRightGrip.Value;
+        if (DevLeftGrip.HasValue) Left.Grip = DevLeftGrip.Value;
     }
 
     public static void Update()

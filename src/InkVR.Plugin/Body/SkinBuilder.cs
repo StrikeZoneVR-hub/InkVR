@@ -52,15 +52,23 @@ public sealed class SkinBuilder
         _pieces.Add(new Piece { Mesh = mb, Material = material, Outline = outline, Weights = w });
     }
 
+    /// <summary>One material's renderer from <see cref="BuildSeparate"/>, with what painting ink onto it needs.</summary>
+    public sealed class Piece2
+    {
+        public SkinnedMeshRenderer Renderer;
+        public MeshBuilder Geometry;
+        public string Material;
+        public SkinWeight[] Weights;
+    }
+
     /// <summary>
     /// One renderer per material (each can then carry its own paintable texture), plus the outline.
-    /// Returns (renderer, merged geometry, material key) for each material.
     /// </summary>
-    public List<(SkinnedMeshRenderer Renderer, MeshBuilder Geometry, string Material)> BuildSeparate(Transform parent, Transform[] bones, Transform rootBone, Func<string, Material> material, string name,
-        out SkinnedMeshRenderer outline)
+    public List<Piece2> BuildSeparate(Transform parent, Transform[] bones, Transform rootBone, Func<string, Material> material, string name,
+        out SkinnedMeshRenderer outline, out Matrix4x4[] bindposes)
     {
-        var result = new List<(SkinnedMeshRenderer, MeshBuilder, string)>();
-        var bindposes = Bindposes(parent, bones);
+        var result = new List<Piece2>();
+        bindposes = Bindposes(parent, bones);
         var groups = new List<string>();
         foreach (var p in _pieces)
             if (!groups.Contains(p.Material))
@@ -81,7 +89,7 @@ public sealed class SkinBuilder
             SetWeights(mesh, weights);
             mesh.bindposes = bindposes;
             var smr = Renderer(parent, $"{name}_{key}", mesh, new[] { material(key) }, bones, rootBone);
-            result.Add((smr, merged, key));
+            result.Add(new Piece2 { Renderer = smr, Geometry = merged, Material = key, Weights = weights.ToArray() });
         }
 
         outline = BuildOutline(parent, bones, rootBone, bindposes, name);

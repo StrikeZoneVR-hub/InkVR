@@ -17,7 +17,7 @@ public static class HenryTextures
     /// <summary>The pixels of each generated texture by name (the textures themselves are GPU-only), so ink can be painted onto copies.</summary>
     public static readonly System.Collections.Generic.Dictionary<string, (int W, int H, Color32[] Px)> Pixels = new();
 
-    private static Texture2D Keep(InkCanvas c, string name)
+    internal static Texture2D Keep(InkCanvas c, string name)
     {
         var px = new Color32[c.Px.Length];
         for (var i = 0; i < px.Length; i++) px[i] = c.Px[i];

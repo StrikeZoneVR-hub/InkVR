@@ -313,6 +313,41 @@ public class DevTools : MonoBehaviour
                 InkVR.Core.VRRig.DevLookAt = t.position - Vector3.up * drop;
                 break;
             }
+            case "callall":
+            {
+                // callall Type.Method: a no-argument method on every live instance (dev: switch on a chapter's puzzle)
+                var dot = arg.LastIndexOf('.');
+                var type = InteropType(arg[..dot]);
+                var method = type?.GetMethod(arg[(dot + 1)..], BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
+                if (method == null) { Plugin.L.LogWarning($"callall: {arg} not found"); break; }
+                var n = 0;
+                foreach (var o in Object.FindObjectsOfType(Il2CppType.From(type)))
+                {
+                    method.Invoke(Activator.CreateInstance(type, o.Pointer), null);
+                    n++;
+                }
+
+                Plugin.L.LogInfo($"callall {arg}: {n} instances");
+                break;
+            }
+            case "goto2":
+            {
+                // goto2 <path>: stand on the floor 2 units from an object (any height: basements, upper floors), facing it
+                var t = Resolve(arg);
+                var player = GameManager.Instance.Player;
+                var mask = ~(1 << player.gameObject.layer);
+                var offset = Physics.Raycast(player.transform.position, Vector3.down, out var under, 50f, mask, QueryTriggerInteraction.Ignore) ? player.transform.position.y - under.point.y : 1f;
+                var flat = Vector3.ProjectOnPlane(player.transform.position - t.position, Vector3.up);
+                if (flat.sqrMagnitude < 1e-4f) flat = Vector3.forward;
+                var stand = t.position + flat.normalized * 2f;
+                var y = Physics.Raycast(new Vector3(stand.x, t.position.y + 2f, stand.z), Vector3.down, out var floor, 30f, mask, QueryTriggerInteraction.Ignore) ? floor.point.y + offset : t.position.y;
+                var cc = player.CharacterController;
+                cc.enabled = false;
+                player.transform.position = new Vector3(stand.x, y, stand.z);
+                cc.enabled = true;
+                Plugin.L.LogInfo($"goto2 {PathOf(t)} at {t.position}, standing at {player.transform.position}");
+                break;
+            }
             case "goto":
             {
                 // goto <path>: stand 3 units from an object, facing it
@@ -330,6 +365,118 @@ public class DevTools : MonoBehaviour
             }
             case "inkburst":
                 InkVR.Body.InkWorld.Splatter(arg.Length > 0 ? int.Parse(arg) : 14);
+                break;
+            case "drench":
+                InkVR.Body.InkWorld.Soak("dev");
+                break;
+            case "wade":
+                // wade <metres of Henry above the floor> | wade off
+                InkVR.Body.InkWorld.DevWadeDepth = arg == "off" ? null : float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture);
+                break;
+            case "inkbody":
+            {
+                var sb = new System.Text.StringBuilder("INKBODY ");
+                var body = InkVR.Body.Hands.Body;
+                sb.Append($"body={(body != null ? body.Style.ToString() : "none")} wade={InkVR.Body.InkWorld.WadeSurface?.ToString("F2") ?? "-"} ({InkVR.Body.InkWorld.WadeWhy}) ");
+                sb.Append($"footstep={GameManager.Instance?.Player?.CurrentFootstepType} prints={InkVR.Body.Footprints.Count} soles={InkVR.Body.Footprints.LoadLeft:F2}/{InkVR.Body.Footprints.LoadRight:F2} inInk={InkVR.Body.Footprints.InInk}; ");
+                foreach (var part in InkVR.Body.InkStains.Parts)
+                {
+                    if (!part.Visible) continue;
+                    var dark = 0;
+                    for (var i = 0; i < part.Px.Length; i++) if (part.Px[i].r < 40 && part.Base[i].r >= 40) dark++;
+                    if (dark > 0) sb.Append($"{part.T.name}[{part.Region}]={dark * 100 / part.Px.Length}% ");
+                }
+
+                Plugin.L.LogInfo(sb.ToString());
+                break;
+            }
+            case "grip":
+            {
+                // grip r|l <0..1> | grip r|l off
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                float? v = a[1] == "off" ? null : float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture);
+                if (a[0].StartsWith("l")) InkVR.Input.XrInput.DevLeftGrip = v;
+                else InkVR.Input.XrInput.DevRightGrip = v;
+                break;
+            }
+            case "handto":
+            {
+                // handto <Component> [n]: put the dev right hand on the n-th nearest one (palm towards it, from the head)
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var type = InteropType(a[0]);
+                var nth = a.Length > 1 ? int.Parse(a[1]) : 0;
+                var from = InkVR.Core.VRRig.Head.position;
+                var targets = new List<(float d, Vector3 at, string name)>();
+                foreach (var o in Object.FindObjectsOfType(Il2CppType.From(type)))
+                {
+                    var c = o.Cast<Component>();
+                    // the part you'd actually take hold of: its interactable's collider, else its mesh
+                    var inter = c.GetComponentInChildren<Interactable>();
+                    var col = inter != null ? inter.GetComponent<Collider>() : null;
+                    var r = c.GetComponentInChildren<Renderer>();
+                    var at = col != null ? col.bounds.center : r != null ? r.bounds.center : c.transform.position;
+                    targets.Add(((at - from).magnitude, at, PathOf(inter != null ? inter.transform : c.transform)));
+                }
+
+                var pick = targets.OrderBy(x => x.d).Skip(nth).FirstOrDefault();
+                if (pick.name == null) { Plugin.L.LogInfo("HANDTO none"); break; }
+                var dir = (pick.at - from).normalized;
+                SetDevRightWorld(pick.at - dir * (0.03f * InkVR.Core.VRRig.ActiveScale), Quaternion.LookRotation(dir));
+                Plugin.L.LogInfo($"HANDTO {pick.name} at {pick.at} ({pick.d:F2} from the head)");
+                break;
+            }
+            case "handmouth":
+            {
+                var h = InkVR.Core.VRRig.Head;
+                SetDevRightWorld(h.position + h.rotation * new Vector3(0.02f, -0.09f, 0.08f) * InkVR.Core.VRRig.ActiveScale, h.rotation);
+                break;
+            }
+            case "handshoulder":
+            {
+                var h = InkVR.Core.VRRig.Head;
+                var s2 = InkVR.Core.VRRig.ActiveScale;
+                var fwd = Vector3.ProjectOnPlane(h.forward, Vector3.up).normalized;
+                var right = Vector3.Cross(Vector3.up, fwd);
+                SetDevRightWorld(h.position + right * (0.14f * s2) - fwd * (0.12f * s2) - Vector3.up * (0.12f * s2), Quaternion.LookRotation(-fwd));
+                break;
+            }
+            case "handturn":
+            {
+                // twist the dev right hand about its pointing axis
+                if (!InkVR.Body.Hands.DevRight.HasValue) break;
+                var d = InkVR.Body.Hands.DevRight.Value;
+                InkVR.Body.Hands.DevRight = (d.pos, d.rot * Quaternion.AngleAxis(float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture), Vector3.forward));
+                break;
+            }
+            case "handmove":
+            {
+                // handmove dx dy dz (real metres, world axes)
+                if (!InkVR.Body.Hands.DevRight.HasValue) break;
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                var d = InkVR.Body.Hands.DevRight.Value;
+                var origin = InkVR.Core.VRRig.ActiveOrigin;
+                var worldDelta = new Vector3(a[0], a[1], a[2]);
+                var localDelta = origin != null ? origin.InverseTransformVector(worldDelta * InkVR.Core.VRRig.ActiveScale) : worldDelta;
+                InkVR.Body.Hands.DevRight = (d.pos + localDelta, d.rot);
+                break;
+            }
+            case "attackheld":
+            {
+                // the held weapon's own attack (a directly loaded chapter ignores the attack button)
+                var w = GameManager.Instance?.Player?.WeaponGameObject?.GetComponent<BaseWeapon>();
+                if (w == null) { Plugin.L.LogInfo("ATTACKHELD nothing held"); break; }
+                w.OnAttack();
+                Plugin.L.LogInfo($"ATTACKHELD {w.name}");
+                break;
+            }
+            case "devvel":
+                InkVR.Body.WeaponHandling.DevVelocity = arg == "off" ? null : (Vector3?)ParseV3(arg);
+                break;
+            case "gesture":
+                Plugin.L.LogInfo($"GESTURE active={InkVR.Input.PhysicalInteract.Active} last='{InkVR.Input.PhysicalInteract.LastResult}' hover={InkVR.Input.InteractionAim.Hovered?.name} ({(InkVR.Input.InteractionAim.Hovered != null ? InkVR.Input.PhysicalInteract.Classify(InkVR.Input.InteractionAim.Hovered).ToString() : "-")})");
+                break;
+            case "throwstate":
+                Plugin.L.LogInfo($"THROW last='{InkVR.Body.WeaponHandling.LastThrow}' twoHands={InkVR.Body.WeaponHandling.OffHandOnGun} holstered={InkVR.Body.WeaponHandling.Holstered} held={GameManager.Instance?.Player?.WeaponGameObject?.name} inactive={GameManager.Instance?.Player?.InactiveWeapon?.name}");
                 break;
             case "inkstate":
                 Plugin.L.LogInfo($"INKSTATE decals={InkVR.Body.InkWorld.DecalCount} pools={InkVR.Body.InkWorld.PoolCount} emitters={InkVR.Body.InkWorld.ParticleCount} parts={InkVR.Body.InkStains.Parts.Count} splats={InkVR.Body.InkStains.SplatCount}");
@@ -1171,5 +1318,20 @@ public class DevTools : MonoBehaviour
         else
             ScreenCapture.CaptureScreenshot(file, scale);
         Plugin.L.LogInfo($"Screenshot -> {file}");
+    }
+
+    /// <summary>Put the dev right hand at a world pose (converted into tracking space).</summary>
+    private static void SetDevRightWorld(Vector3 worldPos, Quaternion worldRot)
+    {
+        var origin = InkVR.Core.VRRig.ActiveOrigin;
+        if (origin == null) return;
+        var local = origin.InverseTransformPoint(worldPos) - Vector3.up * ModConfig.HeightOffset.Value;
+        InkVR.Body.Hands.DevRight = (local, Quaternion.Inverse(origin.rotation) * worldRot);
+    }
+
+    private static Vector3 ParseV3(string s)
+    {
+        var a = s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+        return new Vector3(a[0], a[1], a[2]);
     }
 }

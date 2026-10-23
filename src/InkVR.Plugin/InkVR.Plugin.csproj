@@ -6,11 +6,13 @@
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>disable</Nullable>
-    <Version>0.5.1</Version>
+    <Version>0.6.0</Version>
     <CheckEolTargetFramework>false</CheckEolTargetFramework>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <DebugType>embedded</DebugType>
+    <!-- JIT-optimised even in the default (Debug) build: the ink painting and per-frame posing need it. -->
+    <Optimize>true</Optimize>
   </PropertyGroup>
 
   <ItemGroup>

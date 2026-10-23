@@ -21,6 +21,10 @@ public static class ModConfig
     public static ConfigEntry<bool> InteractWithHand;
     public static ConfigEntry<bool> PhysicalMelee;
     public static ConfigEntry<bool> AimGunsWithHand;
+    public static ConfigEntry<bool> PhysicalInteractions;
+    public static ConfigEntry<bool> PhysicalThrow;
+    public static ConfigEntry<bool> TwoHandedGuns;
+    public static ConfigEntry<bool> Holster;
     public static ConfigEntry<bool> ReduceFlashes;
 
     // Body
@@ -87,6 +91,10 @@ public static class ModConfig
         InteractWithHand = cfg.Bind("Controls", "InteractWithHand", true, "Point at things with your dominant hand to interact (off = look at them, like the flat game).");
         PhysicalMelee = cfg.Bind("Controls", "PhysicalMelee", true, "Swing your arm to hit with melee weapons (the axe, the pipe...). The attack button still swings too.");
         AimGunsWithHand = cfg.Bind("Controls", "AimGunsWithHand", true, "Guns fire where your hand points (off = where you look, like the flat game).");
+        PhysicalInteractions = cfg.Bind("Controls", "PhysicalInteractions", true, "Grip a valve and turn it, grip a lever and pull it, grip Bacon Soup and bring it to your mouth to eat (off = grip just presses them). X always presses.");
+        PhysicalThrow = cfg.Bind("Controls", "PhysicalThrow", true, "Throwables (Ch4's soup cans): hold the trigger, swing, let go to throw with your arm (off = the trigger throws straight away).");
+        TwoHandedGuns = cfg.Bind("Controls", "TwoHandedGuns", true, "Grip the front of a gun with your other hand to aim it with both hands.");
+        Holster = cfg.Bind("Controls", "Holster", true, "Reach over your shoulder and grip to put your weapon away; do it again to draw it.");
         ReduceFlashes = cfg.Bind("Comfort", "ReduceFlashes", false, "Calm the theatre's projector flicker and film scratches.");
 
         BodyMode = cfg.Bind("Body", "Mode", "Full", new ConfigDescription(
@@ -96,7 +104,7 @@ public static class ModConfig
             "How Henry looks: Lifelike (real hands, lifelike body in waistcoat and tie) or Toon (cartoon hands, chunky body with braces and big shoes).",
             new AcceptableValueList<string>("Lifelike", "Toon")));
         HeldItemPitch = cfg.Bind("Body", "HeldItemPitch", 0f, "Extra pitch (degrees) applied to held weapons and items.");
-        InkOnHands = cfg.Bind("Body", "InkOnHands", true, "Ink from spills, splats, pools, drips and ink bursts gets onto Henry's hands and sleeves.");
+        InkOnHands = cfg.Bind("Body", "InkOnHands", true, "Ink from spills, splats, pools, pours, drips and ink bursts gets onto Henry (hands, sleeves, and with the full body his clothes and shoes), and inky shoes leave footprints.");
         InkFadeMinutes = cfg.Bind("Body", "InkFadeMinutes", 3f, "How long fresh ink takes to dry and fade back to the chapter's usual stains.");
 
         VRDisableMotionBlur = cfg.Bind("Graphics", "DisableMotionBlurInVR", true, "Motion blur smears the whole view when you turn your head.");

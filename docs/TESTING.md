@@ -1,8 +1,69 @@
 # Testing InkVR
 
-## Current build: 0.5.1 (fixes from your 0.5.0 recording)
+## Current build: 0.6.0 (motion controls part 2, and ink that soaks Henry)
 
 Everything is installed in your game folder. Start it as before: Virtual Desktop Streamer → `InkVR Launcher.exe` → PLAY IN VR.
+
+0.6.0 also contains 0.5.1's fixes (below), which you haven't tested yet.
+
+### New in 0.6.0: motion controls part 2
+
+Grip is now **GRAB / USE**. X still does the classic one-press interaction for everything.
+
+**Turn valves and wheels by hand**
+- Put your hand on a valve (Chapter 1's basement cranks, Chapter 3's ink valves, any wheel), grip, and turn it.
+- Wind your hand round, or twist your wrist; about a third of a turn does it.
+- You feel it ratchet as it turns, then the game's own valve animation and puzzle logic take over.
+
+**Pull levers**
+Grip a lever (Chapter 1's power lever, Chapter 3's levers) and pull it about a hand's width, any direction.
+
+**Eat Bacon Soup**
+- Grip a can and it comes off the shelf into your hand.
+- Bring it up to your mouth to eat it: the game's own eating sound and health.
+- Let go anywhere else and it goes back on the shelf.
+
+**Throw with your arm (Chapter 4's Bacon Soup cans)**
+Hold the trigger, swing your arm, and let go of the trigger. The can flies the way your hand was moving, as hard as you threw it. A gentle release just lobs it where your hand points.
+
+**Two hands on the gun**
+Holding a gun, grip just in front of it with your other hand: it now aims along both hands (much steadier), and you feel the recoil in both.
+
+**Holster over your shoulder**
+- Reach over your dominant shoulder with what you're holding and grip: it goes away.
+- Reach back there with an empty hand and grip: you draw it again.
+
+**Never stuck:** if a valve or lever won't count your motion, holding your hand still on it for 2.5 seconds completes it too.
+
+**Settings:**
+- In the launcher (OPTIONS → HENRY) each one has its own switch: VALVES, LEVERS, SOUP; THROWING; TWO-HANDED GUNS; HOLSTER.
+- In the game's VR SETTINGS there's one MOTION CONTROLS row that switches them all.
+
+### New in 0.6.0: ink that really gets on Henry
+
+Ink from the world now gets onto all of Henry, not just his hands, and it builds up realistically.
+
+**What causes it**
+- **Wading:** walk into an ink pool or flooded floor and your shoes and trousers get coated up to the ink line, with a ragged wet edge and splashes just above it. The deeper you go, the higher it climbs.
+- **Getting drenched:** go under the ink (falling in) and Henry is soaked from head to toe.
+- **Pouring ink:** whatever stands under a stream of ink gets coated.
+- **Drips and splashes** from pipes and the ceiling land on your shoulders and clothes, not just your hands.
+- **Ink bursts** (scares, ink attacks) splatter across your arms and the front of your shirt and waistcoat.
+- **Running ink:** fresh ink runs down whatever it lands on, towards the floor.
+
+**Wet ink drips.** For a while after it lands, ink drips off your hands, sleeves and clothes. A soaked Henry drips a lot.
+
+**Footprints**
+- Inky shoes leave footprints on the floor: ink pools, puddles and splats on the floor all load your soles.
+- The trail starts solid and gets patchier step by step as the ink wears off your soles.
+- Footprints stay a couple of minutes, then fade.
+- With the full body the prints are exactly where Henry's feet come down. With the other BODY options they follow your path, a stride at a time.
+
+**It dries.** Fresh ink slowly fades back to the chapter's usual stains over a few minutes, so Henry shows what happened recently rather than going black for good.
+
+**Works with every BODY option:** full body (clothes, shoes, footprints), arms & hands, hands only (hands, sleeves and footprints) and both STYLES.
+
+The setting is now called INK ON HENRY (launcher: OPTIONS → HENRY; game: VR SETTINGS → HENRY).
 
 ### New in 0.5.1: fixes from your recording
 
@@ -99,6 +160,13 @@ For the Tommy Gun in Chapter 3. GUN AIM: HEAD brings back the flat game's look-t
 MELEE and GUN AIM are in VR SETTINGS → CONTROLS, and in the launcher under OPTIONS → HENRY. The launcher's HEIGHT option now covers ±60 cm, like the one in the game.
 
 ### What to check
+- [ ] Grip a valve and turn it, grip a lever and pull it: the game's own animation plays after.
+- [ ] Grip a can of Bacon Soup, raise it to your mouth: you eat it. Let go elsewhere: it goes back.
+- [ ] Chapter 4: hold the trigger with a soup can, swing and release: it flies where you threw it.
+- [ ] Hold a gun and grip its front with your other hand: it aims along both hands.
+- [ ] Reach over your shoulder and grip: your weapon goes away; do it again to draw it.
+- [ ] Walk into ink: your shoes and trousers get inky up to the ink line, then you leave footprints that fade out.
+- [ ] Get hit by an ink burst: ink on your arms and the front of your clothes, dripping for a while.
 - [ ] Chapter 2's opening: when Henry wakes up holding his head, the view stays steady and you can look around.
 - [ ] Look down while standing: you see your legs and shoes.
 - [ ] Look down: you see your body, and your feet step as you walk and turn. Crouch and Henry crouches.
