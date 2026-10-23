@@ -454,6 +454,7 @@ public static class VRRig
         _gameCam.transform.SetParent(_origin, false);
         _gameCam.transform.localPosition = Vector3.zero;
         _gameCam.transform.localRotation = Quaternion.identity;
+        _gameCam.transform.localScale = Vector3.one;
         _gameCam.cullingMask &= ~VRLayers.UIMask;
 
         _uiCam = new GameObject("InkVR_UICamera").AddComponent<Camera>();
@@ -525,7 +526,12 @@ public static class VRRig
     {
         if (_gameCam == null || _origin == null) return;
         var t = _gameCam.transform;
-        if (t.parent == _origin) return;
+        if (t.parent == _origin)
+        {
+            KeepCameraScale(t);
+            return;
+        }
+
         if (Time.unscaledTime > _nextCameraNote)
         {
             _nextCameraNote = Time.unscaledTime + 5f;
@@ -533,7 +539,21 @@ public static class VRRig
         }
 
         t.SetParent(_origin, false);
+        KeepCameraScale(t);
         ApplyHeadPose();
+    }
+
+    /// <summary>
+    /// The camera sits in the rig at scale 1: the rig carries the world size. When the game parents the camera
+    /// somewhere else it keeps the camera's world size by giving it the rig's scale locally; brought back into
+    /// the rig that scale would count twice, rendering the eyes several times too far apart (a miniature world).
+    /// </summary>
+    private static void KeepCameraScale(Transform t)
+    {
+        var s = t.localScale;
+        if (Mathf.Abs(s.x - 1f) < 1e-4f && Mathf.Abs(s.y - 1f) < 1e-4f && Mathf.Abs(s.z - 1f) < 1e-4f) return;
+        Plugin.L.LogInfo($"The game's camera came back scaled {s}: reset to 1 (the rig sets the world size)");
+        t.localScale = Vector3.one;
     }
 
     private static bool _heldSteady;

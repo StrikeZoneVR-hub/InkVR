@@ -1,10 +1,17 @@
 # Testing InkVR
 
-## Current build: 0.6.0 (motion controls part 2, and ink that soaks Henry)
+## Current build: 0.6.1 (fix: tiny world at the start of Chapter 2)
 
 Everything is installed in your game folder. Start it as before: Virtual Desktop Streamer → `InkVR Launcher.exe` → PLAY IN VR.
 
-0.6.0 also contains 0.5.1's fixes (below), which you haven't tested yet.
+### New in 0.6.1: the world is the right size in Chapter 2 again
+At the start of Chapter 2, you and the whole world looked tiny, like a model.
+
+The cause: for the wake-up scene the game moves its camera onto its own mount, and adjusts the camera's scale as it does. InkVR put the camera back in the VR rig (the 0.5.1 spin fix) but kept that adjusted scale, so the world size counted twice and your eyes were drawn about three and a half times too far apart. Eyes that far apart make everything look like a miniature.
+
+InkVR now resets the camera's scale whenever it brings it back, and checks it every frame. Tested on the same scene: the eye spacing stays correct all the way through.
+
+0.6.1 also contains everything in 0.6.0 and 0.5.1 below.
 
 ### New in 0.6.0: motion controls part 2
 
@@ -167,7 +174,7 @@ MELEE and GUN AIM are in VR SETTINGS → CONTROLS, and in the launcher under OPT
 - [ ] Reach over your shoulder and grip: your weapon goes away; do it again to draw it.
 - [ ] Walk into ink: your shoes and trousers get inky up to the ink line, then you leave footprints that fade out.
 - [ ] Get hit by an ink burst: ink on your arms and the front of your clothes, dripping for a while.
-- [ ] Chapter 2's opening: when Henry wakes up holding his head, the view stays steady and you can look around.
+- [ ] Chapter 2's opening: when Henry wakes up holding his head, the view stays steady, you can look around, and the world is its normal size.
 - [ ] Look down while standing: you see your legs and shoes.
 - [ ] Look down: you see your body, and your feet step as you walk and turn. Crouch and Henry crouches.
 - [ ] Switch BODY and STYLE in VR SETTINGS: all four BODY choices and both STYLES work, and the change is instant.

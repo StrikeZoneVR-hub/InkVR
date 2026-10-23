@@ -5,6 +5,8 @@ cd "$(dirname "$0")/.."
 GAME="${INKVR_GAME_DIR:-C:/Program Files (x86)/Steam/steamapps/common/Bendy and the Ink Machine}"
 LOG="$GAME/BepInEx/LogOutput.log"
 M="[UI MANAGER]/[UI Layer] - VIEW/TitleScreen(Clone)/Visuals"
+tools/game.sh wait "Scenes: Empty" 120 >/dev/null || exit 1
+sleep 6
 tools/game.sh cmd "head 0 1.6 0 0 0"
 tools/game.sh cmd "click $M/MainMenu/Navigation/BeginBtn"; sleep 2
 tools/game.sh cmd "click $M/SlotMenu/Navigation/Slot_03"; sleep 2
@@ -13,4 +15,5 @@ tools/game.sh cmd "stick 1 0 0.15"; sleep 1.5
 n=$(wc -l < "$LOG")
 tools/game.sh cmd "pad a 0.1"
 for i in $(seq 1 90); do tail -n +$((n+1)) "$LOG" | grep -q "Scenes: CH2; active=CH2" && break; sleep 1; done
+tail -n +$((n+1)) "$LOG" | grep -q "Scenes: CH2; active=CH2" || { echo "CH2 did not load"; exit 1; }
 echo "CH2 loading done"

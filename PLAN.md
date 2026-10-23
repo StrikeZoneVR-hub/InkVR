@@ -1,6 +1,6 @@
 # InkVR — Full 6DoF VR Mod for Bendy and the Ink Machine
 
-Status: **Test build 0.6.0 ready for your next headset test**: motion controls part 2 (valves, levers, soup by hand, throwing, two-handed guns, holster) and ink that soaks Henry's whole body and leaves footprints, plus 0.5.1's fixes from your 0.5.0 recording (Chapter 2 wake-up spin, legs hidden when looking down), on top of 0.5.0's Henry's full body in two styles (lifelike and toon) with BODY options, lifelike hands and a real wristwatch, plus 0.4.0's first motion controls, the 1930s picture palace and the shrinking and footstep-noise fixes. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1). Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22; full body (M7) is for the full release.
+Status: **Test build 0.6.1 ready for your next headset test** (0.6.1 fixes the tiny world at the start of Chapter 2): motion controls part 2 (valves, levers, soup by hand, throwing, two-handed guns, holster) and ink that soaks Henry's whole body and leaves footprints, plus 0.5.1's fixes from your 0.5.0 recording (Chapter 2 wake-up spin, legs hidden when looking down), on top of 0.5.0's Henry's full body in two styles (lifelike and toon) with BODY options, lifelike hands and a real wristwatch, plus 0.4.0's first motion controls, the 1930s picture palace and the shrinking and footstep-noise fixes. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1). Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22; full body (M7) is for the full release.
 
 Target setup: **Quest 3 · Virtual Desktop · VDXR OpenXR runtime** · RTX 4050 Laptop. Release: **open source on GitHub**.
 
@@ -215,6 +215,7 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 > - Two-handed guns: the off hand gripping near the muzzle aims the gun (model and hit ray) from the dominant hand towards it; recoil haptics in both hands.
 > - Holster: grip at the dominant shoulder hides the held weapon; grip again draws it.
 > - Verified on the mock runtime: Ch1 soup eaten, Ch1 basement crank turned, Ch1 power lever pulled, Ch2 axe holstered and drawn, Ch4 can thrown (5.2 m/s → force ×1.45 along the swing). Two-handed guns unverified (the Tommy Gun's station can't be opened in a directly loaded Ch3).
+> - 0.6.1: when the game reparents its camera (Ch2's wake-up), the camera comes back with the rig's scale as its local scale; InkVR now resets it to 1, or the eyes render the world scale twice (a miniature world).
 - Replace the camera-centre "look + press E" interaction with hand-based targeting: reach and grab, plus an optional hand-ray for distant objects.
 - Physical handlers for each interaction type:
   - pickups and puzzle items (including placing items, like the Ch1 Ink Machine parts)
