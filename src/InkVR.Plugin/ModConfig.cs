@@ -24,8 +24,20 @@ public static class ModConfig
     public static ConfigEntry<bool> ReduceFlashes;
 
     // Body
-    public static ConfigEntry<bool> ShowHands;
-    public static ConfigEntry<bool> ShowArms;
+    public static ConfigEntry<string> BodyMode;
+    public static ConfigEntry<string> BodyStyle;
+
+    /// <summary>A full body is shown.</summary>
+    public static bool FullBody => BodyMode.Value == "Full";
+
+    /// <summary>Arms are shown (full body, or arms and hands).</summary>
+    public static bool ArmsShown => BodyMode.Value == "Full" || BodyMode.Value == "Arms";
+
+    /// <summary>Any of Henry is shown.</summary>
+    public static bool HandsShown => BodyMode.Value != "None";
+
+    /// <summary>Lifelike hands and body (else the toon ones).</summary>
+    public static bool Lifelike => BodyStyle.Value != "Toon";
     public static ConfigEntry<float> HeldItemPitch;
     public static ConfigEntry<bool> InkOnHands;
     public static ConfigEntry<float> InkFadeMinutes;
@@ -77,8 +89,12 @@ public static class ModConfig
         AimGunsWithHand = cfg.Bind("Controls", "AimGunsWithHand", true, "Guns fire where your hand points (off = where you look, like the flat game).");
         ReduceFlashes = cfg.Bind("Comfort", "ReduceFlashes", false, "Calm the theatre's projector flicker and film scratches.");
 
-        ShowHands = cfg.Bind("Body", "ShowHands", true, "Show Henry's hands.");
-        ShowArms = cfg.Bind("Body", "ShowArms", true, "Show Henry's forearms and sleeves.");
+        BodyMode = cfg.Bind("Body", "Mode", "Full", new ConfigDescription(
+            "How much of Henry you see: Full (full body), Arms (arms and hands), Hands (hands only), None.",
+            new AcceptableValueList<string>("Full", "Arms", "Hands", "None")));
+        BodyStyle = cfg.Bind("Body", "Style", "Lifelike", new ConfigDescription(
+            "How Henry looks: Lifelike (real hands, lifelike body in waistcoat and tie) or Toon (cartoon hands, chunky body with braces and big shoes).",
+            new AcceptableValueList<string>("Lifelike", "Toon")));
         HeldItemPitch = cfg.Bind("Body", "HeldItemPitch", 0f, "Extra pitch (degrees) applied to held weapons and items.");
         InkOnHands = cfg.Bind("Body", "InkOnHands", true, "Ink from spills, splats, pools, drips and ink bursts gets onto Henry's hands and sleeves.");
         InkFadeMinutes = cfg.Bind("Body", "InkFadeMinutes", 3f, "How long fresh ink takes to dry and fade back to the chapter's usual stains.");

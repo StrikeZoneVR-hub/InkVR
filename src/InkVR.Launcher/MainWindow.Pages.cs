@@ -546,19 +546,23 @@ namespace InkVR.Launcher
                 WindowState = i == 1 ? WindowState.Maximized : WindowState.Normal;
             });
 
-            Header("WEAPONS", 1, 410);
+            Header("HENRY", 1, 410);
             y = 480;
+            var bodies = new[] { "Full", "Arms", "Hands", "None" };
+            Row("BODY", new[] { "FULL BODY", "ARMS & HANDS", "HANDS ONLY", "NONE" }, Math.Max(0, Array.IndexOf(bodies, cfg?.Get("Body", "Mode") ?? "Full")), i => cfg.Set("Body", "Mode", bodies[i]), has);
+            var styles = new[] { "Lifelike", "Toon" };
+            Row("STYLE", new[] { "LIFELIKE", "TOON" }, Math.Max(0, Array.IndexOf(styles, cfg?.Get("Body", "Style") ?? "Lifelike")), i => cfg.Set("Body", "Style", styles[i]), has);
             Row("MELEE", new[] { "SWING YOUR ARM", "BUTTON ONLY" }, has && !cfg.GetBool("Controls", "PhysicalMelee", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalMelee", i == 0), has);
             Row("GUN AIM", new[] { "HAND", "HEAD" }, has && !cfg.GetBool("Controls", "AimGunsWithHand", true) ? 1 : 0, i => cfg.Set("Controls", "AimGunsWithHand", i == 0), has);
 
             var memo = Look.MemoText(has
                 ? "The IN VR settings are the same ones as VR SETTINGS in the game's Options menu. Changes here apply the next time the game starts."
                 : "Find the game first (VR CHECK) to change the IN VR settings.", 22, Paint.Ink, 640, 0.85);
-            sheet.Children.Add(memo.At(910, 610));
+            sheet.Children.Add(memo.At(910, 700));
 
             var x0 = 910.0;
             var locate = SmallButton("LOCATE GAME", LocateGame, 38);
-            sheet.Children.Add(locate.At(x0, 760));
+            sheet.Children.Add(locate.At(x0, 830));
             if (_game != null && ModInstaller.InstalledVersion(_game) != null)
             {
                 var uninstall = SmallButton("UNINSTALL INKVR", () => ShowNote("UNINSTALL INKVR?",
@@ -576,7 +580,7 @@ namespace InkVR.Launcher
                             ShowNote("COULDN'T UNINSTALL", ex.Message);
                         }
                     }), 38);
-                sheet.Children.Add(uninstall.At(x0 + locate.TextWidth + 70, 760));
+                sheet.Children.Add(uninstall.At(x0 + locate.TextWidth + 70, 830));
             }
         }
 

@@ -1,6 +1,6 @@
 # InkVR — Full 6DoF VR Mod for Bendy and the Ink Machine
 
-Status: **Test build 0.4.0 ready for your third headset test**: the first motion controls (swing to hit, hand hover, hand-aimed guns) plus the shrinking and footstep-noise fixes, and the menus now play in a full 1930s picture palace. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1). Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22; full body (M7) is for the full release.
+Status: **Test build 0.5.0 ready for your third headset test**: Henry's full body in two styles (lifelike and toon) with BODY options, lifelike hands and a real wristwatch, plus 0.4.0's first motion controls, the 1930s picture palace and the shrinking and footstep-noise fixes. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1). Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22; full body (M7) is for the full release.
 
 Target setup: **Quest 3 · Virtual Desktop · VDXR OpenXR runtime** · RTX 4050 Laptop. Release: **open source on GitHub**.
 
@@ -22,13 +22,15 @@ Each test build goes to your headset before the next one starts, and your feedba
 |---|---|---|
 | 0.2.0 | VR core, button controls, Henry's hands, launcher, theatre menus, VR SETTINGS | ✅ tested |
 | 0.3.x | Correct world scale (AUTO = your height), single light beams, smooth walking, ink on the hands, hand-hover interaction | ✅ tested |
-| **0.4.0** | **Motion controls part 1:** swing the axe, pipe or plunger with your arm; guns fire where your hand points; no more shrinking while walking; no more footstep/landing spam; the menu theatre built out into a full 1930s picture palace | 🟡 **your test now** |
-| 0.5.0 | **Motion controls part 2 (finishes M4):** throw Bacon Soup cans with your arm (Ch4), pull levers and turn valves by hand where the game has them, two-handed Tommy Gun, eat soup by raising it to your mouth, weapon holster | next |
-| 0.6.0 | **Cutscenes & scripted moments (M6):** knockouts, falls, Sammy/Bendy grabs, deaths, the Ch1 floor collapse; your head always stays yours; fades on cuts; optional Cinema mode | |
-| 0.7.0 | **UI pass (rest of M5):** world-space subtitles, readable prompts, note viewer, VR button glyphs, chapter cards, credits | |
-| 0.8.0 | **Performance (M8):** a measured 90 fps pass through every chapter on your laptop | |
-| 0.9.0 | **All chapters certified (M9):** full Ch1–5 + Archives VR playthrough, softlock checks, boss fights | |
-| **1.0 full release** | **Full body (M7):** two body models for you to choose from; a BODY option for full body / arms & hands / hands only; GitHub release | |
+| 0.4.0 | **Motion controls part 1:** swing the axe, pipe or plunger with your arm; guns fire where your hand points; no more shrinking while walking; no more footstep/landing spam; the menu theatre built out into a full 1930s picture palace | ✅ built (tested with 0.5.0) |
+| **0.5.0** | **Full body (M7), moved up at your request:** two styles you can pick in options, LIFELIKE (real-looking hands, waistcoat and tie) and TOON (cartoon hands, braces, big shoes); BODY: full body / arms & hands / hands only / none; feet that plant and step; a real tank wristwatch | 🟡 **your test now** |
+| Trailer | **Teaser trailer:** opens with the launcher's opening animation, then your headset footage of the theatre and gameplay | after your footage |
+| 0.6.0 | **Motion controls part 2 (finishes M4):** throw Bacon Soup cans with your arm (Ch4), pull levers and turn valves by hand where the game has them, two-handed Tommy Gun, eat soup by raising it to your mouth, weapon holster | next |
+| 0.7.0 | **Cutscenes & scripted moments (M6):** knockouts, falls, Sammy/Bendy grabs, deaths, the Ch1 floor collapse; your head always stays yours; fades on cuts; optional Cinema mode | |
+| 0.8.0 | **UI pass (rest of M5):** world-space subtitles, readable prompts, note viewer, VR button glyphs, chapter cards, credits | |
+| 0.9.0 | **Performance (M8):** a measured 90 fps pass through every chapter on your laptop | |
+| 0.95 | **All chapters certified (M9):** full Ch1–5 + Archives VR playthrough, softlock checks, boss fights | |
+| **1.0 full release** | Polish from your feedback, body ink and shadows, GitHub release | |
 
 ---
 
@@ -260,7 +262,17 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 - Jumpscares are preserved, and look-direction triggers still fire.
 - **Done when:** every scripted sequence in every chapter plays comfortably and nothing softlocks.
 
-### M7 — Full-body IK *(for the 1.0 full release; decided 2026-10-22)*
+### M7 — Full-body IK *(built in 0.5.0: moved up at your request on 2026-10-23)*
+> **Built:**
+> - A skinned ten-bone body (pelvis, spine, chest, neck, thigh/shin/foot per leg) posed from your head and hands.
+> - The feet plant on the ground with short raycasts (stairs, ramps) and step one at a time when you move or turn.
+> - Crouching bends the knees.
+> - The body is sized to your eye height.
+> - Two styles: LIFELIKE (waistcoat, tie, pinstripes, boots, with new skinned lifelike hands) and TOON (braces, baggy trousers, big cartoon shoes, with the original hands).
+> - Settings: BODY (full body / arms & hands / hands only / none) and STYLE (lifelike / toon) in VR SETTINGS and the launcher.
+> - The game's build stripped Mesh.boneWeights; InkVR sets the weights through the engine call behind Mesh.SetBoneWeights.
+>
+> **Not yet:** ink on the body, a body shadow, arm-length calibration.
 - **Two body models for you to choose from.** Both are Henry, rigged to the same skeleton, so the IK, grips and ink stains work on either:
   - **A. "Toon Henry":** the same style as the current hands and arms. Chunky ink-outlined forms, flat sepia shading, rolled sleeves and suspenders, with the watch and ring carried over.
   - **B. "Studio Henry":** more realistic proportions and folds (shirt, vest, trousers, work boots), still drawn with the game's ink outlines, hatching and sepia palette so it belongs in the studio.
@@ -357,6 +369,6 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 6. **Name:** InkVR, by StrikeZoneVR. Project folder: `InkVR`.
 7. **Hands & arms:** made in the game's style and true to the lore (they're Henry's), not just the flat game's viewmodel.
 8. **Test gate:** your first headset test comes once the launcher, settings, hands/arms, Quest button controls, theatre menu and pause, and the in-game VR settings (with the StrikeZoneVR credit) are all done. Motion controls (M4) follow that test.
-9. **Full body (2026-10-22):** it comes in the full release, with two models to choose from (one in the hands' style, one more realistic but still in the game's style), plus BODY options for arms & hands and for hands only.
+9. **Full body (2026-10-22, moved up 2026-10-23):** two models, both selectable in options: one in the hands' style (TOON), one more realistic but still in the game's style (LIFELIKE, which also gets real-looking hands). Plus BODY options for arms & hands and for hands only. Built in 0.5.0 instead of waiting for the full release.
 10. **Sounds:** the game's native footsteps stay. InkVR must not add or trigger extra movement sounds. (Fixed in 0.4.0: the landing sound no longer repeats while you walk.)
 11. **Interaction foundation:** hand hover plus the mapped button (grip or X) is the base every later motion control builds on.

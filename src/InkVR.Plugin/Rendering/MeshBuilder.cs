@@ -204,10 +204,123 @@ public class MeshBuilder
         Tri(i0, i2, i1);
     }
 
+    /// <summary>Adds another builder's geometry to this one.</summary>
+    public void Append(MeshBuilder o)
+    {
+        var start = _v.Count;
+        _v.AddRange(o._v);
+        _n.AddRange(o._n);
+        _uv.AddRange(o._uv);
+        _c.AddRange(o._c);
+        foreach (var t in o._t) _t.Add(start + t);
+    }
+
+    /// <summary>
+    /// A surface through rings of points: pts[ring, i] for i = 0..sides (the last repeats the first, for the UV seam).
+    /// Normals come from the surface and face away from each ring's centre; u runs around, v along.
+    /// Optional flat caps close the first and last rings.
+    /// </summary>
+    public void Loft(Vector3[,] pts, Vector3[] centers, bool capStart, bool capEnd)
+    {
+        var rings = pts.GetLength(0);
+        var cols = pts.GetLength(1);
+        var sides = cols - 1;
+        var start = _v.Count;
+        for (var j = 0; j < rings; j++)
+        for (var i = 0; i <= sides; i++)
+        {
+            var ip = i == sides ? 1 : i + 1;
+            var im = i == 0 ? sides - 1 : i - 1;
+            var du = pts[j, ip] - pts[j, im];
+            var dv = pts[Mathf.Min(rings - 1, j + 1), i] - pts[Mathf.Max(0, j - 1), i];
+            var n = Vector3.Cross(du, dv).normalized;
+            if (Vector3.Dot(n, pts[j, i] - centers[j]) < 0) n = -n;
+            Vert(pts[j, i], n, new Vector2((float)i / sides, rings > 1 ? (float)j / (rings - 1) : 0));
+        }
+
+        // Wind so the outside is the front face (Unity: clockwise seen from outside).
+        var a0 = pts[0, 0];
+        var b0 = pts[1, 0];
+        var c0 = pts[0, 1];
+        var flip = Vector3.Dot(Vector3.Cross(b0 - a0, c0 - a0), _n[start]) < 0; // (a, b, a+1) faces out when its normal does
+        for (var j = 0; j < rings - 1; j++)
+        for (var i = 0; i < sides; i++)
+        {
+            var a = start + j * (sides + 1) + i;
+            var b = a + sides + 1;
+            if (flip)
+            {
+                _t.Add(a); _t.Add(a + 1); _t.Add(b);
+                _t.Add(a + 1); _t.Add(b + 1); _t.Add(b);
+            }
+            else
+            {
+                _t.Add(a); _t.Add(b); _t.Add(a + 1);
+                _t.Add(a + 1); _t.Add(b); _t.Add(b + 1);
+            }
+        }
+
+        if (capStart) Cap(pts, centers, 0, centers[0] - centers[1]);
+        if (capEnd) Cap(pts, centers, rings - 1, centers[rings - 1] - centers[rings - 2]);
+    }
+
+    private void Cap(Vector3[,] pts, Vector3[] centers, int ring, Vector3 outward)
+    {
+        var sides = pts.GetLength(1) - 1;
+        var n = outward.normalized;
+        var c = Vert(centers[ring], n, new Vector2(0.5f, ring == 0 ? 0 : 1));
+        var first = _v.Count;
+        for (var i = 0; i < sides; i++) Vert(pts[ring, i], n, new Vector2((float)i / sides, ring == 0 ? 0 : 1));
+        for (var i = 0; i < sides; i++)
+        {
+            var a = first + i;
+            var b = first + (i + 1) % sides;
+            var facing = Vector3.Dot(Vector3.Cross(_v[a] - _v[c], _v[b] - _v[c]), n) > 0;
+            _t.Add(c);
+            _t.Add(facing ? a : b);
+            _t.Add(facing ? b : a);
+        }
+    }
+
+    /// <summary>
+    /// A flat rectangle facing <c>Cross(up, right)</c>: <paramref name="right"/> and <paramref name="up"/> are
+    /// half-extents, and the texture's top lies along <paramref name="up"/> (front face = the normal's side).
+    /// </summary>
+    public void FlatQuad(Vector3 center, Vector3 right, Vector3 up)
+    {
+        var n = Vector3.Cross(up, right).normalized;
+        var i0 = Vert(center - right - up, n, new Vector2(0, 0));
+        var i1 = Vert(center + right - up, n, new Vector2(1, 0));
+        var i2 = Vert(center + right + up, n, new Vector2(1, 1));
+        var i3 = Vert(center - right + up, n, new Vector2(0, 1));
+        _t.Add(i0);
+        _t.Add(i3);
+        _t.Add(i2);
+        _t.Add(i0);
+        _t.Add(i2);
+        _t.Add(i1);
+    }
+
+    /// <summary>A box with flat faces (each face carries the whole texture).</summary>
+    public void Box(Vector3 center, Vector3 size, Quaternion rotation)
+    {
+        var x = rotation * Vector3.right * (size.x * 0.5f);
+        var y = rotation * Vector3.up * (size.y * 0.5f);
+        var z = rotation * Vector3.forward * (size.z * 0.5f);
+        FlatQuad(center + y, x, z);
+        FlatQuad(center - y, x, -z);
+        FlatQuad(center + x, z, y);
+        FlatQuad(center - x, -z, y);
+        FlatQuad(center + z, -x, y);
+        FlatQuad(center - z, x, y);
+    }
+
     /// <summary>Copies of the built geometry (for painting ink onto the mesh's texture at a touched point).</summary>
     public Vector3[] VertexArray => _v.ToArray();
     public Vector3[] NormalArray => _n.ToArray();
     public Vector2[] UvArray => _uv.ToArray();
+    public int[] TriangleArray => _t.ToArray();
+    public int VertexCount => _v.Count;
 
     public Mesh ToMesh(string name)
     {

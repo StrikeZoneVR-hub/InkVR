@@ -79,6 +79,18 @@ public static class InkStains
         return p;
     }
 
+    /// <summary>Stop tracking parts whose hand was destroyed (style change).</summary>
+    public static void Forget(List<StainPart> parts)
+    {
+        if (parts == null) return;
+        foreach (var p in parts)
+        {
+            Parts.Remove(p);
+            if (p.Tex != null) Object.Destroy(p.Tex);
+            if (p.Mat != null) Object.Destroy(p.Mat);
+        }
+    }
+
     /// <summary>New chapter: new base textures (the studio's ink creeps further up), and today's stains wash off.</summary>
     public static void Rebase()
     {

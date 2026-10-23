@@ -1,15 +1,53 @@
 # Testing InkVR
 
-## Current build: 0.4.0 (from your third test)
+## Current build: 0.5.0 (everything since your second test)
 
 Everything is installed in your game folder. Start it as before: Virtual Desktop Streamer → `InkVR Launcher.exe` → PLAY IN VR.
+
+0.5.0 contains the full body update below and everything from 0.4.0 (motion controls part 1, the movie palace, and the shrinking and footstep fixes), since you haven't tested 0.4.0 yet.
 
 ### Before you play: set HEIGHT ADJUST back to NONE
 Your HEIGHT ADJUST is at UP 60 CM. You set that in an earlier test, when the world scale was wrong and you felt too short.
 
 WORLD SIZE: AUTO now puts your eyes at Henry's height by itself, so UP 60 CM would make you about 60 cm taller than Henry. Set it to NONE in VR SETTINGS → CONTROLS → HEIGHT ADJUST, or in the launcher under OPTIONS → HEIGHT → AS TRACKED.
 
-### What changed since 0.3.1
+### New in 0.5.0: Henry's full body
+
+**Pick how much of Henry you see, and how he looks**
+VR SETTINGS → HENRY (or the launcher under OPTIONS → HENRY) has two settings:
+- **BODY:** FULL BODY, ARMS & HANDS, HANDS ONLY or NONE.
+- **STYLE:**
+  - **LIFELIKE** (the default): real-looking hands, and a body in a waistcoat, tie, pinstripe trousers and work boots, with a gold watch chain.
+  - **TOON:** the cartoon hands you had before, and a chunky body with red braces, baggy trousers and big round cartoon shoes.
+
+Any BODY works with either STYLE.
+
+**The full body follows you**
+- The torso hangs from your head and turns with it (and a little towards your hands).
+- The arms reach from its shoulders to your controllers.
+- The feet stand on the floor (including stairs and ramps) and take steps when you walk, turn or lean.
+- When you crouch, Henry bends his knees and leans forward.
+- There's no head, because you're looking out of it.
+- Henry is sized to your own height.
+
+**Lifelike hands**
+Each hand is now one smooth piece of skin rather than jointed segments, so the knuckles bend like real ones. It has:
+- a shaped palm, with knuckles across the back and fleshy pads at the thumb and heel;
+- tapering fingers with rounded fingertips and fingernails;
+- natural skin tones, with creases at the joints, palm lines and faint veins;
+- a thin ink line, so it still belongs in the game's drawn world.
+
+Ink from the world still gets onto them.
+
+**A watch that looks like a watch**
+The old round watch was built from a cylinder with rounded ends, which made it an egg. It's now a 1930s rectangular "tank" watch:
+- a gilt case with lugs and a winding crown;
+- a cream dial with a minute track and 12 / 3 / 6 / 9 numerals;
+- bold black hands that show your real time.
+
+It sits on the wrist like a real watch: raise your wrist to read it and 12 is at the top.
+
+### Also new since your last test (0.4.0)
 
 **The menus now play in a full 1930s picture palace**
 The title screen, pause menu and loading screens are on the big screen of an old movie theatre, and you can look all around it:
@@ -40,6 +78,10 @@ For the Tommy Gun in Chapter 3. GUN AIM: HEAD brings back the flat game's look-t
 MELEE and GUN AIM are in VR SETTINGS → CONTROLS, and in the launcher under OPTIONS → WEAPONS. The launcher's HEIGHT option now covers ±60 cm, like the one in the game.
 
 ### What to check
+- [ ] Look down: you see your body, and your feet step as you walk and turn. Crouch and Henry crouches.
+- [ ] Switch BODY and STYLE in VR SETTINGS: all four BODY choices and both STYLES work, and the change is instant.
+- [ ] The LIFELIKE hands look like real hands when you open and close them (grip and trigger).
+- [ ] Raise your left wrist: the watch is readable and shows the right time.
 - [ ] At the title screen and the pause menu, look all around the theatre (behind you and up too): it should feel like a real old movie palace, with nothing flickering wrongly or looking broken.
 - [ ] The menus on the screen are as easy to read and use as before.
 - [ ] In Chapter 1, you stay the same size the whole time you walk around.

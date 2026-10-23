@@ -41,9 +41,22 @@ public class HandModel
 
     private const float ForearmLength = 0.26f, UpperArmLength = 0.30f;
 
-    public HandModel(bool left, Transform parent, Func<string, Material> material)
+    /// <summary>Lifelike hands: one smooth skinned mesh per hand. Toon: the original jointed cartoon hands.</summary>
+    public readonly bool Lifelike;
+
+    // The hand's joint layout (wrist space), shared by both styles.
+    private static readonly float[] FingerX = { -0.030f, -0.0095f, 0.0105f, 0.0285f };
+    private static readonly float[] FingerZ = { 0.090f, 0.093f, 0.090f, 0.082f };
+    private static readonly float[] FingerSpread = { -4f, 0f, 4f, 9f };
+    private static readonly float[][] FingerLengths = { new[] { 0.040f, 0.024f, 0.021f }, new[] { 0.044f, 0.028f, 0.022f }, new[] { 0.041f, 0.026f, 0.021f }, new[] { 0.032f, 0.019f, 0.018f } };
+    private static readonly float[] FingerRadius = { 0.0092f, 0.0095f, 0.0089f, 0.0078f };
+    private static readonly float[] ThumbLength = { 0.040f, 0.032f, 0.026f };
+    private static readonly float[] ThumbRadius = { 0.0128f, 0.0108f, 0.0099f };
+
+    public HandModel(bool left, Transform parent, Func<string, Material> material, bool lifelike = false)
     {
         IsLeft = left;
+        Lifelike = lifelike;
         _side = left ? -1f : 1f;
 
         Root = new GameObject(left ? "InkVR_HenryHand_L" : "InkVR_HenryHand_R").transform;
@@ -56,84 +69,54 @@ public class HandModel
         _wrist.localRotation = rot;
         _wrist.localPosition = new Vector3(0.032f * _side, 0, 0) - rot * new Vector3(0, 0, 0.05f);
 
-        // Palm: a flattened tube from wrist to knuckles.
-        var palm = new MeshBuilder();
-        palm.Tube(new[] { new Vector3(0, 0, 0.0f), new Vector3(0, 0.002f, 0.03f), new Vector3(0, 0.003f, 0.065f), new Vector3(0, 0.003f, 0.088f) },
-            new[] { 0.027f, 0.039f, 0.043f, 0.040f }, Vector3.up, 18, true, true, new Vector2(1f, 0.36f));
-        Part("Palm", _wrist, palm, material("palm"), 0.0018f, stain: true);
-
-        // Fingers: index, middle, ring, pinky.
-        float[] xs = { -0.030f, -0.0095f, 0.0105f, 0.0285f };
-        float[] zs = { 0.090f, 0.093f, 0.090f, 0.082f };
-        float[] spread = { -4f, 0f, 4f, 9f };
-        float[][] lengths = { new[] { 0.040f, 0.024f, 0.021f }, new[] { 0.044f, 0.028f, 0.022f }, new[] { 0.041f, 0.026f, 0.021f }, new[] { 0.032f, 0.019f, 0.018f } };
-        float[] radii = { 0.0092f, 0.0095f, 0.0089f, 0.0078f };
+        // The joints (both styles animate the same way): index, middle, ring, pinky, then the thumb.
         for (var f = 0; f < 4; f++)
         {
             var joints = new Transform[3];
             var parentT = _wrist;
-            var pos = new Vector3(xs[f] * _side, 0.004f, zs[f]);
+            var pos = new Vector3(FingerX[f] * _side, 0.004f, FingerZ[f]);
             for (var j = 0; j < 3; j++)
             {
                 var joint = new GameObject($"Finger{f}_{j}").transform;
                 joint.SetParent(parentT, false);
                 joint.localPosition = pos;
-                if (j == 0) joint.localRotation = Quaternion.Euler(0, spread[f] * _side, 0);
-                var r0 = radii[f] * (1f - 0.05f * j);
-                var seg = new MeshBuilder();
-                seg.Tube(new[] { Vector3.zero, new Vector3(0, 0, lengths[f][j]) }, new[] { r0, r0 * 0.95f }, Vector3.up, 12, j == 0, true);
-                Part($"Seg{f}_{j}", joint, seg, material(j == 2 ? "tip" : "finger"), 0.0015f, stain: true);
-                if (j > 0)
-                {
-                    // The finger's middle/end knuckle: a slight bulge, wider than the segments either side.
-                    var bump = new MeshBuilder();
-                    bump.Ellipsoid(new Vector3(0, 0.0012f, 0), new Vector3(r0 * 1.16f, r0 * 1.1f, r0 * 0.8f), Quaternion.identity, 12, 7);
-                    Part($"Joint{f}_{j}", joint, bump, material("finger"), 0.0011f, stain: true);
-                }
+                if (j == 0) joint.localRotation = Quaternion.Euler(0, FingerSpread[f] * _side, 0);
                 joints[j] = joint;
                 parentT = joint;
-                pos = new Vector3(0, 0, lengths[f][j]);
+                pos = new Vector3(0, 0, FingerLengths[f][j]);
             }
 
-            _fingers[f] = new Finger { Joints = joints, Rest = new[] { 8f, 10f, 6f }, Fist = new[] { 82f, 96f, 58f }, Spread = spread[f] * _side };
-
-            // Knuckle on the back of the hand where the finger meets it.
-            var knuckle = new MeshBuilder();
-            knuckle.Ellipsoid(new Vector3(xs[f] * _side, 0.0104f, zs[f] - 0.006f), new Vector3(radii[f] * 1.02f, 0.0058f, radii[f] * 1.0f), Quaternion.identity, 12, 7);
-            Part($"Knuckle{f}", _wrist, knuckle, material("palm"), 0.0012f, stain: true);
-
-            // Henry's wedding band (Linda), on the left ring finger.
-            if (left && f == 2)
-            {
-                var ring = new MeshBuilder();
-                ring.Torus(new Vector3(0, 0, 0.012f), Vector3.forward, radii[f] + 0.0017f, 0.0025f, 24, 10);
-                Part("WeddingBand", joints[0], ring, material("gold"), 0.0007f);
-            }
+            _fingers[f] = new Finger { Joints = joints, Rest = new[] { 8f, 10f, 6f }, Fist = new[] { 82f, 96f, 58f }, Spread = FingerSpread[f] * _side };
         }
 
-        // Thumb: three segments from the base of the palm, opposed to the fingers.
         var thumbJoints = new Transform[3];
         var thumbParent = _wrist;
         var thumbPos = new Vector3(-0.025f * _side, -0.006f, 0.020f);
         var thumbDir = new Vector3(-0.45f * _side, -0.22f, 0.86f).normalized;
         var thumbUp = new Vector3(-0.65f * _side, 0.75f, 0.1f).normalized;
-        float[] thumbLen = { 0.040f, 0.032f, 0.026f };
-        float[] thumbRad = { 0.0128f, 0.0108f, 0.0099f };
         for (var j = 0; j < 3; j++)
         {
             var joint = new GameObject($"Thumb_{j}").transform;
             joint.SetParent(thumbParent, false);
-            joint.localPosition = thumbPos;
+            joint.localPosition = j == 0 ? thumbPos : new Vector3(0, 0, ThumbLength[j - 1]);
             if (j == 0) joint.localRotation = Quaternion.LookRotation(thumbDir, thumbUp);
-            var seg = new MeshBuilder();
-            seg.Tube(new[] { Vector3.zero, new Vector3(0, 0, thumbLen[j]) }, new[] { thumbRad[j], thumbRad[j] * 0.93f }, Vector3.up, 12, true, true);
-            Part($"ThumbSeg_{j}", joint, seg, material(j == 2 ? "tip" : "finger"), 0.0015f, stain: true);
             thumbJoints[j] = joint;
             thumbParent = joint;
-            thumbPos = new Vector3(0, 0, thumbLen[j]);
         }
 
         _thumb = new Finger { Joints = thumbJoints, Rest = new[] { 0f, 8f, 6f }, Fist = new[] { 0f, 38f, 34f }, IsThumb = true };
+
+        if (lifelike) BuildLifelike(material, thumbPos, thumbDir, thumbUp);
+        else BuildToon(material);
+
+        // Henry's wedding band (Linda), on the left ring finger.
+        if (left)
+        {
+            var ring = new MeshBuilder();
+            var r = lifelike ? FingerRadius[2] * 1.1f + 0.0011f : FingerRadius[2] + 0.0017f;
+            ring.Torus(new Vector3(0, 0, 0.012f), Vector3.forward, r, 0.0025f, 24, 10);
+            Part("WeddingBand", _fingers[2].Joints[0], ring, material("gold"), 0.0007f);
+        }
 
         // Arm: forearm (skin + rolled sleeve) and upper arm (sleeve), posed by IK in world space.
         _arm = new GameObject(left ? "InkVR_HenryArm_L" : "InkVR_HenryArm_R").transform;
@@ -143,7 +126,7 @@ public class HandModel
         var fore = new MeshBuilder();
         fore.Tube(new[] { Vector3.zero, new Vector3(0, 0, ForearmLength * 0.5f), new Vector3(0, 0, ForearmLength) },
             new[] { 0.040f, 0.034f, 0.026f }, Vector3.up, 16, false, false, new Vector2(1f, 0.82f));
-        Part("ForearmSkin", _forearm, fore, material("forearm"), 0.0022f, stain: true);
+        Part("ForearmSkin", _forearm, fore, material(lifelike ? "lifeForearm" : "forearm"), lifelike ? 0.0014f : 0.0022f, stain: true);
         var sleeve = new MeshBuilder();
         var cuff = ForearmLength * 0.48f;
         sleeve.Tube(new[] { new Vector3(0, 0, -0.01f), new Vector3(0, 0, cuff * 0.6f), new Vector3(0, 0, cuff - 0.03f), new Vector3(0, 0, cuff - 0.012f), new Vector3(0, 0, cuff) },
@@ -162,37 +145,232 @@ public class HandModel
         upper.Tube(new[] { Vector3.zero, new Vector3(0, 0, UpperArmLength) }, new[] { 0.055f, 0.050f }, Vector3.up, 16, true, false, new Vector2(1f, 0.9f));
         Part("UpperSleeve", _upperArm, upper, material("sleeve"), 0.0026f, stain: true, sleeve: true);
 
-        // Wristwatch on the left wrist, its hands following your real clock.
+        // Wristwatch on the left wrist, its hands following your real clock: a 1930s tank watch, a gilt
+        // rectangular case on a leather strap, cream dial with an inked minute track and 12/3/6/9 numerals.
+        // As on a real watch, 12 and 6 point along the strap (round the wrist), 3 and the crown towards the hand.
         if (left)
         {
-            // A sturdy 1930s wristwatch: wide leather strap, brass drum case with a crown, cream dial.
             var band = new MeshBuilder();
             band.Tube(new[] { new Vector3(0, 0, -0.032f), new Vector3(0, 0, -0.009f) }, new[] { 0.0296f, 0.0296f }, Vector3.up, 20, false, false, new Vector2(1f, 0.84f));
             Part("WatchStrap", _wrist, band, material("strap"), 0.0009f, stain: true);
             var face = new GameObject("WatchFace").transform;
             face.SetParent(_wrist, false);
-            face.localPosition = new Vector3(0, 0.0243f, -0.0205f);
-            var drum = new MeshBuilder();
-            drum.Tube(new[] { Vector3.zero, new Vector3(0, 0.0068f, 0) }, new[] { 0.0188f, 0.0180f }, Vector3.forward, 26, true, true);
-            Part("WatchCase", face, drum, material("gold"), 0.0011f);
+            face.localPosition = new Vector3(0, 0.0246f, -0.0205f);
+            face.localRotation = Quaternion.Euler(0, -90f, 0); // local +Z = 12 o'clock (the little-finger side), +X = 3 (the fingers)
+
+            var caseMb = new MeshBuilder();
+            caseMb.Box(new Vector3(0, 0.003f, 0), new Vector3(0.024f, 0.006f, 0.032f), Quaternion.identity);
+            foreach (var z in new[] { -1f, 1f })
+            foreach (var x in new[] { -1f, 1f })
+                caseMb.Box(new Vector3(0.0072f * x, 0.0022f, 0.0175f * z), new Vector3(0.0036f, 0.0032f, 0.0052f), Quaternion.identity);
+            Part("WatchCase", face, caseMb, material("gold"), 0.0006f);
             var crown = new MeshBuilder();
-            crown.Tube(new[] { new Vector3(0, 0.0034f, 0.0178f), new Vector3(0, 0.0034f, 0.0218f) }, new[] { 0.0029f, 0.0029f }, Vector3.up, 10, true, true);
-            Part("WatchCrown", face, crown, material("gold"), 0.0007f);
+            crown.Tube(new[] { new Vector3(0.0118f, 0.003f, 0), new Vector3(0.0152f, 0.003f, 0) }, new[] { 0.0021f, 0.0021f }, Vector3.up, 10, false, false);
+            crown.FlatQuad(new Vector3(0.0152f, 0.003f, 0), new Vector3(0, 0, 0.0021f), new Vector3(0, 0.0021f, 0));
+            Part("WatchCrown", face, crown, material("gold"), 0.0004f);
             var dial = new MeshBuilder();
-            dial.Ellipsoid(new Vector3(0, 0.0068f, 0), new Vector3(0.0162f, 0.0016f, 0.0162f), Quaternion.identity, 26, 8);
+            dial.FlatQuad(new Vector3(0, 0.00615f, 0), new Vector3(0.0098f, 0, 0), new Vector3(0, 0, 0.0136f));
             Part("WatchDial", face, dial, material("dial"), 0);
-            _hourHand = WatchHand(face, 0.0088f, 0.0013f, material("ink"));
-            _minuteHand = WatchHand(face, 0.0128f, 0.0009f, material("ink"));
+            _hourHand = WatchHand(face, 0.0072f, 0.0022f, material("ink"));
+            _minuteHand = WatchHand(face, 0.0112f, 0.0015f, material("ink"));
+            var pin = new MeshBuilder();
+            pin.Ellipsoid(new Vector3(0, 0.0072f, 0), new Vector3(0.0016f, 0.0006f, 0.0016f), Quaternion.identity, 10, 5);
+            Part("WatchPin", face, pin, material("gold"), 0);
         }
+    }
+
+    /// <summary>The original cartoon hand: rigid segments on each joint, knuckle bumps, thick ink.</summary>
+    private void BuildToon(Func<string, Material> material)
+    {
+        var palm = new MeshBuilder();
+        palm.Tube(new[] { new Vector3(0, 0, 0.0f), new Vector3(0, 0.002f, 0.03f), new Vector3(0, 0.003f, 0.065f), new Vector3(0, 0.003f, 0.088f) },
+            new[] { 0.027f, 0.039f, 0.043f, 0.040f }, Vector3.up, 18, true, true, new Vector2(1f, 0.36f));
+        Part("Palm", _wrist, palm, material("palm"), 0.0018f, stain: true);
+
+        for (var f = 0; f < 4; f++)
+        {
+            for (var j = 0; j < 3; j++)
+            {
+                var joint = _fingers[f].Joints[j];
+                var r0 = FingerRadius[f] * (1f - 0.05f * j);
+                var seg = new MeshBuilder();
+                seg.Tube(new[] { Vector3.zero, new Vector3(0, 0, FingerLengths[f][j]) }, new[] { r0, r0 * 0.95f }, Vector3.up, 12, j == 0, true);
+                Part($"Seg{f}_{j}", joint, seg, material(j == 2 ? "tip" : "finger"), 0.0015f, stain: true);
+                if (j > 0)
+                {
+                    // The finger's middle/end knuckle: a slight bulge, wider than the segments either side.
+                    var bump = new MeshBuilder();
+                    bump.Ellipsoid(new Vector3(0, 0.0012f, 0), new Vector3(r0 * 1.16f, r0 * 1.1f, r0 * 0.8f), Quaternion.identity, 12, 7);
+                    Part($"Joint{f}_{j}", joint, bump, material("finger"), 0.0011f, stain: true);
+                }
+            }
+
+            // Knuckle on the back of the hand where the finger meets it.
+            var knuckle = new MeshBuilder();
+            knuckle.Ellipsoid(new Vector3(FingerX[f] * _side, 0.0104f, FingerZ[f] - 0.006f), new Vector3(FingerRadius[f] * 1.02f, 0.0058f, FingerRadius[f] * 1.0f), Quaternion.identity, 12, 7);
+            Part($"Knuckle{f}", _wrist, knuckle, material("palm"), 0.0012f, stain: true);
+        }
+
+        for (var j = 0; j < 3; j++)
+        {
+            var seg = new MeshBuilder();
+            seg.Tube(new[] { Vector3.zero, new Vector3(0, 0, ThumbLength[j]) }, new[] { ThumbRadius[j], ThumbRadius[j] * 0.93f }, Vector3.up, 12, true, true);
+            Part($"ThumbSeg_{j}", _thumb.Joints[j], seg, material(j == 2 ? "tip" : "finger"), 0.0015f, stain: true);
+        }
+    }
+
+    /// <summary>
+    /// A lifelike hand: one continuous skinned mesh, so the knuckles bend smoothly instead of hinging like a
+    /// puppet. A shaped palm (knuckle ridge across the back, the fleshy pads at the heel and the base of the
+    /// thumb), tapering fingers with real proportions, rounded fingertips and fingernails, natural skin
+    /// tones, and a thin ink line so it still belongs in the game's drawn world.
+    /// </summary>
+    private void BuildLifelike(Func<string, Material> material, Vector3 thumbPos, Vector3 thumbDir, Vector3 thumbUp)
+    {
+        // Bones: 0 the wrist, 1..12 the fingers (finger × 3 + joint + 1), 13..15 the thumb.
+        var bones = new Transform[16];
+        bones[0] = _wrist;
+        for (var f = 0; f < 4; f++)
+        for (var j = 0; j < 3; j++)
+            bones[1 + f * 3 + j] = _fingers[f].Joints[j];
+        for (var j = 0; j < 3; j++) bones[13 + j] = _thumb.Joints[j];
+
+        var sb = new SkinBuilder();
+        var up = Vector3.up;
+
+        // Palm: rounded-box sections from the wrist to the knuckles, the back domed, the palm side fuller at the heel.
+        float[] z = { -0.01f, 0.006f, 0.03f, 0.055f, 0.075f, 0.09f };
+        float[] halfWidth = { 0.024f, 0.029f, 0.036f, 0.041f, 0.043f, 0.042f };
+        float[] back = { 0.0105f, 0.011f, 0.0118f, 0.0112f, 0.0106f, 0.0096f };
+        float[] front = { 0.0125f, 0.0152f, 0.0165f, 0.0148f, 0.0128f, 0.0105f };
+        float[] pads = { 0.55f, 1f, 1f, 0.65f, 0.25f, 0f }; // how much the thumb's pad and the heel swell the palm side
+        float[] ridge = { 0f, 0f, 0f, 0.2f, 0.65f, 1f };  // the knuckles rising across the back, towards the fingers
+        const int sides = 28;
+        var pts = new Vector3[z.Length, sides + 1];
+        var centers = new Vector3[z.Length];
+        for (var k = 0; k < z.Length; k++)
+        {
+            var yc = 0.002f + 0.0003f * k;
+            centers[k] = new Vector3(0, yc, z[k]);
+            for (var i = 0; i <= sides; i++)
+            {
+                var a = (float)(i % sides) / sides * Mathf.PI * 2;
+                var c = Mathf.Cos(a);
+                var s = Mathf.Sin(a);
+                var px = halfWidth[k] * Mathf.Sign(c) * Mathf.Pow(Mathf.Abs(c), 0.9f);
+                var py = (s >= 0 ? back[k] : front[k]) * Mathf.Sign(s) * Mathf.Pow(Mathf.Abs(s), 0.9f);
+                if (s >= 0 && ridge[k] > 0)
+                {
+                    // Knuckles: a smooth bump on the back where each finger joins the hand.
+                    var bump = 0f;
+                    for (var f = 0; f < 4; f++)
+                    {
+                        var dx = (px - FingerX[f] * _side) / 0.0085f;
+                        bump += Mathf.Exp(-dx * dx);
+                    }
+
+                    py *= 1f + 0.22f * ridge[k] * Mathf.Min(1f, bump) * Mathf.Pow(s, 4);
+                }
+
+                if (s < 0)
+                {
+                    // The palm side is fuller under the thumb (thenar) and the little finger (heel), smoothly.
+                    var across = px * _side / halfWidth[k]; // -1 thumb side .. +1 little-finger side
+                    var swell = 0.32f * Mathf.SmoothStep(0, 1, Mathf.Clamp01(-across * 1.4f)) + 0.2f * Mathf.SmoothStep(0, 1, Mathf.Clamp01(across * 1.4f));
+                    py *= 1f + swell * pads[k];
+                }
+                pts[k, i] = new Vector3(px, yc + py, z[k]);
+            }
+        }
+
+        var palm = new MeshBuilder();
+        palm.Loft(pts, centers, true, true);
+        sb.Add(palm, "lifePalm", 0.0009f, _ => SkinWeight.Rigid(0));
+
+        for (var f = 0; f < 4; f++)
+        {
+            var b0 = 1 + f * 3;
+            var mcp = _wrist.InverseTransformPoint(_fingers[f].Joints[0].position);
+            var dir = _wrist.InverseTransformDirection(_fingers[f].Joints[0].forward).normalized;
+            var l1 = FingerLengths[f][0];
+            var l2 = FingerLengths[f][1];
+            var l3 = FingerLengths[f][2];
+            var r = FingerRadius[f];
+
+            // The finger: one tube through all three joints, slimming towards a rounded tip.
+            float[] ts = { -0.014f, 0f, l1 * 0.45f, l1, l1 + l2 * 0.5f, l1 + l2, l1 + l2 + l3 * 0.5f, l1 + l2 + l3 * 0.88f };
+            float[] rs = { 1.06f, 1.0f, 0.93f, 0.95f, 0.87f, 0.86f, 0.82f, 0.78f };
+            var cs = new Vector3[ts.Length];
+            var radii = new float[ts.Length];
+            for (var k = 0; k < ts.Length; k++)
+            {
+                cs[k] = mcp + dir * ts[k];
+                radii[k] = r * rs[k];
+            }
+
+            var finger = new MeshBuilder();
+            finger.Tube(cs, radii, up, 14, false, true, new Vector2(1.08f, 0.92f));
+            sb.Add(finger, "lifeSkin", 0.0007f, v =>
+            {
+                var t = Vector3.Dot(v - mcp, dir);
+                if (t < l1 * 0.5f) return SkinWeight.Blend(0, b0, (t + 0.004f) / 0.01f);
+                if (t < l1 + l2 * 0.5f) return SkinWeight.Blend(b0, b0 + 1, (t - (l1 - 0.005f)) / 0.01f);
+                return SkinWeight.Blend(b0 + 1, b0 + 2, (t - (l1 + l2 - 0.004f)) / 0.008f);
+            });
+
+            var nailUp = Vector3.ProjectOnPlane(up, dir).normalized;
+            var tipR = r * 0.8f;
+            var nail = new MeshBuilder();
+            nail.Ellipsoid(mcp + dir * (l1 + l2 + l3 * 0.56f) + nailUp * (tipR * 0.84f), new Vector3(tipR * 0.78f, tipR * 0.16f, l3 * 0.42f), Quaternion.LookRotation(dir, nailUp), 14, 6);
+            sb.Add(nail, "lifeNail", 0.0003f, _ => SkinWeight.Rigid(b0 + 2));
+        }
+
+        // The thumb, rooted in its pad.
+        {
+            var l0 = ThumbLength[0];
+            var l1 = ThumbLength[1];
+            var l2 = ThumbLength[2];
+            float[] ts = { -0.008f, 0.008f, 0.024f, l0, l0 + l1 * 0.5f, l0 + l1, l0 + l1 + l2 * 0.5f, l0 + l1 + l2 * 0.88f };
+            float[] rs = { 0.0155f, 0.0146f, 0.0133f, 0.0119f, 0.0109f, 0.0106f, 0.0102f, 0.0094f };
+            var cs = new Vector3[ts.Length];
+            for (var k = 0; k < ts.Length; k++) cs[k] = thumbPos + thumbDir * ts[k];
+            var thumb = new MeshBuilder();
+            thumb.Tube(cs, rs, thumbUp, 14, false, true, new Vector2(1.08f, 0.94f));
+            sb.Add(thumb, "lifeSkin", 0.0007f, v =>
+            {
+                var t = Vector3.Dot(v - thumbPos, thumbDir);
+                if (t < l0 * 0.5f) return SkinWeight.Blend(0, 13, (t + 0.005f) / 0.02f);
+                if (t < l0 + l1 * 0.5f) return SkinWeight.Blend(13, 14, (t - (l0 - 0.006f)) / 0.012f);
+                return SkinWeight.Blend(14, 15, (t - (l0 + l1 - 0.005f)) / 0.01f);
+            });
+
+            var nailUp = Vector3.ProjectOnPlane(thumbUp, thumbDir).normalized;
+            var nail = new MeshBuilder();
+            nail.Ellipsoid(thumbPos + thumbDir * (l0 + l1 + l2 * 0.55f) + nailUp * (0.0094f * 0.86f), new Vector3(0.0094f * 0.8f, 0.0094f * 0.16f, l2 * 0.4f), Quaternion.LookRotation(thumbDir, nailUp), 14, 6);
+            sb.Add(nail, "lifeNail", 0.0003f, _ => SkinWeight.Rigid(15));
+        }
+
+        var name = IsLeft ? "LifelikeHand_L" : "LifelikeHand_R";
+        var built = sb.BuildSeparate(_wrist, bones, _wrist, material, name, out var ink);
+        foreach (var (renderer, geometry, key) in built)
+        {
+            _renderers.Add(renderer);
+            if (key == "lifeNail") continue;
+            var part = InkStains.Register(renderer.transform, renderer, renderer.sharedMaterial, geometry, false);
+            if (part != null) Stains.Add(part);
+        }
+
+        if (ink != null) _renderers.Add(ink);
     }
 
     private Transform WatchHand(Transform face, float length, float width, Material m)
     {
         var pivot = new GameObject("WatchHand").transform;
         pivot.SetParent(face, false);
-        pivot.localPosition = new Vector3(0, 0.0087f, 0);
+        pivot.localPosition = new Vector3(0, 0.0066f, 0);
         var mb = new MeshBuilder();
-        mb.Tube(new[] { Vector3.zero, new Vector3(0, 0, length) }, new[] { width, width * 0.45f }, Vector3.up, 6, true, true, new Vector2(1f, 0.4f));
+        mb.Box(new Vector3(0, 0, length * 0.42f), new Vector3(width, 0.0004f, length * 1.16f), Quaternion.identity);
+        mb.Box(new Vector3(0, 0, length * 0.92f), new Vector3(width * 0.55f, 0.0004f, length * 0.2f), Quaternion.identity);
         Part("Hand", pivot, mb, m, 0);
         return pivot;
     }
@@ -223,6 +401,9 @@ public class HandModel
     }
 
     public Vector3 WristPosition => _wrist.position;
+
+    /// <summary>The hand's frame: +Z along the fingers, +Y out of the back of the hand.</summary>
+    public Transform Wrist => _wrist;
 
     public void SetVisible(bool hand, bool arm)
     {

@@ -71,6 +71,10 @@ public static class VRRig
 
     private const float MinAutoScale = 2.4f, MaxAutoScale = 4.6f;
     private static float _currentScale = -1, _measuredHeight = -1, _henryEye = 5.03f;
+
+    /// <summary>Your standing eye height in metres (measured, else last saved, else average), plus HEIGHT ADJUST.</summary>
+    public static float StandingEyeHeight =>
+        (_measuredHeight > 0 ? _measuredHeight : ModConfig.MeasuredEyeHeight.Value > 0.8f ? ModConfig.MeasuredEyeHeight.Value : 1.62f) + ModConfig.HeightOffset.Value;
     private static readonly System.Collections.Generic.List<float> Heights = new();
     private static float _nextHeightSample, _lastHeightSave;
 

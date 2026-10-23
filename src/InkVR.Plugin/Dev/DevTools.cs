@@ -508,6 +508,59 @@ public class DevTools : MonoBehaviour
 
                 break;
             }
+            case "body":
+                // body full|arms|hands|none (what you see) or lifelike|toon (how it looks)
+                var word = char.ToUpperInvariant(arg[0]) + arg.Substring(1).ToLowerInvariant();
+                if (word == "Lifelike" || word == "Toon") ModConfig.BodyStyle.Value = word;
+                else ModConfig.BodyMode.Value = word;
+                Plugin.L.LogInfo($"body: {ModConfig.BodyMode.Value}, {ModConfig.BodyStyle.Value}");
+                break;
+            case "bodystate":
+            {
+                var b = InkVR.Body.Hands.Body;
+                Plugin.L.LogInfo(b == null ? "BODY none" : $"BODY {b.Style} pelvis={b.Pelvis} feet L={b.FootLeft} R={b.FootRight} shoulders L={b.ShoulderLeft} R={b.ShoulderRight} head={InkVR.Core.VRRig.Head?.position}");
+                break;
+            }
+            case "curl":
+                InkVR.Body.Hands.DevCurl = float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture);
+                break;
+            case "handshot":
+            {
+                // handshot <name> left|right back|palm|side|thumb [distance m]
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var hand = a[1] == "left" ? Hand.Left : Hand.Right;
+                var w = InkVR.Body.Hands.WristOf(hand);
+                if (w == null) break;
+                var scale = InkVR.Core.VRRig.ActiveScale;
+                var d = (a.Length > 3 ? float.Parse(a[3], System.Globalization.CultureInfo.InvariantCulture) : 0.24f) * scale;
+                var fingers = w.forward;
+                var back = w.up;
+                var thumbSide = w.right * (hand == Hand.Left ? 1f : -1f);
+                var center = w.position + fingers * (0.07f * scale);
+                var dir = a[2] switch { "palm" => -back, "side" => -thumbSide, "thumb" => thumbSide, _ => back };
+                ShootFrom(a[0], center + dir * d, center, a[2] == "side" || a[2] == "thumb" ? back : fingers, InkVR.Core.VRRig.CinemaActive || !InkVR.Core.VRRig.InGame, 40f);
+                break;
+            }
+            case "closeshot":
+            {
+                // closeshot <name> <object path or name> <distance m> : look straight down the object's +Y from that far,
+                // with the object's +X pointing up in the picture (for the watch: 3 o'clock up, so 12 should be on the left)
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                Transform t = null;
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Transform>()))
+                {
+                    var tr = o.Cast<Transform>();
+                    if (tr.name == a[1] && tr.gameObject.activeInHierarchy) { t = tr; break; }
+                }
+
+                if (t == null) { Plugin.L.LogWarning("closeshot: not found " + a[1]); break; }
+                var d = float.Parse(a[2], System.Globalization.CultureInfo.InvariantCulture) * InkVR.Core.VRRig.ActiveScale;
+                ShootFrom(a[0], t.position + t.up * d, t.position, t.right, InkVR.Core.VRRig.CinemaActive || !InkVR.Core.VRRig.InGame, 30f);
+                break;
+            }
+            case "bodyshot":
+                BodyShot(arg);
+                break;
             case "swingstate":
                 Plugin.L.LogInfo($"SWINGSTATE swings={InkVR.Body.MeleeSwing.Swings} hits={InkVR.Body.MeleeSwing.Hits} gameSwings={InkVR.Body.MeleeSwing.GameSwings} speed={InkVR.Body.MeleeSwing.Speed:F2} peak={InkVR.Body.MeleeSwing.PeakSpeed:F2} last=[{InkVR.Body.MeleeSwing.LastHit}] gunShot=[{InkVR.Body.GunAim.LastShot}]");
                 break;
@@ -1039,6 +1092,71 @@ public class DevTools : MonoBehaviour
     }
 
     // ---------- screenshots ----------
+
+    /// <summary>
+    /// bodyshot name [orbit degrees] [distance m] [height m] [look-at height m]: a picture of Henry from outside
+    /// (the headset only ever sees him from inside): orbit 0 is in front of him, 180 behind.
+    /// </summary>
+    private void BodyShot(string arg)
+    {
+        var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        float F(int i, float d) => a.Length > i ? float.Parse(a[i], System.Globalization.CultureInfo.InvariantCulture) : d;
+        var name = a.Length > 0 ? a[0] : "body";
+        var orbit = F(1, 20f);
+        var dist = F(2, 2.4f);
+        var height = F(3, 1.1f);
+        var lookHeight = F(4, 0.9f);
+        var head = InkVR.Core.VRRig.Head;
+        var origin = InkVR.Core.VRRig.ActiveOrigin;
+        if (head == null || origin == null) return;
+        var scale = InkVR.Core.VRRig.ActiveScale;
+        var fwd = Vector3.ProjectOnPlane(head.forward, Vector3.up).normalized;
+        if (fwd.sqrMagnitude < 1e-4f) fwd = origin.forward;
+        var floorY = origin.position.y;
+        var body = InkVR.Body.Hands.Body;
+        var center = body != null ? body.Pelvis : head.position;
+        var target = new Vector3(center.x, floorY + lookHeight * scale, center.z);
+        var dir = Quaternion.Euler(0, orbit, 0) * fwd;
+        var camPos = new Vector3(center.x, floorY + height * scale, center.z) + dir * (dist * scale);
+
+        ShootFrom(name, camPos, target, Vector3.up, InkVR.Core.VRRig.CinemaActive || !InkVR.Core.VRRig.InGame, 45f);
+    }
+
+    /// <summary>Render one picture from a temporary camera (not the headset's) and save it to shots/.</summary>
+    private void ShootFrom(string name, Vector3 camPos, Vector3 target, Vector3 up, bool cinema, float fov)
+    {
+        var scale = InkVR.Core.VRRig.ActiveScale;
+        var go = new GameObject("InkVR_BodyShotCam");
+        var cam = go.AddComponent<Camera>();
+        cam.enabled = false;
+        cam.stereoTargetEye = StereoTargetEyeMask.None;
+        cam.cullingMask = cinema ? InkVR.UI.VRLayers.UIMask : ~InkVR.UI.VRLayers.UIMask & ~(1 << 10);
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = new Color(0.05f, 0.04f, 0.03f);
+        cam.fieldOfView = fov;
+        cam.nearClipPlane = Mathf.Min(0.05f * scale, Vector3.Distance(camPos, target) * 0.3f);
+        cam.farClipPlane = 60f * scale;
+        go.transform.position = camPos;
+        go.transform.rotation = Quaternion.LookRotation(target - camPos, up);
+        var rt = new RenderTexture(1024, 1024, 24);
+        cam.targetTexture = rt;
+        cam.Render();
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        var tex = new Texture2D(1024, 1024, TextureFormat.RGB24, false);
+        tex.ReadPixels(new Rect(0, 0, 1024, 1024), 0, 0);
+        tex.Apply();
+        RenderTexture.active = prev;
+        var dirPath = Path.Combine(Plugin.DataDir, "shots");
+        Directory.CreateDirectory(dirPath);
+        var file = Path.Combine(dirPath, $"{name}_{DateTime.Now:HHmmss}.png");
+        File.WriteAllBytes(file, ImageConversion.EncodeToPNG(tex));
+        cam.targetTexture = null;
+        Object.Destroy(go);
+        Object.Destroy(rt);
+        Object.Destroy(tex);
+        Plugin.L.LogInfo($"Body shot -> {file}");
+    }
 
     private void Screenshot(string arg)
     {
