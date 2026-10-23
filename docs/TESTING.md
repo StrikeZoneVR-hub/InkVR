@@ -28,9 +28,9 @@ If you lie down or put the headset on the floor, the body hides itself instead o
 0.5.1 also contains the full body update below and everything from 0.4.0 (motion controls part 1, the movie palace, and the shrinking and footstep fixes).
 
 ### Before you play: set HEIGHT ADJUST back to NONE
-Your HEIGHT ADJUST is at UP 60 CM. You set that in an earlier test, when the world scale was wrong and you felt too short.
+Your HEIGHT ADJUST is at UP 30 CM (it was UP 60 CM before your last session). You first raised it in an earlier test, when the world scale was wrong and you felt too short.
 
-WORLD SIZE: AUTO now puts your eyes at Henry's height by itself, so UP 60 CM would make you about 60 cm taller than Henry. Set it to NONE in VR SETTINGS → CONTROLS → HEIGHT ADJUST, or in the launcher under OPTIONS → HEIGHT → AS TRACKED.
+WORLD SIZE: AUTO now puts your eyes at Henry's height by itself, so UP 30 CM makes you about 30 cm taller than Henry. Set it to NONE in VR SETTINGS → CONTROLS → HEIGHT ADJUST, or in the launcher under OPTIONS → HEIGHT → AS TRACKED.
 
 ### New in 0.5.0: Henry's full body
 
@@ -96,7 +96,7 @@ Swing the axe (or the pipe, plunger or wrench) with your real arm. When the head
 For the Tommy Gun in Chapter 3. GUN AIM: HEAD brings back the flat game's look-to-aim.
 
 **Where the new settings are**
-MELEE and GUN AIM are in VR SETTINGS → CONTROLS, and in the launcher under OPTIONS → WEAPONS. The launcher's HEIGHT option now covers ±60 cm, like the one in the game.
+MELEE and GUN AIM are in VR SETTINGS → CONTROLS, and in the launcher under OPTIONS → HENRY. The launcher's HEIGHT option now covers ±60 cm, like the one in the game.
 
 ### What to check
 - [ ] Chapter 2's opening: when Henry wakes up holding his head, the view stays steady and you can look around.
