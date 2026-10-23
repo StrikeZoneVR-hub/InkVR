@@ -436,7 +436,7 @@ namespace InkVR.Launcher
         {
             var cfg = _cfg;
             var y = 180.0;
-            const double rowH = 52;
+            const double rowH = 49;
             var col = 0;
 
             void Header(string text, int c)
@@ -504,15 +504,22 @@ namespace InkVR.Launcher
             var speeds = new[] { 60f, 90f, 120f, 150f, 180f, 240f };
             Row("SMOOTH TURN SPEED", speeds.Select(s => s + "°/S").ToArray(), Nearest(speeds, cfg?.GetFloat("Comfort", "SmoothTurnSpeed", 120) ?? 120), i => cfg.Set("Comfort", "SmoothTurnSpeed", speeds[i]), has);
             var worlds = new[] { 4.21f, 3.93f, 3.69f, 3.47f, 3.28f, 3.11f, 2.95f, 2.81f, 2.68f, 2.57f, 2.46f };
-            Row("WORLD SIZE", worlds.Select(w => Math.Round(2.95f / w * 100f) + "%").ToArray(), Nearest(worlds, cfg?.GetFloat("VR", "WorldScale", 2.95f) ?? 2.95f), i => cfg.Set("VR", "WorldScale", worlds[i]), has);
+            var auto = !has || cfg.GetBool("VR", "AutoWorldScale", true);
+            Row("WORLD SIZE", new[] { "AUTO (YOUR HEIGHT)" }.Concat(worlds.Select(w => Math.Round(2.95f / w * 100f) + "%")).ToArray(),
+                auto ? 0 : 1 + Nearest(worlds, cfg?.GetFloat("VR", "WorldScale", 2.95f) ?? 2.95f), i =>
+                {
+                    cfg.Set("VR", "AutoWorldScale", i == 0);
+                    if (i > 0) cfg.Set("VR", "WorldScale", worlds[i - 1]);
+                }, has);
             Row("MAIN HAND", new[] { "RIGHT", "LEFT" }, has && cfg.GetBool("Controls", "LeftHanded", false) ? 1 : 0, i => cfg.Set("Controls", "LeftHanded", i == 1), has);
-            Row("INTERACT", new[] { "POINT WITH HAND", "LOOK AT IT" }, has && !cfg.GetBool("Controls", "InteractWithHand", true) ? 1 : 0, i => cfg.Set("Controls", "InteractWithHand", i == 0), has);
+            Row("INTERACT", new[] { "HAND HOVER", "LOOK AT IT" }, has && !cfg.GetBool("Controls", "InteractWithHand", true) ? 1 : 0, i => cfg.Set("Controls", "InteractWithHand", i == 0), has);
             var heights = Enumerable.Range(-6, 13).Select(k => k * 0.05f).ToArray();
             Row("HEIGHT", heights.Select(h => h == 0 ? "AS TRACKED" : (h > 0 ? "UP " : "DOWN ") + Math.Abs(Math.Round(h * 100)) + " CM").ToArray(),
                 Nearest(heights, cfg?.GetFloat("VR", "HeightOffset", 0) ?? 0), i => cfg.Set("VR", "HeightOffset", heights[i]), has);
             var scales = new[] { 0.7f, 0.8f, 0.9f, 1.0f, 1.1f, 1.2f, 1.3f, 1.4f };
             Row("RENDER SCALE", scales.Select(s => Math.Round(s * 100) + "%").ToArray(), Nearest(scales, cfg?.GetFloat("Graphics", "RenderScale", 1) ?? 1), i => cfg.Set("Graphics", "RenderScale", scales[i]), has);
             Row("AUTO RESOLUTION", new[] { "ON", "OFF" }, has && !cfg.GetBool("Graphics", "DynamicResolution", true) ? 1 : 0, i => cfg.Set("Graphics", "DynamicResolution", i == 0), has);
+            Row("LIGHT BEAMS", new[] { "ON", "OFF" }, has && !cfg.GetBool("Graphics", "VolumetricLightInVR", true) ? 1 : 0, i => cfg.Set("Graphics", "VolumetricLightInVR", i == 0), has);
             Row("INK ON HANDS", new[] { "ON", "OFF" }, has && !cfg.GetBool("Body", "InkOnHands", true) ? 1 : 0, i => cfg.Set("Body", "InkOnHands", i == 0), has);
             Row("LASER POINTER", new[] { "OFF", "ON" }, has && cfg.GetBool("Controls", "LaserPointer", false) ? 1 : 0, i => cfg.Set("Controls", "LaserPointer", i == 1), has);
             Row("REDUCE FLASHES", new[] { "OFF", "ON" }, _reduce ? 1 : 0, i =>

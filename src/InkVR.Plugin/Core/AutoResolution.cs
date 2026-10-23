@@ -13,12 +13,13 @@ namespace InkVR.Core;
 /// </summary>
 public static class AutoResolution
 {
-    private const float Step = 0.05f, Window = 1f, MinGap = 4f;
+    private const float Step = 0.05f, Window = 1f, MinGap = 6f, NoRiseAfterDrop = 30f;
 
     public static float Current { get; private set; } = -1;
 
     private static float _windowStart, _lastChange = -100;
-    private static int _frames, _missed, _calmWindows;
+    private static int _frames, _missed, _calmWindows, _hotWindows;
+    private static float _lastDrop = -100;
     private static float _frameSum;
     private static string _scene;
 
@@ -72,14 +73,23 @@ public static class AutoResolution
         var missedShare = (float)_missed / Mathf.Max(1, _frames);
         var canChange = Time.unscaledTime - _lastChange > MinGap;
 
-        if ((avg > budget * 1.06f || missedShare > 0.08f) && Current > min + 1e-3f)
+        // Lower after two slow seconds in a row (or one very slow one); raise only after a long calm spell and
+        // never soon after lowering, so it settles instead of see-sawing (each change costs a small hitch).
+        var hot = avg > budget * 1.06f || missedShare > 0.08f;
+        _hotWindows = hot ? _hotWindows + 1 : 0;
+        if (hot && Current > min + 1e-3f)
         {
             _calmWindows = 0;
-            if (canChange) Set(Mathf.Max(min, Current - Step), $"frames over budget ({avg * 1000f:F1} ms vs {budget * 1000f:F1} ms, {missedShare:P0} late)");
+            if (canChange && (_hotWindows >= 2 || missedShare > 0.25f))
+            {
+                _hotWindows = 0;
+                _lastDrop = Time.unscaledTime;
+                Set(Mathf.Max(min, Current - Step), $"frames over budget ({avg * 1000f:F1} ms vs {budget * 1000f:F1} ms, {missedShare:P0} late)");
+            }
         }
-        else if (waits > 0 && waitMs > budget * 1000f * 0.28f && avg < budget * 1.02f && Current < max - 1e-3f)
+        else if (!hot && waits > 0 && waitMs > budget * 1000f * 0.32f && Current < max - 1e-3f)
         {
-            if (++_calmWindows >= 3 && canChange)
+            if (++_calmWindows >= 6 && canChange && Time.unscaledTime - _lastDrop > NoRiseAfterDrop)
             {
                 _calmWindows = 0;
                 Set(Mathf.Min(max, Current + Step), $"headroom ({waitMs:F1} ms spare per frame)");

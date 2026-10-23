@@ -8,6 +8,9 @@ public static class ModConfig
     // VR
     public static ConfigEntry<bool> VREnabled;
     public static ConfigEntry<float> WorldScale;
+    public static ConfigEntry<bool> AutoWorldScale;
+    public static ConfigEntry<float> MeasuredEyeHeight;
+    public static ConfigEntry<bool> VolumetricLightVR;
     public static ConfigEntry<float> HeightOffset;
 
     // Comfort / controls
@@ -59,6 +62,8 @@ public static class ModConfig
         File = cfg;
         VREnabled = cfg.Bind("VR", "Enabled", true, "Start the game in VR (OpenXR). Off = flat-screen with the mod idle.");
         WorldScale = cfg.Bind("VR", "WorldScale", 2.95f, "Game units per real-world metre. Henry's eye is 5.03 units above the floor (= 1.70 m at 2.95); doors are 7.4 units (2.5 m).");
+        AutoWorldScale = cfg.Bind("VR", "AutoWorldScale", true, "Size the world to you: your standing eye height (measured as each level starts) becomes Henry's eye height. Off = use WorldScale.");
+        MeasuredEyeHeight = cfg.Bind("VR", "MeasuredEyeHeight", 0f, "Your standing eye height in metres, last measured by AutoWorldScale (0 = not yet).");
         HeightOffset = cfg.Bind("VR", "HeightOffset", 0f, "Metres added to your tracked head height (seated play / height calibration).");
 
         SnapTurn = cfg.Bind("Comfort", "SnapTurn", true, "Turn in steps with the right stick (off = smooth turning).");
@@ -80,6 +85,7 @@ public static class ModConfig
         RenderScale = cfg.Bind("Graphics", "RenderScale", 1.0f, "Headset render resolution multiplier (1.0 = the runtime's recommended resolution). With DynamicResolution this is the most it will use.");
         DynamicResolution = cfg.Bind("Graphics", "DynamicResolution", true, "Lower the resolution a little when the graphics card can't keep up with the headset's refresh rate, and raise it again when it can (smooth frame rate first).");
         MinRenderScale = cfg.Bind("Graphics", "MinRenderScale", 0.7f, "The lowest DynamicResolution may go.");
+        VolumetricLightVR = cfg.Bind("Graphics", "VolumetricLightInVR", true, "The game's light beams through the air, rendered per eye in VR (off saves GPU time).");
         LaserPointer = cfg.Bind("Controls", "LaserPointer", false, "Show a laser from your hand to click menus (the thumbstick and A always work).");
 
         PerfLog = cfg.Bind("Debug", "LogPerformance", true, "Write VR frame timing to the BepInEx log every 5 seconds (helps tuning).");

@@ -215,6 +215,119 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"INK scan done ({groups.Count} groups within {radius})");
                 break;
             }
+            case "fxscan":
+            {
+                // Components on every camera, plus lens flares and flare-ish objects (stereo troublemakers).
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Camera>()))
+                {
+                    var cam = o.Cast<Camera>();
+                    if (!cam.gameObject.scene.IsValid() && cam.gameObject.scene.name != "DontDestroyOnLoad") continue;
+                    var comps = cam.GetComponents<Component>().Select(c => c.GetIl2CppType().Name);
+                    Plugin.L.LogInfo($"FX cam {PathOf(cam.transform)} enabled={cam.enabled} depth={cam.depth} target={(cam.targetTexture != null ? cam.targetTexture.name : "-")}: {string.Join(", ", comps)}");
+                }
+
+                foreach (var t in new[] { "LensFlare", "FlareLayer", "Projector" })
+                {
+                    var type = Il2CppInterop.Runtime.Il2CppClassPointerStore.GetNativeClassPointer(typeof(Camera)) != IntPtr.Zero ? Il2CppSystem.Type.GetType("UnityEngine." + t + ", UnityEngine.CoreModule") : null;
+                    if (type == null) continue;
+                    var n = 0;
+                    foreach (var o in Object.FindObjectsOfType(type))
+                    {
+                        if (n++ < 6) Plugin.L.LogInfo($"FX {t}: {PathOf(o.Cast<Component>().transform)}");
+                    }
+
+                    Plugin.L.LogInfo($"FX {t}: {n} total");
+                }
+
+                var groups = new Dictionary<string, int>();
+                foreach (var o in Object.FindObjectsOfType(Il2CppType.Of<Renderer>()))
+                {
+                    var r = o.Cast<Renderer>();
+                    var key = $"{r.GetIl2CppType().Name} mat={r.sharedMaterial?.name} shader={r.sharedMaterial?.shader?.name}";
+                    var hay = (r.name + " " + key).ToLowerInvariant();
+                    if (!(hay.Contains("beam") || hay.Contains("shaft") || hay.Contains("flare") || hay.Contains("glow") || hay.Contains("ray") || hay.Contains("volum") || hay.Contains("halo") || hay.Contains("cone") || hay.Contains("light"))) continue;
+                    groups.TryGetValue(key + " e.g. " + r.name, out var c);
+                    groups[key + " e.g. " + r.name] = c + 1;
+                }
+
+                foreach (var kv in groups.OrderByDescending(k => k.Value).Take(25)) Plugin.L.LogInfo($"FX x{kv.Value} {kv.Key}");
+                break;
+            }
+            case "interhere":
+            {
+                // Walk up to the nearest interactable (optionally by name) and hold the right hand over it.
+                var player = GameManager.Instance.Player;
+                Interactable best = null;
+                var bestD = float.MaxValue;
+                foreach (var o in Object.FindObjectsOfType(Il2CppType.Of<Interactable>()))
+                {
+                    var it = o.Cast<Interactable>();
+                    if (!it.gameObject.activeInHierarchy || (arg.Length > 0 && PathOf(it.transform).IndexOf(arg, StringComparison.OrdinalIgnoreCase) < 0)) continue;
+                    var d = (it.transform.position - player.transform.position).sqrMagnitude;
+                    if (d < bestD)
+                    {
+                        bestD = d;
+                        best = it;
+                    }
+                }
+
+                if (best == null)
+                {
+                    Plugin.L.LogInfo("interhere: none");
+                    break;
+                }
+
+                var col = best.GetComponentInChildren<Collider>();
+                var target = col != null ? col.bounds.center : best.transform.position;
+                var away = Vector3.ProjectOnPlane(player.transform.position - target, Vector3.up);
+                if (away.sqrMagnitude < 1e-4f) away = Vector3.forward;
+                var stand = target + away.normalized * 2.2f;
+                var cc = player.CharacterController;
+                cc.enabled = false;
+                player.transform.position = new Vector3(stand.x, player.transform.position.y, stand.z);
+                cc.enabled = true;
+                InkVR.Core.VRRig.DevPendingTouch = target;
+                Plugin.L.LogInfo($"interhere: {PathOf(best.transform)} at {target}");
+                break;
+            }
+            case "interstate":
+            {
+                var ic = GameManager.Instance.Player?.m_Interaction;
+                var it = ic?.Interactable;
+                Plugin.L.LogInfo($"INTERSTATE target={(it != null ? PathOf(it.transform) : "none")} hoverHand={InkVR.Input.InteractionAim.HoverHand?.ToString() ?? "none"} found=[{InkVR.Input.InteractionAim.LastFind}] ignore={ic?.m_IgnoreLayers.value} player={GameManager.Instance.Player.transform.position}");
+                break;
+            }
+            case "beams":
+                // beams fix|nofix|off|on
+                if (arg == "nofix") InkVR.Rendering.VolumetricStereo.DevNoFix = true;
+                else if (arg == "fix") InkVR.Rendering.VolumetricStereo.DevNoFix = false;
+                else if (arg == "off" || arg == "on") ModConfig.VolumetricLightVR.Value = arg == "on";
+                Plugin.L.LogInfo($"beams: on={ModConfig.VolumetricLightVR.Value} perEyeFix={!InkVR.Rendering.VolumetricStereo.DevNoFix}");
+                break;
+            case "lookat":
+            {
+                // lookat <path> [dropUnits]: stand 1.7 m tall and look at an object (or below it)
+                var lookArgs = arg.Split('|');
+                var t = Resolve(lookArgs[0]);
+                var drop = lookArgs.Length > 1 ? float.Parse(lookArgs[1], System.Globalization.CultureInfo.InvariantCulture) : 0f;
+                InkVR.Core.VRRig.DevLookAt = t.position - Vector3.up * drop;
+                break;
+            }
+            case "goto":
+            {
+                // goto <path>: stand 3 units from an object, facing it
+                var t = Resolve(arg);
+                var player = GameManager.Instance.Player;
+                var flat = Vector3.ProjectOnPlane(player.transform.position - t.position, Vector3.up);
+                if (flat.sqrMagnitude < 1e-4f) flat = Vector3.forward;
+                var stand = t.position + flat.normalized * 3f;
+                var cc = player.CharacterController;
+                cc.enabled = false;
+                player.transform.position = new Vector3(stand.x, player.transform.position.y, stand.z);
+                cc.enabled = true;
+                Plugin.L.LogInfo($"goto {PathOf(t)} at {t.position}, standing at {stand}");
+                break;
+            }
             case "inkburst":
                 InkVR.Body.InkWorld.Splatter(arg.Length > 0 ? int.Parse(arg) : 14);
                 break;
@@ -387,6 +500,7 @@ public class DevTools : MonoBehaviour
                 if (arg == "off")
                 {
                     InkVR.Body.Hands.DevLeft = InkVR.Body.Hands.DevRight = null;
+                    InkVR.Core.VRRig.DevPendingTouch = null;
                     break;
                 }
 

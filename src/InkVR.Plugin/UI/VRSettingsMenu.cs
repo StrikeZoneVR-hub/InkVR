@@ -47,11 +47,11 @@ public static class VRSettingsMenu
         Toggle("TURNING", ModConfig.SnapTurn, "SNAP", "SMOOTH"),
         Choice("SNAP ANGLE", ModConfig.SnapTurnAngle, new[] { 30f, 45f, 60f, 90f }, v => $"{v:0} DEGREES"),
         Choice("SMOOTH TURN SPEED", ModConfig.SmoothTurnSpeed, new[] { 60f, 90f, 120f, 150f, 180f, 240f }, v => $"{v:0} PER SEC"),
-        Choice("WORLD SIZE", ModConfig.WorldScale, WorldScales, v => $"{2.95f / v * 100f:0}%"),
+        WorldSize(),
         Toggle("CALM THEATRE FLICKER", ModConfig.ReduceFlashes, "ON", "OFF"),
         Category("CONTROLS"),
         Toggle("DOMINANT HAND", ModConfig.LeftHanded, "LEFT", "RIGHT"),
-        Toggle("INTERACT AIM", ModConfig.InteractWithHand, "HAND", "HEAD"),
+        Toggle("INTERACT", ModConfig.InteractWithHand, "HAND HOVER", "LOOK AT IT"),
         Choice("HEIGHT ADJUST", ModConfig.HeightOffset, Range(-0.6f, 0.6f, 0.05f), v => Mathf.Abs(v) < 0.001f ? "NONE" : v > 0 ? $"UP {v * 100:0} CM" : $"DOWN {-v * 100:0} CM"),
         Toggle("LASER POINTER", ModConfig.LaserPointer, "ON", "OFF"),
         Category("HENRY"),
@@ -61,6 +61,23 @@ public static class VRSettingsMenu
         Choice("RENDER SCALE", ModConfig.RenderScale, Range(0.6f, 1.5f, 0.1f), v => $"{v * 100:0}%"),
         Toggle("AUTO RESOLUTION", ModConfig.DynamicResolution, "ON", "OFF"),
         Toggle("HALF-RES AMBIENT OCCLUSION", ModConfig.VRAODownsample, "ON", "OFF"),
+        Toggle("LIGHT BEAMS", ModConfig.VolumetricLightVR, "ON", "OFF"),
+    };
+
+    /// <summary>AUTO (sized to your height) or a fixed world size.</summary>
+    private static Row WorldSize() => new()
+    {
+        Label = "WORLD SIZE",
+        Value = () => ModConfig.AutoWorldScale.Value
+            ? (Core.VRRig.AutoScale > 0 ? $"AUTO ({2.95f / Core.VRRig.AutoScale * 100f:0}%)" : "AUTO")
+            : $"{2.95f / ModConfig.WorldScale.Value * 100f:0}%",
+        Step = dir =>
+        {
+            var i = ModConfig.AutoWorldScale.Value ? 0 : 1 + Nearest(WorldScales, ModConfig.WorldScale.Value);
+            i = Mathf.Clamp(i + dir, 0, WorldScales.Length);
+            ModConfig.AutoWorldScale.Value = i == 0;
+            if (i > 0) ModConfig.WorldScale.Value = WorldScales[i - 1];
+        }
     };
 
     // Game units per metre; shown as world size relative to Henry's eye height (2.95 = 100%).
@@ -204,7 +221,7 @@ public static class VRSettingsMenu
         }
 
         // A few more rows than the game's own pages: tighten the list so it clears the credit.
-        nav.localScale = new Vector3(0.88f, 0.88f, 1f);
+        nav.localScale = new Vector3(0.85f, 0.85f, 1f);
         var navRt = nav.GetComponent<RectTransform>();
         if (navRt != null) navRt.anchoredPosition += new Vector2(0, 18f);
         AddCredit(root.transform, title);

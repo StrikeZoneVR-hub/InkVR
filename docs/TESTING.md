@@ -1,50 +1,34 @@
 # Testing InkVR
 
-## Current build: 0.3.0 (fixes from your first headset test)
+## Current build: 0.3.1 (from your second test)
 
-Everything is installed in your game folder:
-`C:\Program Files (x86)\Steam\steamapps\common\Bendy and the Ink Machine`
+Everything is installed in your game folder. Start it as before: Virtual Desktop Streamer → `InkVR Launcher.exe` → PLAY IN VR.
 
-Start it the same way as before:
-1. Start the Virtual Desktop Streamer and connect.
-2. Run `InkVR Launcher.exe`.
-3. Press PLAY IN VR.
+### What changed since 0.3.0
 
-### What changed since your first test
+**You're Henry's height now (WORLD SIZE: AUTO, the new default)**
+Your second test's log showed your eyes about 1.45–1.5 m above the floor, while Henry's are 5.03 game units. At the old fixed scale that put you about 20 cm shorter than Henry, in a world whose furniture is already oversized for him, so you felt tiny.
 
-**Jitter**
-- **Walking judder is fixed.** The game moves you on a 50 Hz physics tick, but the headset shows 90 frames a second, so your view stepped on some frames and stood still on others. InkVR now draws you smoothly between physics steps.
-- **The head pose is applied later.** It now happens right before each frame is drawn, so the image matches the pose sent to the headset.
-- **Frame rate is protected.** At your resolution (1728×1824 per eye) Chapter 1 needs about 12–13 ms of GPU time against 11.1 ms for 90 Hz, so frames were being dropped. **AUTO RESOLUTION** (on by default) lowers the resolution a step when frames run late and raises it again when there's room. It changes only every few seconds, never in menus, and resets behind each loading screen.
+AUTO measures your standing eye height for a few seconds as each level starts and sizes the world so your eyes are at Henry's eye height. Your real floor stays the virtual floor, so you can still reach down to things. The page shows it, for example "WORLD SIZE: AUTO (86%)". Step left or right for a fixed size instead.
 
-**World size and double vision**
-- **Eye spacing measures itself now.** The eye spacing is set to exactly your IPD × the world scale, whichever way the runtime reports it. If Virtual Desktop was reporting already-scaled eyes, InkVR had been scaling them a second time, which matches what you saw: a miniature world, small hands and double vision up close. The log now records which case your headset is in.
-- **WORLD SIZE** is a new setting (VR SETTINGS → COMFORT, or the launcher's OPTIONS). If the world still looks small or large, adjust it there; 100% is Henry's eye height.
+**Light beams no longer double**
+The game's volumetric light beams (the ones in the Ink Machine room) were projected the same way for both eyes. Each eye now gets its own projection, so the beams sit where they shine. You can switch them off with LIGHT BEAMS (OFF also saves GPU time).
 
-**Menus**
-- **The laser pointer is off by default.** Turn it on with LASER POINTER if you want it.
-- **The thumbstick reaches VR SETTINGS.** Use down/up in the Options list, then A to open it.
-- **On the VR page:** stick up/down picks a row, left/right (or A) changes it, and B goes back.
+**Interact by hovering either hand**
+Hold either hand over something interactable, touch it, or reach toward it. The game's own highlight and prompt appear, and grip (either hand) or X uses it. The hands find the object; the game's targeting does the rest. This is the groundwork for motion controls. INTERACT: LOOK AT IT brings back the flat game's look-to-interact.
 
-**Henry's hands**
-- Knuckles on the back of the hand, and joint bulges on each finger.
-- A chunkier 1930s watch: brass case, crown, cream dial, bigger hands.
-- A thicker wedding band with an ink outline.
+**Steadier auto-resolution**
+It now waits for two slow seconds before lowering the resolution, and won't raise it again for 30 s after a drop, so it settles instead of see-sawing.
 
-**Ink on the hands and sleeves (new)**
-- **Splats:** touching an ink splat on a wall or floor leaves ink where you touched, and it runs down toward the floor.
-- **Pools:** dipping your hand into an ink pool (like the Flow Room floor) coats whatever went under.
-- **Drips:** ink drips and splashes that land on your hands mark them.
-- **Bursts:** when the game splashes ink at you, your arms and hands get splattered too.
-- **Drying:** fresh ink drips off for a moment, then slowly dries back to the chapter's usual stains over about 3 minutes. INK ON HANDS in the launcher's OPTIONS turns it off.
+**Eye spacing simplified**
+Unity already scales the eyes for the world, so InkVR no longer adjusts them at all. It only logs your IPD (yours is 62.7 mm).
 
 ### What to check
-- [ ] Walking and turning feel smooth, with no stepping or stutter while you move.
-- [ ] The world feels life-size. If not, change WORLD SIZE and tell me which value felt right.
-- [ ] No double vision up close (hands, objects at arm's length).
-- [ ] Options: stick down to VR SETTINGS, A opens it, the stick changes values, B goes back.
-- [ ] Touch an ink splat on a wall or floor in Chapter 1: ink appears on your fingers or palm.
-- [ ] The watch, ring and knuckles read clearly when you look at your hands.
+- [ ] After a few seconds in a level, you're standing at Henry's height (doors, desks and posters at a natural height).
+- [ ] The light beams in the Ink Machine room look single and solid.
+- [ ] Hovering a hand over a door, a pedestal, a battery or a tape recorder shows the game's highlight and prompt, and grip uses it.
+- [ ] The frame rate feels steady, without frequent small hitches.
+- [ ] Ink still gets onto your hands from the splats, pools and bursts.
 
 ### After testing
 Tell me how it went. The log now includes, every 5 seconds:
