@@ -19,6 +19,8 @@ public static class ModConfig
     public static ConfigEntry<float> SmoothTurnSpeed;
     public static ConfigEntry<bool> LeftHanded;
     public static ConfigEntry<bool> InteractWithHand;
+    public static ConfigEntry<bool> PhysicalMelee;
+    public static ConfigEntry<bool> AimGunsWithHand;
     public static ConfigEntry<bool> ReduceFlashes;
 
     // Body
@@ -71,6 +73,8 @@ public static class ModConfig
         SmoothTurnSpeed = cfg.Bind("Comfort", "SmoothTurnSpeed", 120f, "Degrees per second for smooth turning.");
         LeftHanded = cfg.Bind("Controls", "LeftHanded", false, "Swap the controller roles (move on the right stick, attack with the left trigger).");
         InteractWithHand = cfg.Bind("Controls", "InteractWithHand", true, "Point at things with your dominant hand to interact (off = look at them, like the flat game).");
+        PhysicalMelee = cfg.Bind("Controls", "PhysicalMelee", true, "Swing your arm to hit with melee weapons (the axe, the pipe...). The attack button still swings too.");
+        AimGunsWithHand = cfg.Bind("Controls", "AimGunsWithHand", true, "Guns fire where your hand points (off = where you look, like the flat game).");
         ReduceFlashes = cfg.Bind("Comfort", "ReduceFlashes", false, "Calm the theatre's projector flicker and film scratches.");
 
         ShowHands = cfg.Bind("Body", "ShowHands", true, "Show Henry's hands.");

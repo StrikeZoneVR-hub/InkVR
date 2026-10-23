@@ -63,6 +63,7 @@ public static class InteractionAim
         Interactable bestItem = null;
         var bestPoint = Vector3.zero;
         var bestPalm = Vector3.zero;
+        Collider bestCollider = null;
 
         var why = "";
         void Consider(Hand hand, Collider col, Vector3 point, float score, string how)
@@ -76,6 +77,7 @@ public static class InteractionAim
             bestItem = item;
             bestPoint = point;
             bestPalm = _palm;
+            bestCollider = col;
         }
 
         _overlap ??= new Il2CppReferenceArray<Collider>(16);
@@ -122,13 +124,16 @@ public static class InteractionAim
             return true;
         }
 
-        // The game's own targeting, on a short ray into the spot your hand found (coming from the hand's
-        // side, so nothing between your head and your hand can get in the way).
-        var approach = bestPoint - bestPalm;
-        if (approach.sqrMagnitude < 1e-6f) approach = bestPoint - eye;
+        // The game's own targeting, on a short ray through what your hand found, from just outside it on the
+        // hand's side (a cast that starts inside a collider can't see it, and big pick-up zones surround the
+        // hand; from outside, nothing between your head and your hand can get in the way either).
+        var b = bestCollider.bounds;
+        var approach = b.center - bestPalm;
+        if (b.Contains(bestPalm) || approach.sqrMagnitude < 1e-6f) approach = b.center - eye;
         direction = approach.normalized;
-        origin = bestPoint - direction * 0.3f * scale;
-        reach = 0.6f * scale;
+        var radius = b.extents.magnitude;
+        origin = b.center - direction * (radius + 0.25f * scale);
+        reach = radius * 2f + 0.5f * scale;
         return true;
     }
 

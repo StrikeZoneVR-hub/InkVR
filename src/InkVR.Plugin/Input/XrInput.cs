@@ -62,7 +62,7 @@ public static unsafe class XrInput
     public static (Vector3 pos, Quaternion rot)? DevRightAim;
     public static float? DevRightTrigger;
 
-    private static void ApplyDev()
+    internal static void ApplyDev()
     {
         if (DevRightAim.HasValue)
         {

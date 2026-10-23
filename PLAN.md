@@ -1,6 +1,6 @@
 # InkVR — Full 6DoF VR Mod for Bendy and the Ink Machine
 
-Status: **Test build 0.2.0 ready for your headset test** (M1 VR core · M2 button controls + Henry's hands · M3 launcher · M5 VR SETTINGS page + theatre menus) · next after your test: M4 motion controls · Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22
+Status: **Test build 0.4.0 ready for your third headset test**: the first motion controls (swing to hit, hand hover, hand-aimed guns) plus the shrinking and footstep-noise fixes. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1). Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22; full body (M7) is for the full release.
 
 Target setup: **Quest 3 · Virtual Desktop · VDXR OpenXR runtime** · RTX 4050 Laptop. Release: **open source on GitHub**.
 
@@ -11,6 +11,24 @@ Goals (all required):
 - A VR settings menu inside the game's own Options menu, in the game's own style
 - 90 fps at max graphics settings
 - Every chapter playable from start to finish
+
+---
+
+## Roadmap at a glance (updated 2026-10-22)
+
+Each test build goes to your headset before the next one starts, and your feedback can reorder it.
+
+| Build | What it brings | State |
+|---|---|---|
+| 0.2.0 | VR core, button controls, Henry's hands, launcher, theatre menus, VR SETTINGS | ✅ tested |
+| 0.3.x | Correct world scale (AUTO = your height), single light beams, smooth walking, ink on the hands, hand-hover interaction | ✅ tested |
+| **0.4.0** | **Motion controls part 1:** swing the axe, pipe or plunger with your arm; guns fire where your hand points; no more shrinking while walking; no more footstep/landing spam | 🟡 **your test now** |
+| 0.5.0 | **Motion controls part 2 (finishes M4):** throw Bacon Soup cans with your arm (Ch4), pull levers and turn valves by hand where the game has them, two-handed Tommy Gun, eat soup by raising it to your mouth, weapon holster | next |
+| 0.6.0 | **Cutscenes & scripted moments (M6):** knockouts, falls, Sammy/Bendy grabs, deaths, the Ch1 floor collapse; your head always stays yours; fades on cuts; optional Cinema mode | |
+| 0.7.0 | **UI pass (rest of M5):** world-space subtitles, readable prompts, note viewer, VR button glyphs, chapter cards, credits | |
+| 0.8.0 | **Performance (M8):** a measured 90 fps pass through every chapter on your laptop | |
+| 0.9.0 | **All chapters certified (M9):** full Ch1–5 + Archives VR playthrough, softlock checks, boss fights | |
+| **1.0 full release** | **Full body (M7):** two body models for you to choose from; a BODY option for full body / arms & hands / hands only; GitHub release | |
 
 ---
 
@@ -106,7 +124,14 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 - Record a **flat-screen baseline**: frame times at max settings in a heavy area of each chapter.
 - **Done when:** the game runs normally with BepInEx, the plugin logs "InkVR loaded", and the game map is written.
 
-### M1 — VR core: 6DoF head, stereo rendering, perf gate *(risk: HIGH)* 🟡 built, awaiting headset test
+### M1 — VR core: 6DoF head, stereo rendering, perf gate *(risk: HIGH)* ✅ headset-tested (0.2.0, 0.3.1)
+> **Headset findings (VDXR, Quest 3):**
+> - Unity already scales eye separation by the world scale, so InkVR no longer touches the eyes. (0.2.0 scaled them twice: tiny world, double vision.)
+> - WORLD SIZE: AUTO sizes the world so your standing eye height is Henry's (5.03 units). It's adopted only as a level starts or when you resume, never mid-walk (0.4.0).
+> - The game moves the player at 50 Hz, so InkVR interpolates the rig between physics steps, and poses the head and hands again right before rendering.
+> - The volumetric light beams are re-projected per eye.
+> - AUTO RESOLUTION settles around 70–85% in Chapter 1 to hold 90 Hz.
+> - The body now stays grounded under head motion, so the game's landing sound no longer fires constantly; its own footsteps play as before (0.4.0).
 > **Result so far (mock runtime, 1512×1680 per eye):** OpenXR injection works through Unity's own OpenXR provider (path A).
 > - In Chapter 1, frame time is ~10.7–11.8 ms with VR tuning: no motion blur or DoF, half-res AO, FXAA.
 > - Before tuning it was ~13.6 ms.
@@ -128,7 +153,7 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 - **Feasibility gate:** measure VR frame time at max settings in the heaviest areas, and report real numbers before going further.
 - **Done when:** you start Ch1 and walk around with a gamepad. Head tracking is correct in both eyes, scale feels right, and nothing swims or doubles.
 
-### M2 — Controllers, locomotion, the game's own hands & arms on button presses, VR-usable menus *(risk: medium)* 🟡 built, awaiting headset test
+### M2 — Controllers, locomotion, the game's own hands & arms on button presses, VR-usable menus *(risk: medium)* ✅ headset-tested (0.2.0, 0.3.1)
 > Built: Quest Touch (+ Index / simple) actions feed an InControl virtual gamepad in the game's own layout; off-hand stick locomotion (stick-click or trigger to run); snap or smooth turning; hand-aimed interaction; a laser pointer for every menu; held items follow your hand. Hands and arms are made by InkVR in the game's ink-outlined style (Henry's rolled sleeves, wedding ring, wristwatch, ink creeping up chapter by chapter), as you asked on 2026-10-22. Not yet: physical crouch collider, seated mode, comfort vignette.
 - OpenXR controller profiles: Quest Touch first, with Index, Vive and WMR mapped as well.
 - InControl virtual device, so every existing game action (jump, interact, sprint, pause, menu navigation) works on controllers straight away.
@@ -144,7 +169,7 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 - Laser pointer for all existing menus (main, pause, options, chapter select).
 - **Done when:** Ch1 is playable start to finish with controllers only; the game's hands/arms follow your controllers; interactions and attacks are button presses.
 
-### M3 — Animated launcher + installer *(risk: low)* 🟡 built, awaiting your test
+### M3 — Animated launcher + installer *(risk: low)* ✅ headset-tested
 > Built as `InkVR Launcher.exe`. The game's art is read straight from `resources.assets` by InkVR's own reader and BC7 decoder (pixel-identical to UnityPy), then cached in `%LOCALAPPDATA%\InkVR\art`.
 > **Opening:** a film-leader countdown, a "StrikeZoneVR presents" card, an ink-splat reveal of the game's menu, the logo dropping in and a "VR" rubber stamp. **Idle:** projector flicker, grain, scratches, ink drips, and Bendy bouncing in the menu ring.
 > **Closing:** the menu clears away, Bendy fills with ink like the game's loader, and a Bendy-head-shaped iris closes to "Dreams come true" ("The End" when you quit).
@@ -169,7 +194,18 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 - A matching in-headset splash while the game boots.
 - **Done when:** a double-click takes you to the in-headset game through the full opening → menu → closing sequence, and the closing animation plays every time.
 
-### M4 — True motion controls: interactions & combat *(risk: medium-high)*
+### M4 — True motion controls: interactions & combat *(risk: medium-high)* 🟡 part 1 built (0.4.0)
+> **Built in 0.3.1–0.4.0:**
+> - **Hand hover:** hold either hand over, touch, or reach toward anything interactable. The game's own highlight and prompt appear, and grip or X uses it.
+> - **Swing to hit (MELEE: SWING YOUR ARM):**
+>   - Every frame, the held melee weapon's head is swept through the world.
+>   - A swing faster than about 2.2 m/s that passes through something triggers the game's own hit there (damage, breaking, sounds). It counts once per swing, with a strong haptic pulse and the weapon's whoosh.
+>   - Walking and turning never count, and tracking glitches are ignored.
+>   - The game's own button swing still works and is never double-counted.
+>   - Verified on the mock runtime: axe swings broke planks in Ch2 and Ch3.
+> - **Hand-aimed guns (GUN AIM: HAND):** the game's hit check for guns uses the dominant controller's aim ray. Not yet verified: the Tommy Gun sits behind Ch3's weapon station, which a directly loaded test chapter can't open.
+>
+> **Still to build (0.5.0):** throwing (the Ch4 Bacon Soup cans are a `ThrowWeapon`), lever, valve and switch handlers, eating soup, two-handed gun, holster.
 - Replace the camera-centre "look + press E" interaction with hand-based targeting: reach and grab, plus an optional hand-ray for distant objects.
 - Physical handlers for each interaction type:
   - pickups and puzzle items (including placing items, like the Ch1 Ink Machine parts)
@@ -224,8 +260,13 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 - Jumpscares are preserved, and look-direction triggers still fire.
 - **Done when:** every scripted sequence in every chapter plays comfortably and nothing softlocks.
 
-### M7 — Full-body IK *(deferred — after M6, not yet authorized; M2–M6 use the game's own hands/arms)*
-- **Body model:** a Henry-style rigged body (see Decision 3), built as an AssetBundle with 2022.3.62f2 and shaded with the game's own shaders loaded at runtime, so it sits in the ink and sepia look.
+### M7 — Full-body IK *(for the 1.0 full release; decided 2026-10-22)*
+- **Two body models for you to choose from.** Both are Henry, rigged to the same skeleton, so the IK, grips and ink stains work on either:
+  - **A. "Toon Henry":** the same style as the current hands and arms. Chunky ink-outlined forms, flat sepia shading, rolled sleeves and suspenders, with the watch and ring carried over.
+  - **B. "Studio Henry":** more realistic proportions and folds (shirt, vest, trousers, work boots), still drawn with the game's ink outlines, hatching and sepia palette so it belongs in the studio.
+  - You'll get turntable images and an in-headset test of both. Keep one, or keep both as a BODY STYLE option.
+- **BODY option in VR SETTINGS and the launcher:** FULL BODY / ARMS & HANDS / HANDS ONLY. The hands-only and arms-and-hands modes keep working exactly as they do now.
+- Built as an AssetBundle with 2022.3.62f2 and shaded with the game's own shaders loaded at runtime, so it sits in the ink and sepia look.
 - **Custom IK solver** driven by head and hands:
   - pelvis and spine estimation
   - two-bone arms with elbow hints
@@ -310,9 +351,12 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 
 1. **Headset:** Quest 3 over Virtual Desktop, VDXR OpenXR runtime.
 2. **Launcher:** a standalone `.exe` that launches the game in VR, animated with official game artwork, opening + closing animations. Reference: the Outlast 2 VR launcher (for ideas, not copied).
-3. **Body:** use the game's own hands/arms for now. Full-body IK moves to M7 (later).
+3. **Body:** InkVR's own Henry hands and arms for now. Full-body IK is M7, in the 1.0 full release (see 9).
 4. **Release:** open source on GitHub. Licence to pick before release (GPL-3.0 if any UnityVRMod code is borrowed).
 5. **Order & scope:** M0 → M1 → M2 → M3 launcher → M4 motion controls → M5 VR settings → M6 cutscenes. Authorized through M6.
 6. **Name:** InkVR, by StrikeZoneVR. Project folder: `InkVR`.
 7. **Hands & arms:** made in the game's style and true to the lore (they're Henry's), not just the flat game's viewmodel.
 8. **Test gate:** your first headset test comes once the launcher, settings, hands/arms, Quest button controls, theatre menu and pause, and the in-game VR settings (with the StrikeZoneVR credit) are all done. Motion controls (M4) follow that test.
+9. **Full body (2026-10-22):** it comes in the full release, with two models to choose from (one in the hands' style, one more realistic but still in the game's style), plus BODY options for arms & hands and for hands only.
+10. **Sounds:** the game's native footsteps stay. InkVR must not add or trigger extra movement sounds. (Fixed in 0.4.0: the landing sound no longer repeats while you walk.)
+11. **Interaction foundation:** hand hover plus the mapped button (grip or X) is the base every later motion control builds on.

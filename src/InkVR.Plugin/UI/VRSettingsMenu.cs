@@ -52,6 +52,8 @@ public static class VRSettingsMenu
         Category("CONTROLS"),
         Toggle("DOMINANT HAND", ModConfig.LeftHanded, "LEFT", "RIGHT"),
         Toggle("INTERACT", ModConfig.InteractWithHand, "HAND HOVER", "LOOK AT IT"),
+        Toggle("MELEE", ModConfig.PhysicalMelee, "SWING YOUR ARM", "BUTTON ONLY"),
+        Toggle("GUN AIM", ModConfig.AimGunsWithHand, "HAND", "HEAD"),
         Choice("HEIGHT ADJUST", ModConfig.HeightOffset, Range(-0.6f, 0.6f, 0.05f), v => Mathf.Abs(v) < 0.001f ? "NONE" : v > 0 ? $"UP {v * 100:0} CM" : $"DOWN {-v * 100:0} CM"),
         Toggle("LASER POINTER", ModConfig.LaserPointer, "ON", "OFF"),
         Category("HENRY"),
@@ -221,7 +223,7 @@ public static class VRSettingsMenu
         }
 
         // A few more rows than the game's own pages: tighten the list so it clears the credit.
-        nav.localScale = new Vector3(0.85f, 0.85f, 1f);
+        nav.localScale = new Vector3(0.8f, 0.8f, 1f);
         var navRt = nav.GetComponent<RectTransform>();
         if (navRt != null) navRt.anchoredPosition += new Vector2(0, 18f);
         AddCredit(root.transform, title);

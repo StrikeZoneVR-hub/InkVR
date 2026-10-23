@@ -51,20 +51,37 @@ public static class VRRig
     public static Camera GameCamera => InGame ? _gameCam : null;
     public static Transform Head => _cinemaActive ? _cinemaCam?.transform : InGame ? _gameCam.transform : null;
     public static Transform ActiveOrigin => _cinemaActive || !InGame ? _cinemaOrigin : _origin;
-    /// <summary>Game units per real metre right now (eases towards <see cref="TargetScale"/>).</summary>
+    /// <summary>
+    /// Game units per real metre right now. It only changes when a level starts or when you come back from
+    /// the pause theatre, never while you're playing (a size change mid-walk feels like shrinking).
+    /// </summary>
     public static float Scale => _currentScale > 0 ? _currentScale : TargetScale;
 
     /// <summary>AUTO: Henry's eye height over yours; otherwise the WORLD SIZE setting.</summary>
     public static float TargetScale => ModConfig.AutoWorldScale.Value && AutoScale > 0 ? AutoScale : ModConfig.WorldScale.Value;
 
-    public static float AutoScale => _autoScale > 0 ? _autoScale
-        : ModConfig.MeasuredEyeHeight.Value > 0.8f ? Mathf.Clamp(_henryEye / ModConfig.MeasuredEyeHeight.Value, MinAutoScale, MaxAutoScale) : -1f;
+    public static float AutoScale
+    {
+        get
+        {
+            var h = _measuredHeight > 0 ? _measuredHeight : ModConfig.MeasuredEyeHeight.Value;
+            return h > 0.8f ? Mathf.Clamp(_henryEye / h, MinAutoScale, MaxAutoScale) : -1f;
+        }
+    }
 
     private const float MinAutoScale = 2.4f, MaxAutoScale = 4.6f;
-    private static float _currentScale = -1, _autoScale = -1, _henryEye = 5.03f;
+    private static float _currentScale = -1, _measuredHeight = -1, _henryEye = 5.03f;
     private static readonly System.Collections.Generic.List<float> Heights = new();
-    private static float _measureFrom, _measureUntil;
-    private static bool _measured;
+    private static float _nextHeightSample, _lastHeightSave;
+
+    /// <summary>Take the latest size (AUTO height or WORLD SIZE): at level start and on resuming.</summary>
+    private static void AdoptScale()
+    {
+        var before = _currentScale;
+        _currentScale = TargetScale;
+        if (before > 0 && Mathf.Abs(before - _currentScale) > 0.01f)
+            Plugin.L.LogInfo($"World size now {_currentScale:F2} units per metre ({2.95f / _currentScale:P0})");
+    }
     public static float ActiveScale => _cinemaActive || !InGame ? 1f : Scale;
 
     /// <summary>Smooth-turn input (-1..1) from the controllers this frame.</summary>
@@ -107,7 +124,7 @@ public static class VRRig
         if (!XrManager.IsRunning) return;
         ApplyHeadPose();
 
-        if (InGame && !_cinemaActive) MeasureHeight();
+        MeasureHeight();
 
         if (InGame && !_cinemaActive && Mathf.Abs(_origin.localScale.x - Scale) > 1e-4f)
         {
@@ -128,7 +145,9 @@ public static class VRRig
 
         _cinema?.Animate();
         UpdateFade();
+        MeleeSwing.DevPreUpdate();
         Hands.Update();
+        if (InGame && !_cinemaActive) MeleeSwing.Update();
         InkWorld.Update();
         LaserPointer.Update();
         if (InGame && !_cinemaActive) ScaleStereo();
@@ -148,11 +167,18 @@ public static class VRRig
             Body.Hands.DevRight = (local - dir * 0.06f, Quaternion.LookRotation(Vector3.ProjectOnPlane(dir, Vector3.up).sqrMagnitude > 1e-4f ? Vector3.ProjectOnPlane(dir, Vector3.up) : Vector3.forward) * Quaternion.Euler(60, 0, 0));
         }
 
+        if (DevGroundCount > 0 && _cc != null)
+        {
+            DevGroundCount--;
+            if (!_cc.isGrounded) DevUngrounded++;
+            if (DevGroundCount == 0) Plugin.L.LogInfo($"GROUND not grounded in {DevUngrounded} of the sampled frames");
+        }
+
         if (DevTraceFrames > 0 && _player != null)
         {
             DevTraceFrames--;
             var p = _player.transform.position;
-            Plugin.L.LogInfo($"TRACE f={Time.frameCount} t={Time.time:F4} dt={Time.deltaTime * 1000:F1}ms fixedT={Time.fixedTime:F4} fdt={Time.fixedDeltaTime * 1000:F1}ms player=({p.x:F3},{p.z:F3}) cam=({_gameCam.transform.position.x:F3},{_gameCam.transform.position.z:F3})");
+            Plugin.L.LogInfo($"TRACE f={Time.frameCount} player=({p.x:F3},{p.y:F4},{p.z:F3}) originLocalY={_origin.localPosition.y:F4} feetLocalY={FeetLocal().y:F4} camY={_gameCam.transform.position.y:F4} grounded={_cc?.isGrounded}");
         }
 
         if (DevStereoReport)
@@ -167,6 +193,9 @@ public static class VRRig
 
     /// <summary>Dev: a world point the right hand should be pressed onto (set by "inktouch").</summary>
     public static Vector3? DevPendingTouch;
+
+    /// <summary>Dev: count frames where the character isn't grounded (after InkVR's moves).</summary>
+    public static int DevGroundCount, DevUngrounded;
 
     /// <summary>Dev: log player/camera positions for this many frames.</summary>
     public static int DevTraceFrames;
@@ -208,7 +237,13 @@ public static class VRRig
     // ---------------- tracking ----------------
 
     public static Vector3 HeadLocalPosition =>
-        (DevHeadOverride?.pos ?? InputTracking.GetLocalPosition(XRNode.CenterEye)) + Vector3.up * ModConfig.HeightOffset.Value;
+        (DevHeadOverride?.pos ?? InputTracking.GetLocalPosition(XRNode.CenterEye)) + DevSway + Vector3.up * ModConfig.HeightOffset.Value;
+
+    /// <summary>Dev: simulate a real head's constant small movement (metres of sway; 0 = off).</summary>
+    public static float DevSwayAmount;
+
+    private static Vector3 DevSway => DevSwayAmount <= 0 ? Vector3.zero
+        : new Vector3(Mathf.Sin(Time.time * 2.3f), 0.3f * Mathf.Sin(Time.time * 3.1f), Mathf.Sin(Time.time * 1.7f)) * DevSwayAmount;
 
     public static Quaternion HeadLocalRotation => DevHeadOverride?.rot ?? InputTracking.GetLocalRotation(XRNode.CenterEye);
 
@@ -324,6 +359,7 @@ public static class VRRig
         if (on == _cinemaActive && _cinemaOrigin.gameObject.activeSelf == on) return;
         _cinemaActive = on;
         _cinemaOrigin.gameObject.SetActive(on);
+        if (!on && InGame) AdoptScale(); // coming back from the pause theatre: take any new size now
         if (on)
         {
             Recenter();
@@ -390,11 +426,7 @@ public static class VRRig
         var feetWorld = player.transform.TransformPoint(FeetLocal());
         var eye = gameCamera.Camera.transform.position.y - feetWorld.y;
         if (eye > 2f && eye < 9f) _henryEye = eye;
-        Heights.Clear();
-        _measured = false;
-        _measureFrom = Time.unscaledTime + 1.5f;
-        _measureUntil = Time.unscaledTime + 9f;
-        _currentScale = TargetScale;
+        AdoptScale();
 
         var origin = new GameObject("InkVR_Origin").transform;
         origin.SetParent(player.transform, false);
@@ -483,12 +515,23 @@ public static class VRRig
             _player.m_PlayerLook.m_CharacterTargetRotation = bodyRot;
         }
 
+        // Move the body under the head. Ignore sub-centimetre head sway (it isn't walking), and press a little
+        // into the floor while doing it: a purely sideways Move leaves the CharacterController "not grounded"
+        // until the next physics step, which the game hears as a landing, dozens of times a second.
         var delta = headPos - _player.transform.position;
         delta.y = 0;
-        if (delta.sqrMagnitude > 0.0001f && _cc != null && _cc.enabled && !_player.isMoveLocked)
-            _cc.Move(delta);
+        var deadZone = 0.012f * Scale;
+        if (delta.sqrMagnitude > deadZone * deadZone && _cc != null && _cc.enabled && !_player.isMoveLocked)
+        {
+            var stick = _cc.isGrounded ? Vector3.down * (0.06f * Scale) : Vector3.zero;
+            _cc.Move(delta + stick);
+        }
 
+        // The play space stays where it was across the floor, and always sits on the player's feet.
         _origin.SetPositionAndRotation(originPos, originRot);
+        var lp = _origin.localPosition;
+        lp.y = FeetLocal().y;
+        _origin.localPosition = lp;
     }
 
     private static void PlaceGamePanel()
@@ -507,35 +550,33 @@ public static class VRRig
 
     /// <summary>Every stereo camera inside the scaled origin (game, weapon, invisible, UI cameras).</summary>
     /// <summary>
-    /// AUTO world size: as each level starts, read how high your eyes are while you stand (a high percentile
-    /// over several seconds, so a glance down or a crouch doesn't count) and size the world so that is
-    /// Henry's eye height. The floor stays your real floor. Changes ease in over about a second.
+    /// AUTO world size: keep reading how high your eyes are (ten times a second, the last ~12 s, in menus
+    /// and in game) and take a high percentile, so glancing down or crouching doesn't count. The result
+    /// sets Henry's eye height = yours; it's adopted at the next level start or resume (see AdoptScale).
     /// </summary>
     private static void MeasureHeight()
     {
         var now = Time.unscaledTime;
-        if (!_measured && now >= _measureFrom)
-        {
-            var y = (DevHeadOverride?.pos ?? InputTracking.GetLocalPosition(XRNode.CenterEye)).y;
-            if (y > 0.3f && y < 2.5f) Heights.Add(y);
-            if (now >= _measureUntil && Heights.Count >= 30)
-            {
-                _measured = true;
-                Heights.Sort();
-                var h = Heights[(int)(Heights.Count * 0.75f)];
-                if (h > 0.8f && h < 2.2f)
-                {
-                    _autoScale = Mathf.Clamp(_henryEye / h, MinAutoScale, MaxAutoScale);
-                    if (Mathf.Abs(ModConfig.MeasuredEyeHeight.Value - h) > 0.01f) ModConfig.MeasuredEyeHeight.Value = (float)System.Math.Round(h, 3);
-                    Plugin.L.LogInfo($"Height: your eyes are {h:F2} m up; Henry's are {_henryEye:F2} units, so the world is {_autoScale:F2} units per metre ({2.95f / _autoScale:P0} world size){(ModConfig.AutoWorldScale.Value ? "" : " - AUTO is off, using WORLD SIZE")}");
-                }
-            }
-        }
+        if (now < _nextHeightSample) return;
+        _nextHeightSample = now + 0.1f;
+        var y = (DevHeadOverride?.pos ?? InputTracking.GetLocalPosition(XRNode.CenterEye)).y;
+        if (y < 0.3f || y > 2.5f) return;
+        Heights.Add(y);
+        if (Heights.Count > 120) Heights.RemoveAt(0);
+        if (Heights.Count < 40) return;
 
-        var target = TargetScale;
-        if (_currentScale <= 0) _currentScale = target;
-        else if (Mathf.Abs(_currentScale - target) > 1e-4f)
-            _currentScale = Mathf.Abs(_currentScale - target) < 0.002f ? target : Mathf.Lerp(_currentScale, target, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 3f));
+        var sorted = new System.Collections.Generic.List<float>(Heights);
+        sorted.Sort();
+        var h = sorted[(int)(sorted.Count * 0.8f)];
+        if (h < 0.8f || h > 2.2f) return;
+        var first = _measuredHeight < 0;
+        _measuredHeight = h;
+        if ((first || Mathf.Abs(ModConfig.MeasuredEyeHeight.Value - h) > 0.015f) && now - _lastHeightSave > 20f)
+        {
+            _lastHeightSave = now;
+            ModConfig.MeasuredEyeHeight.Value = (float)System.Math.Round(h, 3);
+            Plugin.L.LogInfo($"Height: your eyes are {h:F2} m up; Henry's are {_henryEye:F2} units, so AUTO makes the world {AutoScale:F2} units per metre ({2.95f / AutoScale:P0} world size)");
+        }
     }
 
     /// <summary>Dev: switch InkVR's eye-separation scaling off to compare.</summary>

@@ -394,6 +394,13 @@ public class DevTools : MonoBehaviour
 
                 break;
             }
+            case "sway":
+                InkVR.Core.VRRig.DevSwayAmount = float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture);
+                break;
+            case "groundcheck":
+                InkVR.Core.VRRig.DevUngrounded = 0;
+                InkVR.Core.VRRig.DevGroundCount = int.Parse(arg);
+                break;
             case "stick":
             {
                 var a = arg.Split(' ').Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
@@ -403,6 +410,123 @@ public class DevTools : MonoBehaviour
             case "trace":
                 InkVR.Core.VRRig.DevTraceFrames = int.Parse(arg);
                 break;
+            case "chapter":
+            {
+                // chapter CH2: load a chapter directly (test runs only: saving is disabled there)
+                if (!DevSaveGuard.Active)
+                {
+                    Plugin.L.LogWarning("chapter: refused, only in dev test sessions (INKVR_DEV_NOSAVE=1)");
+                    break;
+                }
+
+                var cc = Object.FindObjectOfType(Il2CppType.Of<ChapterController>())?.Cast<ChapterController>();
+                if (cc == null)
+                {
+                    Plugin.L.LogInfo("chapter: no ChapterController in this scene");
+                    break;
+                }
+
+                Plugin.L.LogInfo($"chapter: loading {arg}");
+                cc.LoadChapter(arg);
+                break;
+            }
+            case "weapons":
+            {
+                var player = GameManager.Instance.Player;
+                Plugin.L.LogInfo($"WEAPONS held={(player?.WeaponGameObject != null ? PathOf(player.WeaponGameObject.transform) + " active=" + player.WeaponGameObject.activeInHierarchy : "none")} inactive={(player?.InactiveWeapon != null ? player.InactiveWeapon.name : "none")} player={player?.transform.position}");
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<BaseWeapon>()))
+                {
+                    var w = o.Cast<BaseWeapon>();
+                    if (!w.gameObject.scene.IsValid()) continue;
+                    Plugin.L.LogInfo($"WEAPON {w.GetIl2CppType().Name} {PathOf(w.transform)} at {w.transform.position} active={w.gameObject.activeInHierarchy} equipped={w.m_IsEquipped} range={w.m_WeaponRange} interaction={(w.m_Interaction != null ? w.m_Interaction.name : "-")}");
+                }
+
+                break;
+            }
+            case "swing":
+            {
+                // swing <path>: stand within reach of an object and swing the held melee weapon down through it
+                var t = Resolve(arg);
+                var col = t.GetComponentsInChildren<Collider>().FirstOrDefault(c => !c.isTrigger);
+                var target = col != null ? col.bounds.center : t.position;
+                var player = GameManager.Instance.Player;
+                var scale = InkVR.Core.VRRig.ActiveScale;
+                var reach = (InkVR.Body.MeleeSwing.HeadInAim?.magnitude ?? 0.8f) + 0.15f;
+                var away = Vector3.ProjectOnPlane(player.transform.position - target, Vector3.up);
+                if (away.sqrMagnitude < 1e-4f) away = Vector3.forward;
+                var stand = target + away.normalized * reach * scale;
+                var cc = player.CharacterController;
+                cc.enabled = false;
+                player.transform.position = new Vector3(stand.x, player.transform.position.y, stand.z);
+                cc.enabled = true;
+                InkVR.Body.Hands.DevRight = null;
+                InkVR.Input.XrInput.DevRightAim ??= (new Vector3(0.25f, 1.2f, 0.3f), Quaternion.identity);
+                InkVR.Body.MeleeSwing.DevSwing(target);
+                Plugin.L.LogInfo($"swing: {PathOf(t)} ({(col != null ? col.name : "no collider")}) at {target}, standing {reach:F2} m away");
+                break;
+            }
+            case "gamestate":
+            {
+                // gamestate PLAY: after a direct chapter load (test runs), let the chapter play and lift the black fade
+                var gm = GameManager.Instance;
+                gm.m_GameState = Enum.Parse<GameState>(arg, true);
+                gm.m_ScreenBlockerController?.DOFade(0f, 0.3f, 0f);
+                Plugin.L.LogInfo($"gamestate -> {gm.m_GameState}");
+                break;
+            }
+            case "near":
+            {
+                // near <Component> [count]: the closest live objects with this component, by distance from the player
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var type = InteropType(a[0]);
+                var count = a.Length > 1 ? int.Parse(a[1]) : 8;
+                var from = GameManager.Instance.Player.transform.position;
+                var list = new List<(float d, string text)>();
+                foreach (var o in Object.FindObjectsOfType(Il2CppType.From(type)))
+                {
+                    var c = o.Cast<Component>();
+                    var col = c.GetComponent<Collider>();
+                    var at = col != null ? col.bounds.center : c.transform.position;
+                    list.Add(((at - from).magnitude, $"{PathOf(c.transform)} at {at}"));
+                }
+
+                foreach (var (d, text) in list.OrderBy(x => x.d).Take(count)) Plugin.L.LogInfo($"NEAR {d:F1} {text}");
+                break;
+            }
+            case "equip":
+            {
+                // equip <name>: pick up a weapon as if interacted with, even from a closed weapon station (test runs)
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<BaseWeapon>()))
+                {
+                    var w = o.Cast<BaseWeapon>();
+                    if (!w.gameObject.scene.IsValid() || w.m_IsEquipped || w.name.IndexOf(arg, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    for (var t = w.transform; t != null; t = t.parent) t.gameObject.SetActive(true);
+                    w.OnInteracted();
+                    Plugin.L.LogInfo($"equip: {PathOf(w.transform)}");
+                    break;
+                }
+
+                break;
+            }
+            case "swingstate":
+                Plugin.L.LogInfo($"SWINGSTATE swings={InkVR.Body.MeleeSwing.Swings} hits={InkVR.Body.MeleeSwing.Hits} gameSwings={InkVR.Body.MeleeSwing.GameSwings} speed={InkVR.Body.MeleeSwing.Speed:F2} peak={InkVR.Body.MeleeSwing.PeakSpeed:F2} last=[{InkVR.Body.MeleeSwing.LastHit}] gunShot=[{InkVR.Body.GunAim.LastShot}]");
+                break;
+            case "findmethod":
+            {
+                // findmethod <name>: which loaded game types declare a method with this name
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    if (!asm.GetName().Name.StartsWith("Assembly-CSharp")) continue;
+                    Type[] types;
+                    try { types = asm.GetTypes(); } catch { continue; }
+                    foreach (var t in types)
+                        foreach (var m in t.GetMethods(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+                            if (arg.StartsWith("~") ? m.Name.IndexOf(arg.Substring(1), StringComparison.OrdinalIgnoreCase) >= 0 : m.Name == arg)
+                                Plugin.L.LogInfo($"FOUND {t.FullName}.{m.Name}({string.Join(", ", m.GetParameters().Select(p => p.ParameterType.Name + " " + p.Name))}) static={m.IsStatic}");
+                }
+
+                break;
+            }
             case "methods":
             {
                 // methods <TypeName> [filter]: list a game type's methods (interop reflection)
