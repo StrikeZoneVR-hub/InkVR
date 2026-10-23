@@ -120,12 +120,14 @@ public static class VRRig
         EnsureCinema();
         SetCinema(!InGame || IsPaused());
         HookPreCull();
+        if (InGame) KeepCameraInRig();
         ApplyHeadPose();
     }
 
     public static void LateUpdate()
     {
         if (!XrManager.IsRunning) return;
+        if (InGame) KeepCameraInRig();
         ApplyHeadPose();
 
         MeasureHeight();
@@ -182,7 +184,7 @@ public static class VRRig
         {
             DevTraceFrames--;
             var p = _player.transform.position;
-            Plugin.L.LogInfo($"TRACE f={Time.frameCount} player=({p.x:F3},{p.y:F4},{p.z:F3}) originLocalY={_origin.localPosition.y:F4} feetLocalY={FeetLocal().y:F4} camY={_gameCam.transform.position.y:F4} grounded={_cc?.isGrounded}");
+            Plugin.L.LogInfo($"TRACE f={Time.frameCount} player=({p.x:F3},{p.y:F4},{p.z:F3}) rot={_player.transform.eulerAngles} originRot={_origin.eulerAngles} camRot={_gameCam.transform.eulerAngles} camLocal={_gameCam.transform.localEulerAngles} locked={_player.isLocked} moveLocked={_player.isMoveLocked} originLocalY={_origin.localPosition.y:F4} grounded={_cc?.isGrounded}");
         }
 
         if (DevStereoReport)
@@ -308,6 +310,12 @@ public static class VRRig
         {
             _latePoseSeen = true;
             Plugin.L.LogInfo("Late head pose active (posed right before rendering)");
+        }
+
+        if (InGame && !_cinemaActive)
+        {
+            HoldPlaySpaceSteady();
+            KeepCameraInRig();
         }
 
         ApplyHeadPose();
@@ -502,9 +510,68 @@ public static class VRRig
     /// Keep the character's yaw equal to the head's yaw and its capsule under the head, while the
     /// camera stays exactly where the headset is. Skipped while a scripted sequence locks the player.
     /// </summary>
+    private static float _nextCameraNote;
+
+    /// <summary>
+    /// Scripted moments (waking up at the start of Chapter 2, for one) move the game's camera onto their own
+    /// animated camera rig, then hand it back to the player's camera holder. In VR that swings the whole view
+    /// around you, and afterwards the camera turns with the player while the player turns to face the camera:
+    /// an endless spin. The camera is the headset, so it always goes straight back into the VR rig.
+    /// </summary>
+    private static void KeepCameraInRig()
+    {
+        if (_gameCam == null || _origin == null) return;
+        var t = _gameCam.transform;
+        if (t.parent == _origin) return;
+        if (Time.unscaledTime > _nextCameraNote)
+        {
+            _nextCameraNote = Time.unscaledTime + 5f;
+            Plugin.L.LogInfo($"The game moved its camera to '{(t.parent != null ? t.parent.name : "nothing")}': keeping it in the VR rig");
+        }
+
+        t.SetParent(_origin, false);
+        ApplyHeadPose();
+    }
+
+    private static bool _heldSteady;
+    private static float _steadyYaw;
+
+    /// <summary>
+    /// The game sometimes takes the player over (waking up in Chapter 2, knockouts, grabs) and tilts and turns
+    /// the player object to fake Henry's head moving. The play space hangs off the player, so in VR the whole
+    /// world would swing around you. While the game holds the player, keep the play space level and facing the
+    /// way it was; it still follows wherever the game moves the player. Your own head does the looking.
+    /// </summary>
+    private static void HoldPlaySpaceSteady()
+    {
+        if (_player == null || _origin == null || _cinemaActive) return;
+        if (!_player.isLocked)
+        {
+            _heldSteady = false;
+            return;
+        }
+
+        if (!_heldSteady)
+        {
+            var fwd = Vector3.ProjectOnPlane(_origin.forward, Vector3.up);
+            _steadyYaw = fwd.sqrMagnitude > 1e-4f ? Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg : 0f;
+            _heldSteady = true;
+            Plugin.L.LogInfo("Scripted moment: holding the play space level and steady");
+        }
+
+        var t = _player.transform;
+        _origin.SetPositionAndRotation(t.position + Vector3.up * (FeetLocal().y * t.lossyScale.y), Quaternion.Euler(0, _steadyYaw, 0));
+    }
+
     private static void FollowHeadWithBody()
     {
-        if (_player.isLocked) return;
+        if (_player.isLocked)
+        {
+            HoldPlaySpaceSteady();
+            return;
+        }
+
+        _heldSteady = false;
 
         var head = _gameCam.transform;
         var headPos = head.position;

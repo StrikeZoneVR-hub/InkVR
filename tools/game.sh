@@ -14,6 +14,7 @@ running_pids() { tasklist //FI "IMAGENAME eq Bendy and the Ink Machine.exe" //FO
 case "$1" in
   start)
     if [ -n "$(running_pids)" ]; then echo "GAME ALREADY RUNNING (not starting another)"; exit 1; fi
+    rm -f "$LOG" # a fresh log, so waits only see this session
     args=""; [ -n "$2" ] && args="-ArgumentList '$2'"
     mkdir -p "$(dirname "$PIDFILE")"
     powershell.exe -NoProfile -Command "(Start-Process -FilePath '$GAME/Bendy and the Ink Machine.exe' -WorkingDirectory '$GAME' $args -PassThru).Id" | tr -d '\r' > "$PIDFILE" ;;
@@ -24,7 +25,9 @@ case "$1" in
     for p in $pids; do
       if [ "$p" != "$mine" ]; then echo "THE PLAYER'S OWN GAME IS RUNNING (pid $p): not stopping it"; exit 1; fi
     done
-    taskkill //F //PID "$mine" >/dev/null 2>&1; rm -f "$PIDFILE"; echo stopped ;;
+    taskkill //F //PID "$mine" >/dev/null 2>&1; rm -f "$PIDFILE"
+    for i in $(seq 1 40); do [ -z "$(running_pids)" ] && break; sleep 0.25; done
+    echo stopped ;;
   busy)
     pids="$(running_pids)"; mine="$(cat "$PIDFILE" 2>/dev/null)"
     for p in $pids; do [ "$p" != "$mine" ] && exit 0; done

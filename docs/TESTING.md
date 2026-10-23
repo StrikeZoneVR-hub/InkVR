@@ -1,10 +1,31 @@
 # Testing InkVR
 
-## Current build: 0.5.0 (everything since your second test)
+## Current build: 0.5.1 (fixes from your 0.5.0 recording)
 
 Everything is installed in your game folder. Start it as before: Virtual Desktop Streamer → `InkVR Launcher.exe` → PLAY IN VR.
 
-0.5.0 contains the full body update below and everything from 0.4.0 (motion controls part 1, the movie palace, and the shrinking and footstep fixes), since you haven't tested 0.4.0 yet.
+### New in 0.5.1: fixes from your recording
+
+**The Chapter 2 spinning is fixed**
+When you wake up in Chapter 2 ("my head..."), the view spun out of control and the game was unplayable.
+
+The cause: for that scene the game moves its camera onto a different object (its "CameraContainer"). In VR that object turns with your head, and the camera inside it turned again, so every head turn fed itself and the view spun.
+
+InkVR now keeps the camera in the VR rig whatever the game does with it, every frame. The wake-up plays normally: you look around freely, and the objective appears when you stand up.
+
+The same fix applies anywhere else the game tries this.
+
+**You can see your legs when you look down**
+Henry's neck used to bend the wrong way when you looked down, which brought the collar and tie up into your eyes and hid everything below.
+
+Now the neck bends forward and the hips ease back a little while the feet stay where they are, like a real person looking at their shoes:
+- around 60° down you see your trousers and shoes;
+- looking straight down you see the waistcoat (or braces), legs and feet.
+
+**No body poking through the floor**
+If you lie down or put the headset on the floor, the body hides itself instead of sinking through the ground.
+
+0.5.1 also contains the full body update below and everything from 0.4.0 (motion controls part 1, the movie palace, and the shrinking and footstep fixes).
 
 ### Before you play: set HEIGHT ADJUST back to NONE
 Your HEIGHT ADJUST is at UP 60 CM. You set that in an earlier test, when the world scale was wrong and you felt too short.
@@ -78,6 +99,8 @@ For the Tommy Gun in Chapter 3. GUN AIM: HEAD brings back the flat game's look-t
 MELEE and GUN AIM are in VR SETTINGS → CONTROLS, and in the launcher under OPTIONS → WEAPONS. The launcher's HEIGHT option now covers ±60 cm, like the one in the game.
 
 ### What to check
+- [ ] Chapter 2's opening: when Henry wakes up holding his head, the view stays steady and you can look around.
+- [ ] Look down while standing: you see your legs and shoes.
 - [ ] Look down: you see your body, and your feet step as you walk and turn. Crouch and Henry crouches.
 - [ ] Switch BODY and STYLE in VR SETTINGS: all four BODY choices and both STYLES work, and the change is instant.
 - [ ] The LIFELIKE hands look like real hands when you open and close them (grip and trigger).

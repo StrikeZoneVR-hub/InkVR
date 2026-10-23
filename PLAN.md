@@ -1,6 +1,6 @@
 # InkVR — Full 6DoF VR Mod for Bendy and the Ink Machine
 
-Status: **Test build 0.5.0 ready for your third headset test**: Henry's full body in two styles (lifelike and toon) with BODY options, lifelike hands and a real wristwatch, plus 0.4.0's first motion controls, the 1930s picture palace and the shrinking and footstep-noise fixes. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1). Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22; full body (M7) is for the full release.
+Status: **Test build 0.5.1 ready for your next headset test**: fixes from your 0.5.0 recording (Chapter 2 wake-up spin, legs hidden when looking down), on top of 0.5.0's Henry's full body in two styles (lifelike and toon) with BODY options, lifelike hands and a real wristwatch, plus 0.4.0's first motion controls, the 1930s picture palace and the shrinking and footstep-noise fixes. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1). Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22; full body (M7) is for the full release.
 
 Target setup: **Quest 3 · Virtual Desktop · VDXR OpenXR runtime** · RTX 4050 Laptop. Release: **open source on GitHub**.
 
@@ -23,8 +23,9 @@ Each test build goes to your headset before the next one starts, and your feedba
 | 0.2.0 | VR core, button controls, Henry's hands, launcher, theatre menus, VR SETTINGS | ✅ tested |
 | 0.3.x | Correct world scale (AUTO = your height), single light beams, smooth walking, ink on the hands, hand-hover interaction | ✅ tested |
 | 0.4.0 | **Motion controls part 1:** swing the axe, pipe or plunger with your arm; guns fire where your hand points; no more shrinking while walking; no more footstep/landing spam; the menu theatre built out into a full 1930s picture palace | ✅ built (tested with 0.5.0) |
-| **0.5.0** | **Full body (M7), moved up at your request:** two styles you can pick in options, LIFELIKE (real-looking hands, waistcoat and tie) and TOON (cartoon hands, braces, big shoes); BODY: full body / arms & hands / hands only / none; feet that plant and step; a real tank wristwatch | 🟡 **your test now** |
-| Trailer | **Teaser trailer:** opens with the launcher's opening animation, then your headset footage of the theatre and gameplay | after your footage |
+| **0.5.0** | **Full body (M7), moved up at your request:** two styles you can pick in options, LIFELIKE (real-looking hands, waistcoat and tie) and TOON (cartoon hands, braces, big shoes); BODY: full body / arms & hands / hands only / none; feet that plant and step; a real tank wristwatch | ✅ tested (your recording, 2026-10-23) |
+| **0.5.1** | **Fixes from your 0.5.0 recording:** the Chapter 2 wake-up spin (the game moved its camera out of the VR rig), legs visible when looking down, body hidden instead of sinking through the floor | 🟡 **your test now** |
+| Trailer | **Teaser trailer:** opens with the launcher's opening animation, then your headset footage of the theatre and gameplay; two versions (official soundtrack, original music) | 🔨 in progress |
 | 0.6.0 | **Motion controls part 2 (finishes M4):** throw Bacon Soup cans with your arm (Ch4), pull levers and turn valves by hand where the game has them, two-handed Tommy Gun, eat soup by raising it to your mouth, weapon holster | next |
 | 0.7.0 | **Cutscenes & scripted moments (M6):** knockouts, falls, Sammy/Bendy grabs, deaths, the Ch1 floor collapse; your head always stays yours; fades on cuts; optional Cinema mode | |
 | 0.8.0 | **UI pass (rest of M5):** world-space subtitles, readable prompts, note viewer, VR button glyphs, chapter cards, credits | |
@@ -207,7 +208,7 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 >   - Verified on the mock runtime: axe swings broke planks in Ch2 and Ch3.
 > - **Hand-aimed guns (GUN AIM: HAND):** the game's hit check for guns uses the dominant controller's aim ray. Not yet verified: the Tommy Gun sits behind Ch3's weapon station, which a directly loaded test chapter can't open.
 >
-> **Still to build (0.5.0):** throwing (the Ch4 Bacon Soup cans are a `ThrowWeapon`), lever, valve and switch handlers, eating soup, two-handed gun, holster.
+> **Still to build (0.6.0):** throwing (the Ch4 Bacon Soup cans are a `ThrowWeapon`), lever, valve and switch handlers, eating soup, two-handed gun, holster.
 - Replace the camera-centre "look + press E" interaction with hand-based targeting: reach and grab, plus an optional hand-ray for distant objects.
 - Physical handlers for each interaction type:
   - pickups and puzzle items (including placing items, like the Ch1 Ink Machine parts)

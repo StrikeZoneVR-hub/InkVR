@@ -334,17 +334,30 @@ public sealed class HenryBody
         var f = yawRot * Vector3.forward;
         var up = Vector3.up;
 
-        // --- neck from the head, pelvis under it; crouching bends the knees and leans the back ---
-        var neckTop = eye + headRot * ((NeckT - Eye) * k);
-        var neckBase = neckTop + up * ((NeckB.y - NeckT.y) * k) + f * ((NeckB.z - NeckT.z) * k);
-        var floorY = groundAt(new Vector3(neckBase.x, eye.y, neckBase.z));
+        // --- the neck behind and below your eyes; looking down tips the head forward over it, so the chest
+        // drops back out of your view and your legs and shoes come into it ---
+        var pitch = Mathf.Clamp(Mathf.Asin(Mathf.Clamp(-headFwd.y, -1f, 1f)) * Mathf.Rad2Deg, -20f, 80f) * Mathf.Deg2Rad;
+        var lean = 0.18f * k;
+        var neckBase = eye + up * (-(0.18f * k - lean * (1f - Mathf.Cos(pitch)))) - f * (0.13f * k + lean * Mathf.Sin(Mathf.Max(0f, pitch)));
+        // The hips ease back a little too, while the feet stay planted, so the legs angle forward into view.
+        var neckStill = eye + up * (-(0.18f * k - lean * (1f - Mathf.Cos(pitch)))) - f * (0.13f * k + 0.12f * k * Mathf.Sin(Mathf.Max(0f, pitch)));
+        var neckTop = neckBase + (eye - neckBase).normalized * (0.08f * k);
+        var floorY = groundAt(new Vector3(neckStill.x, eye.y, neckStill.z));
+        // Head down near the floor (lying down, sitting on the floor, tracking not started): a body can't stand
+        // under it without folding round your view, so it steps aside until you're back up.
+        var low = eye.y - floorY < 0.62f * k;
+        foreach (var r in _renderers)
+            if (r != null && r.enabled == low)
+                r.enabled = !low;
+
         var spineLen = (NeckB - HipC).magnitude * k;
         var stand = floorY + HipC.y * k;
         var ideal = neckBase.y - spineLen;
         Vector3 pelvis;
+        // The hips and feet stay put when you only look down (they follow neckStill, not the tipped neck).
         if (ideal >= stand)
         {
-            pelvis = neckBase - f * (0.02f * k);
+            pelvis = neckStill - f * (0.02f * k);
             pelvis.y = Mathf.Min(ideal, stand + 0.04f * k);
         }
         else
@@ -353,7 +366,7 @@ public sealed class HenryBody
             var py = Mathf.Max(stand - drop * 0.9f, floorY + 0.3f * k); // the knees take most of a crouch; the back stays fairly upright
             var vert = neckBase.y - py;
             var horiz = Mathf.Sqrt(Mathf.Max(0, spineLen * spineLen - vert * vert));
-            pelvis = neckBase - f * (horiz + 0.02f * k);
+            pelvis = neckStill - f * (horiz + 0.02f * k);
             pelvis.y = py;
         }
 
