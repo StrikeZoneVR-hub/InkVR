@@ -29,7 +29,9 @@ public class DevTools : MonoBehaviour
     private int _perfFrames;
     private float _perfWorst;
     private Vector2 _devMove, _devLook;
-    private float _devMoveUntil, _devLookUntil;
+    private float _devMoveUntil, _devLookUntil, _slideUntil;
+    private Vector2 _slide;
+    private bool _slideWorld;
 
     private void Awake()
     {
@@ -38,6 +40,8 @@ public class DevTools : MonoBehaviour
         Plugin.L.LogInfo($"DevTools ready. Graphics: {SystemInfo.graphicsDeviceType} {SystemInfo.graphicsDeviceVersion} on {SystemInfo.graphicsDeviceName}");
     }
 
+    private void LateUpdate() => DevRecorder.Capture();
+
     private void Update()
     {
         if (Time.unscaledTime >= _nextPoll)
@@ -45,20 +49,38 @@ public class DevTools : MonoBehaviour
             _nextPoll = Time.unscaledTime + 0.25f;
             LogSceneChanges();
             PollCommands();
+            ApplyPendingHand();
+        }
+
+        DevRecorder.Tick(Run);
+        if (_slideUntil > 0)
+        {
+            var player = GameManager.Instance?.Player;
+            var head = InkVR.Core.VRRig.Head;
+            if (player == null || head == null || InkVR.Body.InkClock.Now >= _slideUntil) _slideUntil = 0;
+            else
+            {
+                var fwd = _slideWorld ? Vector3.forward : Vector3.ProjectOnPlane(head.forward, Vector3.up).normalized;
+                var right = _slideWorld ? Vector3.right : Vector3.Cross(Vector3.up, fwd);
+                var k = InkVR.Core.VRRig.ActiveScale;
+                var v = (fwd * _slide.y + right * _slide.x) * k + Vector3.down * (2f * k);
+                DevRecorder.MoveDir = (fwd * _slide.y + right * _slide.x).normalized;
+                player.CharacterController.Move(v * InkVR.Body.InkClock.Dt);
+            }
         }
 
         if (_perf) TrackPerf();
 
         if (_devMoveUntil > 0)
         {
-            var on = Time.unscaledTime < _devMoveUntil;
+            var on = InkVR.Body.InkClock.Now < _devMoveUntil;
             VirtualInput.Move = on ? _devMove : Vector2.zero;
             if (!on) _devMoveUntil = 0;
         }
 
         if (_devLookUntil > 0)
         {
-            var on = Time.unscaledTime < _devLookUntil;
+            var on = InkVR.Body.InkClock.Now < _devLookUntil;
             VirtualInput.Look = on ? _devLook : Vector2.zero;
             if (!on) _devLookUntil = 0;
         }
@@ -215,6 +237,71 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"INK scan done ({groups.Count} groups within {radius})");
                 break;
             }
+            case "inksurvey":
+            {
+                // inksurvey: everything ink-like in the level, grouped, with components and shapes -> dumps/inksurvey_<scene>.txt
+                var dir = Path.Combine(Plugin.DataDir, "dumps");
+                Directory.CreateDirectory(dir);
+                var file = Path.Combine(dir, $"inksurvey_{SceneManager.GetActiveScene().name}_{DateTime.Now:HHmmss}.txt");
+                using var w = new StreamWriter(file);
+                string Comps(GameObject go) => string.Join(",", go.GetComponents<Component>().Select(c => c.GetIl2CppType().Name).Where(n => n != "Transform"));
+                var groups = new Dictionary<string, List<Renderer>>();
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Renderer>()))
+                {
+                    var r = o.Cast<Renderer>();
+                    if (!r.gameObject.scene.IsValid()) continue;
+                    var m = r.sharedMaterial;
+                    var tex = m != null && m.HasProperty("_MainTex") && m.mainTexture != null ? m.mainTexture.name : "-";
+                    var mf = r.GetComponent<MeshFilter>();
+                    var mesh = mf?.sharedMesh;
+                    var hay = $"{r.name} {m?.name} {m?.shader?.name} {tex} {mesh?.name}".ToLowerInvariant();
+                    if (!(hay.Contains("ink") || hay.Contains("drip") || hay.Contains("puddle") || hay.Contains("splat") || hay.Contains("spill") || hay.Contains("decal") || hay.Contains("goo") || hay.Contains("flow") || hay.Contains("pour") || hay.Contains("fall") || hay.Contains("stream") || hay.Contains("leak"))) continue;
+                    var key = $"{r.GetIl2CppType().Name} | mat={m?.name} | shader={m?.shader?.name} | tex={tex} | mesh={mesh?.name} readable={mesh?.isReadable}";
+                    if (!groups.TryGetValue(key, out var list)) groups[key] = list = new List<Renderer>();
+                    list.Add(r);
+                }
+
+                foreach (var kv in groups.OrderByDescending(k => k.Value.Count))
+                {
+                    w.WriteLine($"== x{kv.Value.Count} {kv.Key}");
+                    foreach (var r in kv.Value.Take(6))
+                        w.WriteLine($"   {PathOf(r.transform)} active={r.gameObject.activeInHierarchy}/{r.enabled} bounds={r.bounds.center}/{r.bounds.size} lossy={r.transform.lossyScale} rot={r.transform.eulerAngles} comps=[{Comps(r.gameObject)}]");
+                }
+
+                w.WriteLine("\n######## particle systems");
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<ParticleSystem>()))
+                {
+                    var ps = o.Cast<ParticleSystem>();
+                    if (!ps.gameObject.scene.IsValid()) continue;
+                    var psr = ps.GetComponent<ParticleSystemRenderer>();
+                    var m = psr?.sharedMaterial;
+                    var main = ps.main;
+                    w.WriteLine($"PS {PathOf(ps.transform)} active={ps.gameObject.activeInHierarchy} playing={ps.isPlaying} mat={m?.name} shader={m?.shader?.name} max={main.maxParticles} mode={psr?.renderMode} mesh={psr?.mesh?.name} at={ps.transform.position} bounds={psr?.bounds.size}");
+                }
+
+                w.WriteLine("\n######## decal and ink components");
+                foreach (var tn in new[] { "Decal", "InkWaterController", "CH1BarrelInk", "InkPipeController", "CH3InkWaterController", "OldDecalLinker", "EventTrigger" })
+                {
+                    var t = InteropType(tn);
+                    if (t == null) { w.WriteLine($"type {tn}: not found"); continue; }
+                    var n = 0;
+                    foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.From(t)))
+                    {
+                        var c = o.Cast<Component>();
+                        if (!c.gameObject.scene.IsValid()) continue;
+                        n++;
+                        if (tn == "EventTrigger" && !PathOf(c.transform).ToLowerInvariant().Contains("ink")) continue;
+                        if (n > 40) continue;
+                        var col = c.GetComponent<Collider>();
+                        w.WriteLine($"{tn} {PathOf(c.transform)} active={c.gameObject.activeInHierarchy} pos={c.transform.position} lossy={c.transform.lossyScale} rot={c.transform.eulerAngles} collider={(col != null ? col.GetIl2CppType().Name + " " + col.bounds.center + "/" + col.bounds.size + " trigger=" + col.isTrigger : "-")} comps=[{Comps(c.gameObject)}]");
+                    }
+
+                    w.WriteLine($"type {tn}: {n} total");
+                }
+
+                Plugin.L.LogInfo($"INKSURVEY -> {file}");
+                break;
+            }
             case "fxscan":
             {
                 // Components on every camera, plus lens flares and flare-ish objects (stereo troublemakers).
@@ -366,6 +453,58 @@ public class DevTools : MonoBehaviour
             case "inkburst":
                 InkVR.Body.InkWorld.Splatter(arg.Length > 0 ? int.Parse(arg) : 14);
                 break;
+            case "pool":
+            {
+                // pool [gain <x> | poke [depth m] [metres ahead]]: the ink pool's surface simulation
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (a.Length > 1 && a[0] == "gain") InkVR.Body.InkPool.Gain = float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture);
+                if (a.Length > 0 && a[0] == "poke")
+                {
+                    var h = InkVR.Core.VRRig.Head;
+                    var k = InkVR.Core.VRRig.ActiveScale;
+                    var ahead = (a.Length > 2 ? float.Parse(a[2], System.Globalization.CultureInfo.InvariantCulture) : 0.8f) * k;
+                    var at = h.position + Vector3.ProjectOnPlane(h.forward, Vector3.up).normalized * ahead;
+                    InkVR.Body.InkPool.Poke(at.x, at.z, a.Length > 1 ? float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture) : 0.02f, 2.5f);
+                }
+
+                if (a.Length > 0 && a[0] == "ridges") InkVR.Body.InkPool.DevRidges(a.Length > 1 ? float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture) : 0.03f);
+                if (a.Length > 1 && a[0] == "shine") InkVR.Body.InkPool.ShineGain = float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture);
+                if (a.Length > 2 && a[0] == "crisp")
+                {
+                    InkVR.Body.InkPool.Threshold = float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture);
+                    InkVR.Body.InkPool.Crisp = float.Parse(a[2], System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                if (a.Length > 2 && a[0] == "studio")
+                {
+                    InkVR.Body.InkPool.Studio = float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture);
+                    InkVR.Body.InkPool.CrestK = float.Parse(a[2], System.Globalization.CultureInfo.InvariantCulture);
+                    if (a.Length > 3) InkVR.Body.InkPool.StudioSharp = int.Parse(a[3]);
+                }
+
+                if (a.Length > 1 && a[0] == "tilt") InkVR.Body.InkPool.Exaggerate = float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture);
+                if (a.Length > 1 && a[0] == "mat") InkVR.Body.InkPool.DevMaterial(a[1]);
+                if (a.Length > 0 && a[0] == "off") InkVR.Body.InkPool.DevOff = true;
+                if (a.Length > 0 && a[0] == "on") InkVR.Body.InkPool.DevOff = false;
+                if (a.Length > 0 && a[0] == "peak") Plugin.L.LogInfo("POOLPEAK " + InkVR.Body.InkPool.DevPeak());
+                if (a.Length > 0 && a[0] == "state") Plugin.L.LogInfo("POOLSTATE " + InkVR.Body.InkPool.DevState());
+                Plugin.L.LogInfo($"POOL active={InkVR.Body.InkPool.Active} {InkVR.Body.InkPool.Name} top={InkVR.Body.InkPool.Top:F2} maxH={InkVR.Body.InkPool.MaxHeight * 1000f:F1} mm gain={InkVR.Body.InkPool.Gain} splashes={InkVR.Body.InkPool.Splashes} caught={InkVR.Body.InkPool.Caught} probed={InkVR.Body.InkPool.Probed} walls={InkVR.Body.InkPool.Walls} drops={InkVR.Body.InkDrops.Alive} ms push/sim/draw={InkVR.Body.InkPool.MsPush:F2}/{InkVR.Body.InkPool.MsSim:F2}/{InkVR.Body.InkPool.MsDraw:F2}");
+                break;
+            }
+            case "inkpause":
+                // inkpause | inkpause off | inkpause stains (only the stains' runs, drying and uploads)
+                InkVR.Body.InkWorld.DevOff = arg == "" || arg == "on";
+                InkVR.Body.InkWorld.DevStainsOff = arg == "stains";
+                InkVR.Body.InkStains.DevSkip = arg is "runs" or "dry" or "upload" ? arg : "";
+                if (InkVR.Body.InkStains.DevSkip != "") InkVR.Body.InkWorld.DevOff = false;
+                break;
+            case "inkclear":
+                // Henry, the floor and the drops in the air all clean again (between takes).
+                InkVR.Body.InkStains.WashAll();
+                InkVR.Body.InkDrops.Clear();
+                InkVR.Body.WorldInk.Clear();
+                InkVR.Body.Footprints.Clear();
+                break;
             case "drench":
                 InkVR.Body.InkWorld.Soak("dev");
                 break;
@@ -378,13 +517,22 @@ public class DevTools : MonoBehaviour
                 var sb = new System.Text.StringBuilder("INKBODY ");
                 var body = InkVR.Body.Hands.Body;
                 sb.Append($"body={(body != null ? body.Style.ToString() : "none")} wade={InkVR.Body.InkWorld.WadeSurface?.ToString("F2") ?? "-"} ({InkVR.Body.InkWorld.WadeWhy}) ");
-                sb.Append($"footstep={GameManager.Instance?.Player?.CurrentFootstepType} prints={InkVR.Body.Footprints.Count} soles={InkVR.Body.Footprints.LoadLeft:F2}/{InkVR.Body.Footprints.LoadRight:F2} inInk={InkVR.Body.Footprints.InInk}; ");
+                sb.Append($"footstep={GameManager.Instance?.Player?.CurrentFootstepType} prints={InkVR.Body.Footprints.Count} soles={InkVR.Body.Footprints.LoadLeft:F2}/{InkVR.Body.Footprints.LoadRight:F2} inInk={InkVR.Body.Footprints.InInk} ");
+                sb.Append($"drops={InkVR.Body.InkDrops.Alive} splats={InkVR.Body.WorldInk.Count} dripHits={InkVR.Body.InkWorld.DripHits} ({InkVR.Body.InkWorld.LastDripHit}) ");
+                var rb = InkVR.Body.Hands.Bounds(Hand.Right);
+                sb.Append($"rightHand y={rb.min.y:F2}..{rb.max.y:F2} devPool={(InkVR.Body.InkWorld.DevPool.HasValue ? InkVR.Body.InkWorld.DevPool.Value.top.ToString("F2") : "-")}; ");
                 foreach (var part in InkVR.Body.InkStains.Parts)
                 {
                     if (!part.Visible) continue;
-                    var dark = 0;
-                    for (var i = 0; i < part.Px.Length; i++) if (part.Px[i].r < 40 && part.Base[i].r >= 40) dark++;
-                    if (dark > 0) sb.Append($"{part.T.name}[{part.Region}]={dark * 100 / part.Px.Length}% ");
+                    var cov = 0;
+                    var wet = 0;
+                    for (var i = 0; i < part.Cov.Length; i++)
+                    {
+                        if (part.Cov[i] > 128) cov++;
+                        if (part.Wet[i] > 128) wet++;
+                    }
+
+                    if (cov > 0) sb.Append($"{part.T.name}[{part.Region}] ink={cov * 100 / Math.Max(1, part.Map?.Count ?? part.Cov.Length)}% wet={wet * 100 / Math.Max(1, part.Map?.Count ?? part.Cov.Length)}% runs={part.Runs.Count} ");
                 }
 
                 Plugin.L.LogInfo(sb.ToString());
@@ -479,7 +627,7 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"THROW last='{InkVR.Body.WeaponHandling.LastThrow}' twoHands={InkVR.Body.WeaponHandling.OffHandOnGun} holstered={InkVR.Body.WeaponHandling.Holstered} held={GameManager.Instance?.Player?.WeaponGameObject?.name} inactive={GameManager.Instance?.Player?.InactiveWeapon?.name}");
                 break;
             case "inkstate":
-                Plugin.L.LogInfo($"INKSTATE decals={InkVR.Body.InkWorld.DecalCount} pools={InkVR.Body.InkWorld.PoolCount} emitters={InkVR.Body.InkWorld.ParticleCount} parts={InkVR.Body.InkStains.Parts.Count} splats={InkVR.Body.InkStains.SplatCount}");
+                Plugin.L.LogInfo($"INKSTATE splats={InkVR.Body.InkWorld.DecalCount} pools={InkVR.Body.InkWorld.PoolCount} walls={InkVR.Body.InkWorld.WallCount} spouts={InkVR.Body.InkWorld.SpoutCount} emitters={InkVR.Body.InkWorld.ParticleCount} puddles={InkVR.Body.InkWorld.PuddleCount} parts={InkVR.Body.InkStains.Parts.Count} ready={InkVR.Body.InkStains.Parts.Count(p => p.Ready)} deposits={InkVR.Body.InkStains.SplatCount} caps={InkVR.Body.InkBody.Caps.Count}");
                 break;
             case "inkdebug":
             {
@@ -491,31 +639,119 @@ public class DevTools : MonoBehaviour
                     var dark = 0;
                     for (var i = 0; i < part.Px.Length; i++) if (part.Px[i].r < 40) dark++;
                     var gpu = part.Tex.GetPixel(part.W / 2, part.H / 2);
-                    Plugin.L.LogInfo($"INKDBG {part.T.name}: mat={used?.name} isOurs={(used != null && used.Pointer == part.Mat.Pointer)} tex={tex?.name} isOursTex={(tex != null && tex.Pointer == part.Tex.Pointer)} darkPx={dark}/{part.Px.Length} stained={part.Stained} dirty={part.Dirty} texFormat={part.Tex.format} readable={part.Tex.isReadable} gpuMid={gpu}");
+                    Plugin.L.LogInfo($"INKDBG {part.T.name}: mat={used?.name} isOurs={(used != null && used.Pointer == part.Mat.Pointer)} tex={tex?.name} isOursTex={(tex != null && tex.Pointer == part.Tex.Pointer)} darkPx={dark}/{part.Px.Length} inked={part.Inked} ready={part.Ready} dirty={part.Dirty} texFormat={part.Tex.format} readable={part.Tex.isReadable} gpuMid={gpu}");
                 }
 
                 break;
             }
-            case "inktouch":
+            case "devpool":
             {
-                // Teleport next to the nearest ink splat and press the right hand onto it.
+                // devpool <depth m> | off: a fake ink pool around you, <depth> metres of Henry deep
+                if (arg == "off") { InkVR.Body.InkWorld.DevPool = null; break; }
+                var k = InkVR.Core.VRRig.ActiveScale;
+                var h = InkVR.Core.VRRig.Head.position;
+                var ground = InkVR.Body.Hands.GroundAt(h);
+                var depth = float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture) * k;
+                InkVR.Body.InkWorld.DevPool = (new Bounds(new Vector3(h.x, ground + depth * 0.5f, h.z), new Vector3(3f * k, depth + 0.01f, 3f * k)), ground + depth);
+                Plugin.L.LogInfo($"DEVPOOL top={ground + depth:F2} (ground {ground:F2})");
+                break;
+            }
+            case "dripon":
+            {
+                // dripon <seconds> [drops per second]: ink dripping onto the right hand from 40 cm above it
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                InkVR.Body.InkWorld.DevDripUntil = InkVR.Body.InkClock.Now + float.Parse(a[0], System.Globalization.CultureInfo.InvariantCulture);
+                InkVR.Body.InkWorld.DevDripRate = a.Length > 1 ? float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture) : 25f;
+                break;
+            }
+            case "underdrip":
+            {
+                // underdrip [n]: stand by the n-th nearest dripping emitter and hold the right hand under its drops
+                // underdrip name:<part of a name> [n] goes to one even before it's dripping (it starts once it's on screen)
                 var player = GameManager.Instance.Player;
-                if (!InkVR.Body.InkWorld.NearestDecalPoint(player.transform.position, out var point, out var normal))
-                {
-                    Plugin.L.LogInfo("inktouch: no splat with mesh data");
-                    break;
-                }
-
-                var flat = Vector3.ProjectOnPlane(normal, Vector3.up);
-                var stand = Mathf.Abs(normal.y) > 0.7f ? point + new Vector3(0.6f, 0, 0.6f) : point + flat.normalized * 1.8f;
+                var ua = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                string named = ua.Length > 0 && ua[0].StartsWith("name:") ? ua[0].Substring(5).ToLowerInvariant() : null;
+                var nth = ua.Length > (named != null ? 1 : 0) ? int.Parse(ua[named != null ? 1 : 0]) : 0;
+                var ps = InkVR.Body.InkWorld.NearestDripping(player.transform.position, nth, named);
+                if (ps == null) { Plugin.L.LogInfo("UNDERDRIP none dripping"); break; }
+                var max = ps.main.maxParticles;
+                var buf = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<ParticleSystem.Particle>(Math.Max(max, 16));
+                var n = ps.GetParticles(buf);
+                var sum = Vector3.zero;
+                for (var i = 0; i < n; i++) sum += buf[i].m_Position;
+                var at = n > 0 ? sum / n : ps.transform.position;
+                if (n > 0 && !ps.GetComponent<ParticleSystemRenderer>().bounds.Contains(at)) at = ps.transform.TransformPoint(at);
+                var k = InkVR.Core.VRRig.ActiveScale;
+                var mask = ~(1 << player.gameObject.layer);
+                var ground = Physics.Raycast(new Vector3(at.x, at.y + 0.5f, at.z), Vector3.down, out var hit, 40f, mask, QueryTriggerInteraction.Ignore) ? hit.point.y : player.transform.position.y;
+                var feetOffset = Physics.Raycast(player.transform.position, Vector3.down, out var under, 50f, mask, QueryTriggerInteraction.Ignore) ? player.transform.position.y - under.point.y : 1f;
+                var away = Vector3.ProjectOnPlane(player.transform.position - at, Vector3.up);
+                if (away.sqrMagnitude < 1e-4f) away = Vector3.back;
+                var stand = new Vector3(at.x, ground + feetOffset, at.z) + away.normalized * (0.45f * k);
                 var cc = player.CharacterController;
                 cc.enabled = false;
-                player.transform.position = new Vector3(stand.x, player.transform.position.y + (Mathf.Abs(normal.y) > 0.7f ? point.y - (player.transform.position.y + cc.center.y - cc.height / 2) : 0), stand.z);
+                player.transform.position = stand;
                 cc.enabled = true;
-                InkVR.Core.VRRig.DevPendingTouch = point;
-                Plugin.L.LogInfo($"inktouch: splat at {point} normal {normal}, standing at {stand}");
+                PendingHand = new Vector3(at.x, ground + 1.15f * k, at.z);
+                Plugin.L.LogInfo($"UNDERDRIP {PathOf(ps.transform)} particles={n} centre={at} ground={ground:F2}, standing at {stand}");
                 break;
             }
+            case "mathbench":
+            {
+                // mathbench: what Unity's math costs per call in this build (interop) vs plain .NET
+                const int N = 200000;
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var v = new Vector3(1, 2, 3);
+                var acc = Vector3.zero;
+                for (var i = 0; i < N; i++) acc = acc + v;
+                var tAdd = sw.Elapsed.TotalMilliseconds; sw.Restart();
+                for (var i = 0; i < N; i++) acc = acc * 0.999f;
+                var tMul = sw.Elapsed.TotalMilliseconds; sw.Restart();
+                float f = 0;
+                for (var i = 0; i < N; i++) f += Mathf.Min(i, 5f);
+                var tMin = sw.Elapsed.TotalMilliseconds; sw.Restart();
+                for (var i = 0; i < N; i++) f += Math.Min(i, 5f);
+                var tMath = sw.Elapsed.TotalMilliseconds; sw.Restart();
+                var m = Matrix4x4.TRS(Vector3.one, Quaternion.identity, Vector3.one);
+                for (var i = 0; i < N; i++) acc = m.MultiplyPoint3x4(v);
+                var tMat = sw.Elapsed.TotalMilliseconds; sw.Restart();
+                for (var i = 0; i < N; i++) acc = new Vector3(i, 1, 2);
+                var tNew = sw.Elapsed.TotalMilliseconds; sw.Restart();
+                Color32 c = default;
+                for (var i = 0; i < N; i++) c = new Color32((byte)i, 1, 2, 255);
+                var tCol = sw.Elapsed.TotalMilliseconds; sw.Restart();
+                for (var i = 0; i < N; i++) f += Vector3.Dot(acc, v);
+                var tDot = sw.Elapsed.TotalMilliseconds; sw.Restart();
+                for (var i = 0; i < N; i++) f += (acc - v).sqrMagnitude;
+                var tSq = sw.Elapsed.TotalMilliseconds; sw.Restart();
+                Plugin.L.LogInfo($"MATHBENCH ns/call: v+v {tAdd * 1e6 / N:F0}, v*f {tMul * 1e6 / N:F0}, Mathf.Min {tMin * 1e6 / N:F0}, Math.Min {tMath * 1e6 / N:F0}, MultiplyPoint3x4 {tMat * 1e6 / N:F0}, new Vector3 {tNew * 1e6 / N:F0}, new Color32 {tCol * 1e6 / N:F0}, Dot {tDot * 1e6 / N:F0}, (a-b).sqrMagnitude {tSq * 1e6 / N:F0} ({f}{c.r}{acc.x})");
+                break;
+            }
+            case "slide":
+            {
+                // slide <forward m/s> <right m/s> <seconds>: move Henry through his character controller (works where the
+                // game ignores the move input, e.g. a directly loaded chapter)
+                // slide w <x m/s> <z m/s> <seconds>: in world directions
+                var parts2 = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+                _slideWorld = parts2[0] == "w";
+                if (_slideWorld) parts2.RemoveAt(0);
+                var a = parts2.Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                _slide = _slideWorld ? new Vector2(a[0], a[1]) : new Vector2(a[1], a[0]);
+                _slideUntil = InkVR.Body.InkClock.Now + a[2];
+                break;
+            }
+            case "rec":
+                DevRecorder.Command(arg);
+                break;
+            case "at":
+                DevRecorder.At(arg, Run);
+                break;
+            case "handgo":
+                DevRecorder.HandGo(arg);
+                break;
+            case "shake":
+                InkVR.Body.InkWorld.DevShake = arg.Length > 0 ? float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture) : 130f;
+                break;
             case "vpscale":
             {
                 var v = float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture);
@@ -686,6 +922,23 @@ public class DevTools : MonoBehaviour
                 var center = w.position + fingers * (0.07f * scale);
                 var dir = a[2] switch { "palm" => -back, "side" => -thumbSide, "thumb" => thumbSide, _ => back };
                 ShootFrom(a[0], center + dir * d, center, a[2] == "side" || a[2] == "thumb" ? back : fingers, InkVR.Core.VRRig.CinemaActive || !InkVR.Core.VRRig.InGame, 40f);
+                break;
+            }
+            case "armshot":
+            {
+                // armshot <name> right|left [yaw deg] [distance m]: the whole hand and forearm from above, with a flash
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var hand = a.Length > 1 && a[1] == "left" ? Hand.Left : Hand.Right;
+                var scale = InkVR.Core.VRRig.ActiveScale;
+                var yaw = a.Length > 2 ? float.Parse(a[2], System.Globalization.CultureInfo.InvariantCulture) : 0f;
+                var d = (a.Length > 3 ? float.Parse(a[3], System.Globalization.CultureInfo.InvariantCulture) : 0.35f) * scale;
+                var wrist = InkVR.Body.Hands.WristOf(hand);
+                if (wrist == null) break;
+                // The hand and the end of the forearm, from above and in front.
+                var center = wrist.position + wrist.forward * (0.02f * scale);
+                var fwd = Vector3.ProjectOnPlane(InkVR.Core.VRRig.Head.forward, Vector3.up).normalized;
+                var dir = Quaternion.Euler(0, yaw, 0) * (fwd * 0.6f + Vector3.up).normalized;
+                ShootFrom(a[0], center + dir * d, center, fwd, false, 45f);
                 break;
             }
             case "closeshot":
@@ -908,8 +1161,8 @@ public class DevTools : MonoBehaviour
             case "look":
             {
                 var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(float.Parse).ToArray();
-                if (parts[0] == "move") { _devMove = new Vector2(a[0], a[1]); _devMoveUntil = Time.unscaledTime + a[2]; }
-                else { _devLook = new Vector2(a[0], a[1]); _devLookUntil = Time.unscaledTime + a[2]; }
+                if (parts[0] == "move") { _devMove = new Vector2(a[0], a[1]); _devMoveUntil = InkVR.Body.InkClock.Now + a[2]; }
+                else { _devLook = new Vector2(a[0], a[1]); _devLookUntil = InkVR.Body.InkClock.Now + a[2]; }
                 break;
             }
             case "perf":
@@ -1287,7 +1540,18 @@ public class DevTools : MonoBehaviour
         go.transform.rotation = Quaternion.LookRotation(target - camPos, up);
         var rt = new RenderTexture(1024, 1024, 24);
         cam.targetTexture = rt;
+        // A flash at the camera, so dark corners of the studio don't hide what's being checked.
+        var flash = cinema ? null : new GameObject("InkVR_ShotFlash").AddComponent<Light>();
+        if (flash != null)
+        {
+            flash.type = LightType.Point;
+            flash.range = Vector3.Distance(camPos, target) * 4f;
+            flash.intensity = 1.4f;
+            flash.transform.position = camPos;
+        }
+
         cam.Render();
+        if (flash != null) Object.Destroy(flash.gameObject);
         var prev = RenderTexture.active;
         RenderTexture.active = rt;
         var tex = new Texture2D(1024, 1024, TextureFormat.RGB24, false);
@@ -1327,6 +1591,22 @@ public class DevTools : MonoBehaviour
         if (origin == null) return;
         var local = origin.InverseTransformPoint(worldPos) - Vector3.up * ModConfig.HeightOffset.Value;
         InkVR.Body.Hands.DevRight = (local, Quaternion.Inverse(origin.rotation) * worldRot);
+    }
+
+    /// <summary>Dev: a world point for the right hand, applied once the rig has followed a teleport.</summary>
+    private static Vector3? PendingHand;
+
+    private static int _pendingHandFrames;
+
+    private static void ApplyPendingHand()
+    {
+        if (!PendingHand.HasValue) return;
+        if (++_pendingHandFrames < 5) return;
+        _pendingHandFrames = 0;
+        var head = InkVR.Core.VRRig.Head;
+        var fwd = Vector3.ProjectOnPlane(PendingHand.Value - head.position, Vector3.up).normalized;
+        SetDevRightWorld(PendingHand.Value, Quaternion.LookRotation(fwd) * Quaternion.Euler(10, 0, 0));
+        PendingHand = null;
     }
 
     private static Vector3 ParseV3(string s)

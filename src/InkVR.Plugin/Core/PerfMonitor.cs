@@ -18,6 +18,8 @@ public static class PerfMonitor
         var dt = Time.unscaledDeltaTime;
         _frames++;
         _worst = Mathf.Max(_worst, dt);
+        if (dt > 0.1f && Dev.DevSaveGuard.Active)
+            Plugin.L.LogWarning($"HITCH frame {dt * 1000f:F0} ms at {Time.unscaledTime:F2} | .NET gc {System.GC.CollectionCount(0)}/{System.GC.CollectionCount(1)}/{System.GC.CollectionCount(2)} {System.GC.GetTotalMemory(false) / 1048576} MB | game heap {UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong() / 1048576}/{UnityEngine.Profiling.Profiler.GetMonoHeapSizeLong() / 1048576} MB | {Body.InkStains.DevLastUploads()}");
         var display = XrManager.Display;
         if (display.TryGetAppGPUTimeLastFrame(out var gpu) && gpu > 0)
         {

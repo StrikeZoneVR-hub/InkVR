@@ -59,6 +59,9 @@ public sealed class SkinBuilder
         public MeshBuilder Geometry;
         public string Material;
         public SkinWeight[] Weights;
+
+        /// <summary>How many pieces share this material: its texture is stacked that many times, one band each.</summary>
+        public int Bands = 1;
     }
 
     /// <summary>
@@ -78,10 +81,16 @@ public sealed class SkinBuilder
         {
             var merged = new MeshBuilder();
             var weights = new List<SkinWeight>();
+            var bands = 0;
+            foreach (var p in _pieces)
+                if (p.Material == key)
+                    bands++;
+            var band = 0;
             foreach (var p in _pieces)
             {
                 if (p.Material != key) continue;
-                merged.Append(p.Mesh);
+                if (bands > 1) merged.AppendBanded(p.Mesh, band++, bands);
+                else merged.Append(p.Mesh);
                 weights.AddRange(p.Weights);
             }
 
@@ -89,7 +98,7 @@ public sealed class SkinBuilder
             SetWeights(mesh, weights);
             mesh.bindposes = bindposes;
             var smr = Renderer(parent, $"{name}_{key}", mesh, new[] { material(key) }, bones, rootBone);
-            result.Add(new Piece2 { Renderer = smr, Geometry = merged, Material = key, Weights = weights.ToArray() });
+            result.Add(new Piece2 { Renderer = smr, Geometry = merged, Material = key, Weights = weights.ToArray(), Bands = bands });
         }
 
         outline = BuildOutline(parent, bones, rootBone, bindposes, name);

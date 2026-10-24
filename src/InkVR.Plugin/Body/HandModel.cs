@@ -355,8 +355,7 @@ public class HandModel
         foreach (var piece in built)
         {
             _renderers.Add(piece.Renderer);
-            if (piece.Material == "lifeNail") continue;
-            var part = InkStains.RegisterSkinned(piece.Renderer, piece.Geometry, piece.Weights, bones, bind, InkRegion.Hand);
+            var part = InkStains.RegisterSkinned(piece.Renderer, piece.Geometry, piece.Weights, bones, bind, InkRegion.Hand, piece.Bands);
             if (part != null) Stains.Add(part);
         }
 

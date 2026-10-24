@@ -36,8 +36,12 @@ public static class Footprints
     private static float _travel;
     private static int _nextFoot;
 
-    /// <summary>Set by the ink sources each tick: the feet are in ink right now (prints start once you step out).</summary>
-    public static bool InInk;
+    /// <summary>Set by the ink sources each tick: which feet are in ink right now (a foot prints once it steps out).</summary>
+    private static readonly bool[] InInkFoot = new bool[2];
+
+    public static bool InInk => InInkFoot[0] || InInkFoot[1];
+
+    public static void SetInInk(int foot, bool on) => InInkFoot[foot] = on;
 
     public static int Count => Prints.Count;
     public static float LoadLeft => Load[0];
@@ -61,7 +65,7 @@ public static class Footprints
             return;
         }
 
-        var dt = Time.unscaledDeltaTime;
+        var dt = InkClock.Dt;
         for (var i = 0; i < 2; i++) Load[i] = Mathf.Max(0, Load[i] - dt / 180f); // soles dry in about three minutes
 
         // Full body: print where Henry's feet land. Otherwise: a stride at a time along your path.
@@ -126,7 +130,7 @@ public static class Footprints
     /// <summary>Print a sole near <paramref name="at"/> (found on the floor below it), if the sole still has ink.</summary>
     public static void Place(int foot, Vector3 at, float yaw)
     {
-        if (InInk || Load[foot] < 0.05f) return;
+        if (InInkFoot[foot] || Load[foot] < 0.05f) return;
         var k = BodyScale;
         var mask = Physics.DefaultRaycastLayers & ~VRLayers.UIMask;
         var player = GameManager.Instance?.Player;
@@ -146,7 +150,7 @@ public static class Footprints
         // The less ink on the sole, the patchier the print.
         var variant = load > 0.7f ? 0 : load > 0.45f ? 1 : load > 0.25f ? 2 : 3;
         print.R.sharedMaterial = _mats[variant];
-        print.Born = Time.unscaledTime;
+        print.Born = InkClock.Now;
         print.Alpha = Mathf.Clamp01(0.55f + load * 0.45f) * Random.Range(0.85f, 1f);
         print.T.gameObject.SetActive(true);
         SetAlpha(print, print.Alpha);
@@ -154,7 +158,7 @@ public static class Footprints
 
     private static void FadePrints()
     {
-        var now = Time.unscaledTime;
+        var now = InkClock.Now;
         foreach (var p in Prints)
         {
             if (p.T == null || !p.T.gameObject.activeSelf) continue;
@@ -176,6 +180,7 @@ public static class Footprints
             if (p.T != null)
                 p.T.gameObject.SetActive(false);
         Load[0] = Load[1] = 0;
+        InInkFoot[0] = InInkFoot[1] = false;
         _haveLast = false;
     }
 

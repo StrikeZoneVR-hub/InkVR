@@ -262,7 +262,7 @@ public sealed class HenryBody
             _renderers.Add(piece.Renderer);
             var region = RegionOf(piece.Material);
             if (region == null) continue;
-            var part = InkStains.RegisterSkinned(piece.Renderer, piece.Geometry, piece.Weights, _bones, bind, region.Value);
+            var part = InkStains.RegisterSkinned(piece.Renderer, piece.Geometry, piece.Weights, _bones, bind, region.Value, piece.Bands);
             if (part != null) Stains.Add(part);
         }
 

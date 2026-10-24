@@ -1,8 +1,71 @@
 # Testing InkVR
 
-## Current build: 0.6.1 (fix: tiny world at the start of Chapter 2)
+## Current build: 0.6.2 (real-time ink, ink pools that ripple and splash)
 
 Everything is installed in your game folder. Start it as before: Virtual Desktop Streamer → `InkVR Launcher.exe` → PLAY IN VR.
+
+**Before you test: set your height adjust back to none.** It's called HEIGHT ADJUST → NONE in the game's VR SETTINGS, and HEIGHT → AS TRACKED in the launcher's OPTIONS. It's on UP 50 CM at the moment, which puts the game's floor 50 cm below your real floor. Ink lying on the floor is then out of reach of your hands, however far you crouch. Your setting hasn't been changed; it's only a recommendation.
+
+### New in 0.6.2: the ink is simulated in real time
+
+You said the ink didn't feel real: walking through most ink left no footprints, and hands under falling ink barely changed. This update replaces the ink with a real-time simulation.
+
+**Falling ink hits you**
+- Every drop of the game's drips and ink rain is followed as it falls. If it meets your hand, arm, sleeve or clothes, it stops there and leaves a blot the size of the drop, with a little splash.
+- Hold your hand under a drip and it builds up drop by drop, then starts to run.
+
+**Ink runs and drips**
+- Wet ink runs downhill over your hand and arm, whichever way you're holding it.
+- It drips off the low edges (fingertips, knuckles, cuffs), and the drips fall, land and splat on the floor.
+
+**Dipping**
+- Put your hand or arm into ink and it's coated up to the ink line, in real time.
+- The line follows as you push in deeper, so you can dip just your fingertips or go in up to the elbow.
+- You feel the ink drag in the controller as you move through it.
+
+**Shake it off**
+- Flick your hand hard and the wet ink flies off as drops.
+- A faint stain stays where it was.
+
+**Footprints from all floor ink**
+Every kind of floor ink now loads your soles:
+- ink pools and flooded floors
+- the game's inky floors (any floor that plays the ink footstep sound)
+- ink puddles
+- splats on the floor, including the ones you made yourself
+
+Walk out of a flooded corridor and you leave a trail.
+
+**Ink pools ripple and splash** (new, from your idea about messing around in water):
+- The ink around you is now a liquid surface.
+- Your hands, arms and legs push it: a hand dragged through leaves a wake, plunging in sends out rings, and wading leaves a trail.
+- The waves spread, bounce off walls and anything standing in the ink, then settle (ink is heavy).
+- Plunging in fast or slapping the surface throws up real drops. They land on you, on the floor, or back in the ink with a ring of their own. Swishing fast sprays.
+- Ink dripping off your hand into the pool rings it, and so do the game's own drips and rain.
+- The splashes use the game's own ink sounds.
+- Because the ink is black, you see the ripples as moving glints of light, like the game's own shine on its ink.
+- In hands-only mode, your unseen legs still make ripples as you wade.
+
+**Performance:** all of this costs about 1–2 ms a frame at the busiest (splashing about in a pool), and about 0.1–0.3 ms when nothing is happening. Tested at 90 fps.
+
+**Try this**
+- **Chapter 1:** hold your hand under the drips in the first corridors and watch them land, run and drip. Then flick your hand to shake it off.
+- **Chapter 2, the flooded hallway:**
+  - Crouch and put your hand in the ink, then pull it out and watch it drip.
+  - Swish your hand through the ink, slap it, and plunge in.
+  - Wade through, then walk out onto the wooden floor and look back at your footprints.
+- **Anywhere it rains ink:** stand in it and look at your sleeves.
+
+**Not yet checked on the test runtime:**
+- pouring streams
+- pressing a hand into ink on a wall
+- the TOON style's ink
+- pipes that only start dripping later in a chapter
+- the pool sounds (they play, but I can't hear them in a test run)
+
+Please tell me if any of these look wrong.
+
+0.6.2 also contains everything in 0.6.1, 0.6.0 and 0.5.1 below.
 
 ### New in 0.6.1: the world is the right size in Chapter 2 again
 At the start of Chapter 2, you and the whole world looked tiny, like a model.

@@ -205,6 +205,22 @@ public class MeshBuilder
     }
 
     /// <summary>Adds another builder's geometry to this one.</summary>
+    /// <summary>
+    /// Append another builder's geometry with its texture squeezed into band <paramref name="band"/> of
+    /// <paramref name="bands"/> stacked copies (v), so pieces that share a texture each get their own pixels.
+    /// </summary>
+    public void AppendBanded(MeshBuilder o, int band, int bands)
+    {
+        var start = _uv.Count;
+        Append(o);
+        const float e = 0.002f;
+        for (var i = start; i < _uv.Count; i++)
+        {
+            var uv = _uv[i];
+            _uv[i] = new Vector2(uv.x, (band + Mathf.Clamp(uv.y, e, 1f - e)) / bands);
+        }
+    }
+
     public void Append(MeshBuilder o)
     {
         var start = _v.Count;

@@ -1,6 +1,6 @@
 # InkVR — Full 6DoF VR Mod for Bendy and the Ink Machine
 
-Status: **Test build 0.6.1 ready for your next headset test** (0.6.1 fixes the tiny world at the start of Chapter 2): motion controls part 2 (valves, levers, soup by hand, throwing, two-handed guns, holster) and ink that soaks Henry's whole body and leaves footprints, plus 0.5.1's fixes from your 0.5.0 recording (Chapter 2 wake-up spin, legs hidden when looking down), on top of 0.5.0's Henry's full body in two styles (lifelike and toon) with BODY options, lifelike hands and a real wristwatch, plus 0.4.0's first motion controls, the 1930s picture palace and the shrinking and footstep-noise fixes. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1). Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22; full body (M7) is for the full release.
+Status: **Test build 0.6.2 ready for your next headset test** (0.6.2: the ink is simulated in real time: falling drops that hit your hands and clothes, running and dripping ink, real-time dipping, shaking it off, footprints from every kind of floor ink, and ink pools that ripple and splash; 0.6.1 fixed the tiny world at the start of Chapter 2): motion controls part 2 (valves, levers, soup by hand, throwing, two-handed guns, holster) and ink that soaks Henry's whole body and leaves footprints, plus 0.5.1's fixes from your 0.5.0 recording (Chapter 2 wake-up spin, legs hidden when looking down), on top of 0.5.0's Henry's full body in two styles (lifelike and toon) with BODY options, lifelike hands and a real wristwatch, plus 0.4.0's first motion controls, the 1930s picture palace and the shrinking and footstep-noise fixes. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1). Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22; full body (M7) is for the full release.
 
 Target setup: **Quest 3 · Virtual Desktop · VDXR OpenXR runtime** · RTX 4050 Laptop. Release: **open source on GitHub**.
 
@@ -26,7 +26,8 @@ Each test build goes to your headset before the next one starts, and your feedba
 | **0.5.0** | **Full body (M7), moved up at your request:** two styles you can pick in options, LIFELIKE (real-looking hands, waistcoat and tie) and TOON (cartoon hands, braces, big shoes); BODY: full body / arms & hands / hands only / none; feet that plant and step; a real tank wristwatch | ✅ tested (your recording, 2026-10-23) |
 | **0.5.1** | **Fixes from your 0.5.0 recording:** the Chapter 2 wake-up spin (the game moved its camera out of the VR rig), legs visible when looking down, body hidden instead of sinking through the floor | ✅ built (tested with 0.6.0) |
 | Trailer | **Teaser trailer:** opens with the launcher's opening animation, then your headset footage of the theatre and gameplay; two versions (official soundtrack, original music) | 🔨 in progress |
-| **0.6.0** | **Motion controls part 2 (finishes M4):** turn valves and pull levers by hand, eat Bacon Soup by raising it to your mouth, throw cans with your arm (Ch4), two-handed guns, over-the-shoulder holster. **Ink on Henry:** wading coats shoes and trousers to the ink line, falling in soaks him, pours, drips and bursts land on his clothes, wet ink drips, inky shoes leave fading footprints (every BODY option) | 🟡 **your test now** |
+| **0.6.0** | **Motion controls part 2 (finishes M4):** turn valves and pull levers by hand, eat Bacon Soup by raising it to your mouth, throw cans with your arm (Ch4), two-handed guns, over-the-shoulder holster. **Ink on Henry:** wading coats shoes and trousers to the ink line, falling in soaks him, pours, drips and bursts land on his clothes, wet ink drips, inky shoes leave fading footprints (every BODY option) | ✅ built (tested with 0.6.2) |
+| **0.6.2** | **Real-time ink (from your 0.6.0 feedback):** every falling drop is simulated and hits hands, arms and clothes; ink runs and drips; dipping coats in real time to the ink line; a flick shakes it off; footprints from every kind of floor ink; **ink pools ripple and splash** (wakes, rings, drops, the game's ink sounds); ~1–2 ms a frame at the busiest | 🟡 **your test now** |
 | 0.7.0 | **Cutscenes & scripted moments (M6):** knockouts, falls, Sammy/Bendy grabs, deaths, the Ch1 floor collapse; your head always stays yours; fades on cuts; optional Cinema mode | |
 | 0.8.0 | **UI pass (rest of M5):** world-space subtitles, readable prompts, note viewer, VR button glyphs, chapter cards, credits | |
 | 0.9.0 | **Performance (M8):** a measured 90 fps pass through every chapter on your laptop | |
@@ -216,6 +217,36 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 > - Holster: grip at the dominant shoulder hides the held weapon; grip again draws it.
 > - Verified on the mock runtime: Ch1 soup eaten, Ch1 basement crank turned, Ch1 power lever pulled, Ch2 axe holstered and drawn, Ch4 can thrown (5.2 m/s → force ×1.45 along the swing). Two-handed guns unverified (the Tommy Gun's station can't be opened in a directly loaded Ch3).
 > - 0.6.1: when the game reparents its camera (Ch2's wake-up), the camera comes back with the rig's scale as its local scale; InkVR now resets it to 1, or the eyes render the world scale twice (a miniature world).
+>
+> **Built in 0.6.2 (the ink, rewritten as a real-time simulation):**
+> - Per-texture texel maps (texel → triangle + barycentric weights), built on a worker thread with plain .NET maths. Calling Unity or IL2CPP from a worker thread crashes the game.
+> - Two layers per texel, pigment and wet. Painting is done in texture space with world-space blots.
+> - Runs flow along gravity projected onto the surface and drip off overhangs.
+> - Pieces that share a texture (fingers, trouser legs, boots) get their own texture bands.
+> - Henry as capsules (PCA-fitted per bone or piece). A hit snaps to the nearest real surface point.
+> - CPU drops (gravity, drag, swept capsule tests, world raycasts) splat the world.
+> - The game's drip, rain and splash particles are tested against Henry every frame. One that hits him dies there and paints.
+> - Floor ink sources for footprints: pools, the INK and INK_DEEP footstep types, puddle particles, decal splats, and our own fresh splats.
+> - The hot loops avoid Unity maths: in this build every Vector3, Mathf or Matrix4x4 call costs 70–150 ns, against about 2 ns for plain .NET (measured with the dev `mathbench`). InkMath.cs (F3, M34, Box3) replaced them.
+> - Dipping is spread over frames (left hand, right hand, two halves of the body). Ink costs about 1–2 ms a frame at the busiest.
+> - **Ink pools (InkPool.cs):**
+>   - A 112×112 height field (2.8 cm cells, about 3 m) follows the player over the pool they're standing in or over. It uses a symplectic wave equation at 72 Hz (0.34 m/s, viscous damping) and a soft absorbing edge.
+>   - Walls and props are probed with CheckSphere and reflect waves.
+>   - Henry's capsules cut the surface as obstacles. Their normal velocity is the source, which gives bow waves, wakes and plunge rings.
+>   - Plunges over 0.8 m/s throw ring splashes of drops, and fast swishes spray. Our drops and the game's particles that fall in poke rings.
+>   - Drawn with the pool's own material (world-UV Main Ink shader, so it lines up seamlessly) plus a second pass (Sprites/Default, vertex colours). That pass carries the ripples' highlights, computed on the CPU from nearby lights and an overhead "studio" light weighted to the crests. The game's ink shader takes its shine from its normal map, not the mesh normals.
+>   - The patch follows the pool's live height (the game raises and drains its ink).
+>   - Sounds: the game's own `sfx_ink_moves_*`.
+>   - Cost: about 0.5 ms a frame at 90 fps while splashing, under 0.05 ms when still.
+> - Verified on the mock runtime:
+>   - drips landing, running and dripping
+>   - real-time dipping (fingers 70–80%)
+>   - shake-off
+>   - wading coats boots and trousers
+>   - the game's ink rain caught
+>   - footprints after walking out of Ch2's flooded hallway
+>   - pool ripples, wakes and splashes
+>   - Not verified: pours, wall-ink touch, the toon style's ink, late-starting pipe drips.
 - Replace the camera-centre "look + press E" interaction with hand-based targeting: reach and grab, plus an optional hand-ray for distant objects.
 - Physical handlers for each interaction type:
   - pickups and puzzle items (including placing items, like the Ch1 Ink Machine parts)
