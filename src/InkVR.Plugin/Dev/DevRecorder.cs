@@ -109,6 +109,31 @@ public static class DevRecorder
         _handMove = (Hands.DevRight.Value.pos, new Vector3(a[0], a[1], a[2]), InkClock.Now, InkClock.Now + Mathf.Max(0.01f, a[3]));
     }
 
+    private static Vector3 _fixedPos, _fixedLook;
+
+    /// <summary>A camera standing still in the world (rec cam fixed).</summary>
+    public static void SetFixed(Vector3 pos, Vector3 look)
+    {
+        _fixedPos = pos;
+        _fixedLook = look;
+        _mode = "fixed";
+        _havePose = false;
+    }
+
+    /// <summary>Moves the dev right hand to a tracking-space point over some seconds (0 = at once).</summary>
+    public static void HandGoTo(Vector3 to, float seconds)
+    {
+        if (!Hands.DevRight.HasValue) return;
+        if (seconds <= 0)
+        {
+            Hands.DevRight = (to, Hands.DevRight.Value.rot);
+            _handMove = null;
+            return;
+        }
+
+        _handMove = (Hands.DevRight.Value.pos, to, InkClock.Now, InkClock.Now + seconds);
+    }
+
     /// <summary>Every frame (before rendering): scheduled commands and the moving hand.</summary>
     public static void Tick(Action<string> run)
     {
@@ -230,6 +255,11 @@ public static class DevRecorder
                 fov = 45f;
                 return;
             }
+            case "fixed":
+                pos = _fixedPos;
+                look = _fixedLook;
+                fov = 60f;
+                return;
             case "head":
                 pos = head.position;
                 look = head.position + head.forward;

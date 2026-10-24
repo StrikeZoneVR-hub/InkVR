@@ -102,7 +102,7 @@ public static class VRSettingsMenu
     /// </summary>
     private static Row MotionControls()
     {
-        var entries = new[] { ModConfig.PhysicalInteractions, ModConfig.PhysicalThrow, ModConfig.TwoHandedGuns, ModConfig.Holster };
+        var entries = new[] { ModConfig.PhysicalDoors, ModConfig.PhysicalInteractions, ModConfig.PhysicalThrow, ModConfig.TwoHandedGuns, ModConfig.Holster };
         return new Row
         {
             Label = "MOTION CONTROLS",

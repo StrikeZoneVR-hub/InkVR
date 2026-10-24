@@ -156,6 +156,8 @@ public static class VRRig
         if (InGame && !_cinemaActive) MeleeSwing.Update();
         WeaponHandling.Update();
         Input.PhysicalInteract.Update();
+        Input.PhysicalDoors.Update();
+        Input.PhysicalTouch.Update();
         InkWorld.Update();
         Footprints.Update();
         LaserPointer.Update();

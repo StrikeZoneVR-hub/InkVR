@@ -1,6 +1,6 @@
 # InkVR — Full 6DoF VR Mod for Bendy and the Ink Machine
 
-Status: **Test build 0.6.2 ready for your next headset test** (0.6.2: the ink is simulated in real time: falling drops that hit your hands and clothes, running and dripping ink, real-time dipping, shaking it off, footprints from every kind of floor ink, and ink pools that ripple and splash; 0.6.1 fixed the tiny world at the start of Chapter 2): motion controls part 2 (valves, levers, soup by hand, throwing, two-handed guns, holster) and ink that soaks Henry's whole body and leaves footprints, plus 0.5.1's fixes from your 0.5.0 recording (Chapter 2 wake-up spin, legs hidden when looking down), on top of 0.5.0's Henry's full body in two styles (lifelike and toon) with BODY options, lifelike hands and a real wristwatch, plus 0.4.0's first motion controls, the 1930s picture palace and the shrinking and footstep-noise fixes. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1). Go-ahead given for M0 → M6 (through cutscenes) on 2026-10-22; full body (M7) is for the full release.
+Status: **Release candidate 0.7.0 ready for your bug-test (release planned for Sunday 2026-10-25)**. 0.7.0 finishes the motion controls: doors you push, pull and fling by hand (locked ones rattle), pressing things with your fingers, lifting lids, pulling drawers, flipping switches and taking items into your hand. 0.6.2 brought the real-time ink and pools that ripple and splash. Everything before that is in the table below. Headset-tested so far: M1 VR core, M2 button controls + Henry's hands, M3 launcher, M5 VR SETTINGS page + theatre menus (two rounds, 0.2.0 and 0.3.1), and 0.5.0's full body. After the release: Bendy and the Dark Revival.
 
 Target setup: **Quest 3 · Virtual Desktop · VDXR OpenXR runtime** · RTX 4050 Laptop. Release: **open source on GitHub**.
 
@@ -27,11 +27,12 @@ Each test build goes to your headset before the next one starts, and your feedba
 | **0.5.1** | **Fixes from your 0.5.0 recording:** the Chapter 2 wake-up spin (the game moved its camera out of the VR rig), legs visible when looking down, body hidden instead of sinking through the floor | ✅ built (tested with 0.6.0) |
 | Trailer | **Teaser trailer:** opens with the launcher's opening animation, then your headset footage of the theatre and gameplay; two versions (official soundtrack, original music) | 🔨 in progress |
 | **0.6.0** | **Motion controls part 2 (finishes M4):** turn valves and pull levers by hand, eat Bacon Soup by raising it to your mouth, throw cans with your arm (Ch4), two-handed guns, over-the-shoulder holster. **Ink on Henry:** wading coats shoes and trousers to the ink line, falling in soaks him, pours, drips and bursts land on his clothes, wet ink drips, inky shoes leave fading footprints (every BODY option) | ✅ built (tested with 0.6.2) |
-| **0.6.2** | **Real-time ink (from your 0.6.0 feedback):** every falling drop is simulated and hits hands, arms and clothes; ink runs and drips; dipping coats in real time to the ink line; a flick shakes it off; footprints from every kind of floor ink; **ink pools ripple and splash** (wakes, rings, drops, the game's ink sounds); ~1–2 ms a frame at the busiest | 🟡 **your test now** |
-| 0.7.0 | **Cutscenes & scripted moments (M6):** knockouts, falls, Sammy/Bendy grabs, deaths, the Ch1 floor collapse; your head always stays yours; fades on cuts; optional Cinema mode | |
-| 0.8.0 | **UI pass (rest of M5):** world-space subtitles, readable prompts, note viewer, VR button glyphs, chapter cards, credits | |
-| 0.9.0 | **Performance (M8):** a measured 90 fps pass through every chapter on your laptop | |
-| 0.95 | **All chapters certified (M9):** full Ch1–5 + Archives VR playthrough, softlock checks, boss fights | |
+| **0.6.2** | **Real-time ink (from your 0.6.0 feedback):** every falling drop is simulated and hits hands, arms and clothes; ink runs and drips; dipping coats in real time to the ink line; a flick shakes it off; footprints from every kind of floor ink; **ink pools ripple and splash** (wakes, rings, drops, the game's ink sounds); ~1–2 ms a frame at the busiest | ✅ built (tested with 0.7.0) |
+| **0.7.0** | **Motion controls finished (release candidate):** doors by hand (push, pull, fling, latch; locked doors rattle; they stop against you and the walls), press buttons, tape recorders, toys and keys with a fingertip, lift lids, pull drawers, flip switches, take items into your hand | 🟡 **your bug-test now** (release Sunday) |
+| later | **Cutscenes & scripted moments (M6):** knockouts, falls, Sammy/Bendy grabs, deaths, the Ch1 floor collapse; your head always stays yours; fades on cuts; optional Cinema mode | |
+| later | **UI pass (rest of M5):** world-space subtitles, readable prompts, note viewer, VR button glyphs, chapter cards, credits | |
+| later | **Performance (M8):** a measured 90 fps pass through every chapter on your laptop | |
+| later | **All chapters certified (M9):** full Ch1–5 + Archives VR playthrough, softlock checks, boss fights | |
 | **1.0 full release** | Polish from your feedback, body ink and shadows, GitHub release | |
 
 ---
@@ -247,6 +248,28 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 >   - footprints after walking out of Ch2's flooded hallway
 >   - pool ripples, wakes and splashes
 >   - Not verified: pours, wall-ink touch, the toon style's ink, late-starting pipe drips.
+>
+> **Built in 0.7.0 (motion controls finished):**
+> - **Doors (PhysicalDoors.cs):**
+>   - Every BaseDoorController, DoorController and CustomDoorController in the level is found every 8 s; the scan costs 1–5 ms.
+>   - Each door is measured once while shut: the leaf's box colliders in hinge space give its width, thickness and height.
+>   - Its swing range comes from sweeping a slimmed copy of the leaf with OverlapBox each way, ignoring the door's own frame. The default is ±100°, widened to wherever the game itself swings it (about 145°).
+>   - The pushers are each hand's palm and fingertip spheres plus the player's CharacterController column. A pusher overlapping the leaf moves the door so it's just clear of the pusher.
+>   - The body only pushes a door that's already ajar or moving: a shut door is latched.
+>   - A grip near the leaf's outer 70% grabs the door, and the angle then follows the hand round the hinge.
+>   - When free, the door keeps its angular velocity with damping, bounces off its stops, and latches when it comes back through the frame.
+>   - The game is told through its own calls: `Open(0.15, Linear, angle)` or `Close`, then `DOTween.Complete` on the hinge, so its listeners run at once and its tween never tugs against the hand.
+>   - While the game itself moves the hinge (X, scripts), the door is the game's, and the code takes over afterwards without snapping.
+>   - A door the game locks open (X does that) stays put. Locked doors rattle only for a hand moving into them, and call the front or back Interactable's own Interact (the game's locked response).
+>   - Hand jumps faster than 9 m/s (tracking glitches) never shove a door.
+> - **Press by touch (PhysicalTouch.cs):**
+>   - What counts: AudioLog, InteractableAudio, AudioPlayer, SqueakToy, InteractableMusicalInstrument, Interactables owned by CH3LiftButton, CH3AliceButtonController, RadioEasterEggController, ProjectorController, CH2PipeOrganController or CH3ToyMachine, and anything named button or buzzer.
+>   - A fingertip (1.5 cm) or palm (4 cm) moving into one at 0.25 m/s or more fires the game's interact. It re-arms when the hand comes away, with at most one press every 0.5 s.
+> - **Gestures (PhysicalInteract.cs):**
+>   - InteractableTrunk, InteractableDrawer and switch boxes use the lever pull.
+>   - Take: Chapter 1 collectables, plus small single-interaction items by name, are copied into the hand and the game's interact runs at once. The copy stays only if the game really took the item, and shrinks away on release.
+>   - Place, for CH1 pedestals when the game enables their interaction: carry the item to the spot. Holding still for 2.5 s also completes it.
+> - Drying-only stain uploads every 1.5 s, not 4 times a second: this removed a 0.3 s stall every few seconds in Chapter 4.
 - Replace the camera-centre "look + press E" interaction with hand-based targeting: reach and grab, plus an optional hand-ray for distant objects.
 - Physical handlers for each interaction type:
   - pickups and puzzle items (including placing items, like the Ch1 Ink Machine parts)

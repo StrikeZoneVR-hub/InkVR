@@ -1,10 +1,51 @@
 # Testing InkVR
 
-## Current build: 0.6.2 (real-time ink, ink pools that ripple and splash)
+## Current build: 0.7.0, the release candidate (motion controls finished: doors by hand, pressing, picking up)
 
 Everything is installed in your game folder. Start it as before: Virtual Desktop Streamer → `InkVR Launcher.exe` → PLAY IN VR.
 
-**Before you test: set your height adjust back to none.** It's called HEIGHT ADJUST → NONE in the game's VR SETTINGS, and HEIGHT → AS TRACKED in the launcher's OPTIONS. It's on UP 50 CM at the moment, which puts the game's floor 50 cm below your real floor. Ink lying on the floor is then out of reach of your hands, however far you crouch. Your setting hasn't been changed; it's only a recommendation.
+**Before you test: set your height adjust back to none.** It's called HEIGHT ADJUST → NONE in the game's VR SETTINGS, and HEIGHT → AS TRACKED in the launcher's OPTIONS. It's on UP 50 CM at the moment, which puts the game's floor 50 cm below your real floor. Doorknobs, buttons and ink on the floor are then lower than your real hands can comfortably go. Your setting hasn't been changed; it's only a recommendation.
+
+### New in 0.7.0: doors you open with your hands
+
+The studio's doors now swing like real doors.
+- **Push:** put your open hand on a door and push. It swings away as hard as you pushed it, keeps swinging, and slows down.
+- **Pull:** grip a door near its handle side and pull it towards you, or push it away, with your hand.
+- **Fling it:** let go while it's moving and it carries on. Swing it back towards the frame and it bangs shut and latches.
+- **It meets things:** a door stops against your body (it won't swing through you) and against walls. Once a door is ajar you can walk it open with your body. A shut door is latched, so walking into it doesn't open it.
+- **Locked doors** rattle in their frame when you push or pull them. You feel it in the controller, and the game gives its own "locked" response, as if you'd tried the handle.
+- The game still knows about every door you open and close: its sounds, and anything in the story waiting on that door, all still happen.
+- X still opens a door the game's way. Some doors stay open after that, as they always have.
+- Setting: launcher OPTIONS → HENRY → DOORS (PUSH & PULL or PRESS). In the game, VR SETTINGS → MOTION CONTROLS switches it along with the others.
+
+### New in 0.7.0: press things with your fingers
+
+Tape recorders, Bendy squeaky toys, piano and organ keys, the Chapter 3 lift buttons, the radios and the projector now react to your hand.
+- Press them with a fingertip, or hit them with your palm.
+- It has to be a press: your hand moving into it. Resting your hand on something doesn't keep pressing it.
+- Grip and X still work on all of them.
+
+### New in 0.7.0: lift, pull and pick up
+
+- **Trunk lids, drawers and switch boxes:** grip and lift the lid, pull the drawer, or flip the switch, about a hand's width, the same way levers work. Holding still for 2.5 seconds completes it too, so nothing can get stuck.
+- **Items:** grip a collectable (Chapter 1's inkwell, gear, record and the rest, and other small items the game collects) and it comes into your hand as the game collects it. Let go and it goes into your pocket.
+
+The setting for all of these is launcher OPTIONS → HENRY → GRAB, TURN, PRESS (BY HAND or BUTTON). It replaces VALVES, LEVERS, SOUP.
+
+### Also in 0.7.0
+- Fixed: another short freeze. While stains on Henry's clothes were slowly drying, their textures were re-sent to the graphics card several times a second, which caused a 0.3 s stall every few seconds. They're now sent every 1.5 seconds.
+- Tested on the test runtime:
+  - pushing, pulling, flinging and latching doors
+  - locked doors rattling
+  - pressing a tape recorder with a fingertip
+  - taking Chapter 1's inkwell into the hand, after which the game counts it collected
+  - every chapter loads with doors and pressable things found and no errors
+
+**Not yet checked:**
+- the Chapter 1 pedestals after collecting (the game seems to place items there by itself)
+- walking an ajar door open with your body, and a door swinging back into you
+- the lift buttons, organ and piano in a real playthrough (a directly loaded chapter starts partway through)
+- trunk lids and drawers by hand
 
 ### New in 0.6.2: the ink is simulated in real time
 
@@ -65,7 +106,7 @@ Walk out of a flooded corridor and you leave a trail.
 
 Please tell me if any of these look wrong.
 
-0.6.2 also contains everything in 0.6.1, 0.6.0 and 0.5.1 below.
+0.6.2 also contains everything in 0.6.1, 0.6.0 and 0.5.1 below. 0.7.0 contains all of it.
 
 ### New in 0.6.1: the world is the right size in Chapter 2 again
 At the start of Chapter 2, you and the whole world looked tiny, like a model.

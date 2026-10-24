@@ -24,7 +24,9 @@ public static class PhysicalInteract
         None,
         Valve,
         Lever,
-        Soup
+        Soup,
+        Take,
+        Place
     }
 
     private sealed class Gesture
@@ -40,7 +42,23 @@ public static class PhysicalInteract
         public Quaternion StillRot;
         public GameObject Held;
         public readonly List<Renderer> Hidden = new();
+        public CH1Pedestal Pedestal;
+        public Quaternion HoldRot;
+        public Vector3 HoldOffset;
     }
+
+    /// <summary>A thing you took, still in your hand after the game has it (it goes into your pocket when you let go).</summary>
+    private sealed class Trophy
+    {
+        public GameObject Copy;
+        public Hand Hand;
+        public Quaternion Rot;
+        public Vector3 Offset;
+        public Interactable Original;
+        public float CheckAt, ShrinkFrom = -1f;
+    }
+
+    private static readonly List<Trophy> Trophies = new();
 
     private static Gesture _g;
 
@@ -88,13 +106,20 @@ public static class PhysicalInteract
     {
         if (!XrManager.IsRunning || !VRRig.InGame || VRRig.CinemaActive) return false;
         if (WeaponHandling.WantsGrip(hand)) return true; // the gun's front, or the holster
-        if (!ModConfig.PhysicalInteractions.Value || _g != null) return _g != null && _g.Hand == hand;
-        var item = InteractionAim.Hovered;
-        if (InteractionAim.HoverHand != hand || item == null) return false;
-        var kind = Classify(item);
-        if (kind == Kind.None) return false;
-        Begin(kind, hand, item, GameManager.Instance?.Player?.m_Interaction);
-        return true;
+        if (_g != null) return _g.Hand == hand;
+        if (ModConfig.PhysicalInteractions.Value)
+        {
+            var item = InteractionAim.Hovered;
+            var kind = InteractionAim.HoverHand == hand && item != null ? Classify(item) : Kind.None;
+            if (kind != Kind.None)
+            {
+                Begin(kind, hand, item, GameManager.Instance?.Player?.m_Interaction);
+                return true;
+            }
+        }
+
+        // a door: take hold of it and swing it yourself
+        return PhysicalDoors.TryGrab(hand);
     }
 
     private static bool DevGrip(Hand hand) => (hand == Hand.Right ? XrInput.DevRightGrip : XrInput.DevLeftGrip) is > 0.6f;
@@ -110,7 +135,24 @@ public static class PhysicalInteract
     public static Kind Classify(Interactable item)
     {
         if (item.TryCast<CannedSoupEdible>() != null) return Kind.Soup;
+        // Chapter 1's collectables: take them in your hand; carry each to its pedestal and set it down
+        var ped = item.GetComponentInParent<CH1Pedestal>();
+        if (ped != null)
+        {
+            if (ped.m_Pedestal != null && ped.m_Pedestal.Pointer == item.Pointer) return ped.isCollected && !ped.isComplete ? Kind.Place : Kind.None;
+        }
+
+        foreach (var p in Object.FindObjectsOfType(Il2CppInterop.Runtime.Il2CppType.Of<CH1Pedestal>()))
+        {
+            var pd = p.Cast<CH1Pedestal>();
+            if (pd.m_Collectable != null && pd.m_Collectable.Pointer == item.Pointer) return Kind.Take;
+        }
+
+        if (Takeable(item)) return Kind.Take;
         if (item.TryCast<InteractablePowerLever>() != null) return Kind.Lever;
+        // lids lift, drawers slide out, switches flip: a pull by hand, like a lever
+        if (item.TryCast<InteractableTrunk>() != null || item.TryCast<InteractableDrawer>() != null) return Kind.Lever;
+        if (item.GetComponentInParent<InteractableSwitchBox>() != null) return Kind.Lever;
         var lever = item.GetComponentInParent<CH3LeverLight>();
         if (lever != null && lever.m_Lever != null && lever.m_Lever.Pointer == item.Pointer) return Kind.Lever;
         var valve = item.GetComponentInParent<CH1PipeValve>();
@@ -129,6 +171,27 @@ public static class PhysicalInteract
     }
 
     private static bool Word(string s, string w) => s.Contains(w) && !s.Contains("door") && !s.Contains("panel");
+
+    /// <summary>A small thing the game collects in one go (it disappears into your inventory): you take it in your hand.</summary>
+    private static bool Takeable(Interactable item)
+    {
+        if (!item.m_EnableSingleInteraction) return false;
+        var name = item.name.ToLowerInvariant();
+        if (!(name.Contains("collect") || name.Contains("gear") || name.Contains("key") || name.Contains("battery") || name.Contains("item")
+              || name.Contains("pickup") || name.Contains("bone") || name.Contains("heart") || name.Contains("core") || name.Contains("thickink") || name.Contains("ink_jar")))
+            return false;
+        if (item.GetComponentInParent<MeleeWeapon>() != null || item.GetComponentInParent<GunWeapon>() != null || item.GetComponentInParent<ThrowWeapon>() != null) return false;
+        var any = false;
+        foreach (var r in item.GetComponentsInChildren<MeshRenderer>())
+        {
+            if (!r.enabled) continue;
+            any = true;
+            var size = r.bounds.size / VRRig.ActiveScale;
+            if (Mathf.Max(size.x, Mathf.Max(size.y, size.z)) > 0.7f) return false;
+        }
+
+        return any;
+    }
 
     // ---------------- the gesture ----------------
 
@@ -152,6 +215,24 @@ public static class PhysicalInteract
         _g = g;
         XrInput.Haptic(hand, 0.3f, 0.04f);
         if (kind == Kind.Soup) PickUp(g);
+        if (kind == Kind.Place)
+        {
+            g.Pedestal = item.GetComponentInParent<CH1Pedestal>();
+            var collected = g.Pedestal?.m_Collected;
+            if (collected != null) CopyIntoHand(g, collected.transform, true, grip.pos, grip.rot);
+        }
+
+        if (kind == Kind.Take)
+        {
+            // into your hand at once; the game takes it (its sound, its inventory) the same moment
+            CopyIntoHand(g, item.transform, false, grip.pos, grip.rot);
+            var copy = g.Held;
+            g.Held = null;
+            Trophies.Add(new Trophy { Copy = copy, Hand = hand, Rot = g.HoldRot, Offset = g.HoldOffset, Original = item, CheckAt = Time.unscaledTime + 0.35f });
+            _g = g;
+            Complete("taken");
+            return;
+        }
         LastResult = $"{kind} {item.name}: started";
         Plugin.L.LogInfo($"Physical interaction: {kind} '{item.name}' with the {hand} hand");
     }
@@ -177,6 +258,7 @@ public static class PhysicalInteract
     public static void Update()
     {
         if (!XrInput.Ready) ClaimGrips(); // dev grips on the mock runtime (no controller sampling there)
+        UpdateTrophies();
         var g = _g;
         if (g == null) return;
         if (g.Item == null || !VRRig.InGame || VRRig.CinemaActive)
@@ -246,6 +328,31 @@ public static class PhysicalInteract
                 else if (Time.unscaledTime - g.StillSince > 2.5f) Complete("held");
                 break;
             }
+            case Kind.Place:
+            {
+                // carry it to the pedestal and set it down there
+                if (g.Held != null) g.Held.transform.SetPositionAndRotation(pos + rot * g.HoldOffset, rot * g.HoldRot);
+                if (!held)
+                {
+                    Cancel("let go");
+                    return;
+                }
+
+                var spot = g.Pedestal?.m_Collected != null ? g.Pedestal.m_Collected.transform.position : g.Item.transform.position;
+                var item = g.Held != null ? g.Held.transform.position : pos;
+                if ((item - spot).magnitude < 0.22f * scale)
+                {
+                    DropHeld(g);
+                    Complete("placed");
+                }
+                else if (Time.unscaledTime - g.StillSince > 2.5f)
+                {
+                    DropHeld(g);
+                    Complete("held");
+                }
+
+                break;
+            }
             case Kind.Soup:
             {
                 Carry(g, pos, rot);
@@ -272,6 +379,94 @@ public static class PhysicalInteract
         }
     }
 
+    /// <summary>Things taken: they stay in your hand while you hold the grip (if the game really took them), and shrink into your pocket when you let go.</summary>
+    private static void UpdateTrophies()
+    {
+        var now = Time.unscaledTime;
+        for (var i = Trophies.Count - 1; i >= 0; i--)
+        {
+            var t = Trophies[i];
+            if (t.Copy == null)
+            {
+                Trophies.RemoveAt(i);
+                continue;
+            }
+
+            var (pos, rot) = HandGrip(t.Hand);
+            if (t.ShrinkFrom < 0)
+            {
+                t.Copy.transform.SetPositionAndRotation(pos + rot * t.Offset, rot * t.Rot);
+                // the game didn't take it after all (it's still there): no copy in the hand
+                if (now >= t.CheckAt && t.CheckAt > 0)
+                {
+                    t.CheckAt = 0;
+                    if (t.Original != null && t.Original.gameObject.activeInHierarchy && AnyVisible(t.Original.transform))
+                    {
+                        Object.Destroy(t.Copy);
+                        Trophies.RemoveAt(i);
+                        continue;
+                    }
+                }
+
+                if (Grip(t.Hand) < 0.35f) t.ShrinkFrom = now;
+                continue;
+            }
+
+            var k = 1f - Mathf.Clamp01((now - t.ShrinkFrom) / 0.25f);
+            t.Copy.transform.position = Vector3.Lerp(t.Copy.transform.position, pos, 0.3f);
+            t.Copy.transform.localScale = Vector3.one * k;
+            if (k <= 0)
+            {
+                Object.Destroy(t.Copy);
+                Trophies.RemoveAt(i);
+            }
+        }
+    }
+
+    private static bool AnyVisible(Transform root)
+    {
+        foreach (var r in root.GetComponentsInChildren<Renderer>())
+            if (r.enabled && r.gameObject.activeInHierarchy)
+                return true;
+        return false;
+    }
+
+    /// <summary>A copy of an object's meshes, held in the hand where it was gripped (or, for a placed item, at the palm).</summary>
+    private static void CopyIntoHand(Gesture g, Transform src, bool includeHidden, Vector3 gripPos, Quaternion gripRot)
+    {
+        var root = new GameObject("InkVR_Held");
+        Object.DontDestroyOnLoad(root);
+        root.transform.SetPositionAndRotation(src.position, src.rotation);
+        Bounds b = default;
+        var any = false;
+        foreach (var r in src.GetComponentsInChildren<MeshRenderer>(includeHidden))
+        {
+            if (!includeHidden && !r.enabled) continue;
+            var mf = r.GetComponent<MeshFilter>();
+            if (mf == null || mf.sharedMesh == null) continue;
+            var copy = new GameObject(r.name);
+            copy.transform.SetParent(root.transform, false);
+            copy.transform.SetPositionAndRotation(r.transform.position, r.transform.rotation);
+            copy.transform.localScale = Vector3.Scale(r.transform.lossyScale, new Vector3(1f / src.lossyScale.x, 1f / src.lossyScale.y, 1f / src.lossyScale.z));
+            copy.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
+            copy.AddComponent<MeshRenderer>().sharedMaterials = r.sharedMaterials;
+            var wb = new Bounds(r.transform.TransformPoint(mf.sharedMesh.bounds.center), Vector3.zero);
+            if (!any) b = wb;
+            else b.Encapsulate(wb);
+            any = true;
+        }
+
+        root.transform.localScale = src.lossyScale;
+        g.Held = root;
+        // Held as it was gripped; a placed item (from its pedestal, out of sight) sits at the palm.
+        var scale = VRRig.ActiveScale;
+        var palm = gripPos + gripRot * new Vector3(g.Hand == Hand.Right ? -0.03f : 0.03f, -0.02f, 0.05f) * scale;
+        var centre = any ? b.center : src.position;
+        if (includeHidden) root.transform.position += palm - centre;
+        g.HoldRot = Quaternion.Inverse(gripRot) * root.transform.rotation;
+        g.HoldOffset = Quaternion.Inverse(gripRot) * (root.transform.position - gripPos);
+    }
+
     private static void Complete(string how)
     {
         var g = _g;
@@ -296,6 +491,8 @@ public static class PhysicalInteract
             PutBack(g);
             DropHeld(g);
         }
+
+        if (g.Kind == Kind.Place) DropHeld(g);
 
         LastResult = $"{g.Kind} {(g.Item != null ? g.Item.name : "?")}: {why}";
     }

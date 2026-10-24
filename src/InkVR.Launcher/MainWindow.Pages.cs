@@ -298,6 +298,7 @@ namespace InkVR.Launcher
                 "MENUS: THUMBSTICK MOVES, A SELECTS, B GOES BACK (OR TURN ON THE LASER POINTER).",
                 "SWING THE AXE TO HIT. HOLD THE TRIGGER, SWING AND LET GO TO THROW. GUNS FIRE WHERE YOUR HAND POINTS (GRIP THE FRONT TOO FOR TWO HANDS).",
                 "GRIP A VALVE AND TURN IT, A LEVER AND PULL IT, SOUP AND BRING IT TO YOUR MOUTH. REACH OVER YOUR SHOULDER AND GRIP TO HOLSTER.",
+                "PUSH DOORS OPEN WITH YOUR HAND, OR GRIP AND PULL THEM. PRESS BUTTONS, TAPE RECORDERS AND KEYS WITH A FINGER. GRIP ITEMS TO PICK THEM UP.",
             });
             var memo = Look.MemoText(notes, 26, Paint.Ink, 1180, 0.9);
             memo.TextAlignment = TextAlignment.Center;
@@ -555,15 +556,16 @@ namespace InkVR.Launcher
             Row("MELEE", new[] { "SWING YOUR ARM", "BUTTON ONLY" }, has && !cfg.GetBool("Controls", "PhysicalMelee", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalMelee", i == 0), has);
             Row("GUN AIM", new[] { "HAND", "HEAD" }, has && !cfg.GetBool("Controls", "AimGunsWithHand", true) ? 1 : 0, i => cfg.Set("Controls", "AimGunsWithHand", i == 0), has);
             Row("INK ON HENRY", new[] { "ON", "OFF" }, has && !cfg.GetBool("Body", "InkOnHands", true) ? 1 : 0, i => cfg.Set("Body", "InkOnHands", i == 0), has);
-            Row("VALVES, LEVERS, SOUP", new[] { "BY HAND", "PRESS" }, has && !cfg.GetBool("Controls", "PhysicalInteractions", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalInteractions", i == 0), has);
+            Row("DOORS", new[] { "PUSH & PULL", "PRESS" }, has && !cfg.GetBool("Controls", "PhysicalDoors", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalDoors", i == 0), has);
+            Row("GRAB, TURN, PRESS", new[] { "BY HAND", "BUTTON" }, has && !cfg.GetBool("Controls", "PhysicalInteractions", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalInteractions", i == 0), has);
             Row("THROWING", new[] { "SWING & LET GO", "BUTTON" }, has && !cfg.GetBool("Controls", "PhysicalThrow", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalThrow", i == 0), has);
             Row("TWO-HANDED GUNS", new[] { "ON", "OFF" }, has && !cfg.GetBool("Controls", "TwoHandedGuns", true) ? 1 : 0, i => cfg.Set("Controls", "TwoHandedGuns", i == 0), has);
             Row("HOLSTER", new[] { "OVER THE SHOULDER", "OFF" }, has && !cfg.GetBool("Controls", "Holster", true) ? 1 : 0, i => cfg.Set("Controls", "Holster", i == 0), has);
 
             var memo = Look.MemoText(has
-                ? "These are the same settings as VR SETTINGS in the game's Options menu. Changes here apply the next time the game starts."
-                : "Find the game first (VR CHECK) to change the IN VR and HENRY settings.", 22, Paint.Ink, 640, 0.85);
-            sheet.Children.Add(memo.At(910, 888));
+                ? "The same settings as VR SETTINGS in the game. Changes here apply when the game next starts."
+                : "Find the game first (VR CHECK) to change the IN VR and HENRY settings.", 20, Paint.Ink, 640, 0.85);
+            sheet.Children.Add(memo.At(910, 930));
 
             var x0 = 910.0;
             var locate = SmallButton("LOCATE GAME", LocateGame, 38);

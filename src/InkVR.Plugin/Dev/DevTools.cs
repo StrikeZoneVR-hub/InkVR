@@ -237,6 +237,183 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"INK scan done ({groups.Count} groups within {radius})");
                 break;
             }
+            case "handat":
+            {
+                // handat <path> [seconds] [dx dy dz metres]: the dev right hand (its grip) to an object's position, plus an offset
+                var ha = arg.Split(' ');
+                var nums = ha.Skip(1).Where(v => v.Length > 0 && (char.IsDigit(v[0]) || v[0] == '-' || v[0] == '.')).ToArray();
+                var path = string.Join(' ', ha.Take(ha.Length - nums.Length));
+                var t = Resolve(path);
+                if (t == null || InkVR.Core.VRRig.ActiveOrigin == null) break;
+                var k = InkVR.Core.VRRig.ActiveScale;
+                var off = nums.Length >= 4 ? new Vector3(float.Parse(nums[1], System.Globalization.CultureInfo.InvariantCulture), float.Parse(nums[2], System.Globalization.CultureInfo.InvariantCulture), float.Parse(nums[3], System.Globalization.CultureInfo.InvariantCulture)) * k : Vector3.zero;
+                var local = InkVR.Core.VRRig.ActiveOrigin.InverseTransformPoint(t.position + off) - Vector3.up * ModConfig.HeightOffset.Value;
+                DevRecorder.HandGoTo(local, nums.Length > 0 ? float.Parse(nums[0], System.Globalization.CultureInfo.InvariantCulture) : 0f);
+                Plugin.L.LogInfo($"HANDAT {PathOf(t)} {t.position} + {off}");
+                break;
+            }
+            case "touch":
+            {
+                // touch [n] [metres out] [seconds]: the n-th nearest pressable thing; the dev right hand just in front of it, then pushed in
+                var pa = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var n = pa.Length > 0 ? int.Parse(pa[0]) : 0;
+                var info = Input.PhysicalTouch.DevNearest(n, out var at, out var normal);
+                Plugin.L.LogInfo("PRESS " + info);
+                if (pa.Length > 1 && InkVR.Core.VRRig.ActiveOrigin != null)
+                {
+                    var k = InkVR.Core.VRRig.ActiveScale;
+                    var off = float.Parse(pa[1], System.Globalization.CultureInfo.InvariantCulture);
+                    // grip 12 cm behind the fingertip
+                    var grip = at + normal * ((off + 0.12f) * k);
+                    var local = InkVR.Core.VRRig.ActiveOrigin.InverseTransformPoint(grip) - Vector3.up * ModConfig.HeightOffset.Value;
+                    var look = Quaternion.LookRotation(InkVR.Core.VRRig.ActiveOrigin.InverseTransformDirection(-normal), Vector3.up);
+                    if (InkVR.Body.Hands.DevRight.HasValue) InkVR.Body.Hands.DevRight = (InkVR.Body.Hands.DevRight.Value.pos, look);
+                    DevRecorder.HandGoTo(local, pa.Length > 2 ? float.Parse(pa[2], System.Globalization.CultureInfo.InvariantCulture) : 0f);
+                }
+
+                break;
+            }
+            case "door":
+            {
+                // door: the nearest hinged door and its physical state | door look: turn to face it
+                if (arg.StartsWith("stand"))
+                {
+                    // door stand <metres> [side]
+                    var sa = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    Plugin.L.LogInfo("DOOR " + Input.PhysicalDoors.DevStand(sa.Length > 1 ? float.Parse(sa[1], System.Globalization.CultureInfo.InvariantCulture) : 0.6f, sa.Length > 2 ? int.Parse(sa[2]) : 1));
+                    break;
+                }
+
+                if (arg.StartsWith("cam"))
+                {
+                    // door cam <side> <metres out> <u along> <up>
+                    var ca = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                    Plugin.L.LogInfo("DOOR " + Input.PhysicalDoors.DevCam((int)ca[0], ca[1], ca[2], ca[3]));
+                    break;
+                }
+
+                if (arg.StartsWith("hand"))
+                {
+                    // door hand <u> <h> <off> [seconds]
+                    var ha = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                    Plugin.L.LogInfo("DOOR " + Input.PhysicalDoors.DevHand(ha[0], ha[1], ha[2], ha.Length > 3 ? ha[3] : 0f));
+                    break;
+                }
+
+                if (arg.StartsWith("game"))
+                {
+                    // door game open <speed> <angle> | door game x | door game close <speed>
+                    var ga = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    Input.PhysicalDoors.DevGameOpen(ga.Length > 1 ? ga[1] : "open", ga.Length > 2 ? float.Parse(ga[2], System.Globalization.CultureInfo.InvariantCulture) : 1f, ga.Length > 3 ? float.Parse(ga[3], System.Globalization.CultureInfo.InvariantCulture) : 90f);
+                    break;
+                }
+
+                if (arg == "list")
+                {
+                    Plugin.L.LogInfo("DOORS" + Input.PhysicalDoors.DevList());
+                    break;
+                }
+
+                Plugin.L.LogInfo("DOOR " + Input.PhysicalDoors.DevNearest(out var hinge));
+                if (arg == "look" && hinge != null) InkVR.Core.VRRig.DevLookAt = hinge.position;
+                break;
+            }
+            case "intersurvey":
+            {
+                // intersurvey: every Interactable, grouped by its own type and the scripts on it and above it -> dumps/intersurvey_<scene>.txt
+                var dir = Path.Combine(Plugin.DataDir, "dumps");
+                Directory.CreateDirectory(dir);
+                var file = Path.Combine(dir, $"intersurvey_{SceneManager.GetActiveScene().name}_{DateTime.Now:HHmmss}.txt");
+                using var w = new StreamWriter(file);
+                var groups = new Dictionary<string, List<Interactable>>();
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Interactable>()))
+                {
+                    var it = o.Cast<Interactable>();
+                    if (!it.gameObject.scene.IsValid()) continue;
+                    var owners = new List<string>();
+                    var t = it.transform;
+                    for (var up = 0; up < 3 && t != null; up++, t = t.parent)
+                        foreach (var c in t.GetComponents<MonoBehaviour>())
+                        {
+                            var n = c.GetIl2CppType().Name;
+                            if (n != "Interactable" && !owners.Contains(n)) owners.Add(n);
+                        }
+
+                    var key = $"{it.GetIl2CppType().Name} <- {string.Join(",", owners.Take(4))}";
+                    if (!groups.TryGetValue(key, out var list)) groups[key] = list = new List<Interactable>();
+                    list.Add(it);
+                }
+
+                foreach (var kv in groups.OrderByDescending(g => g.Value.Count))
+                {
+                    w.WriteLine($"== x{kv.Value.Count} {kv.Key}");
+                    foreach (var it in kv.Value.Take(4))
+                    {
+                        var col = it.GetComponent<Collider>();
+                        var r = it.GetComponentInChildren<Renderer>();
+                        w.WriteLine($"   {PathOf(it.transform)} active={it.gameObject.activeInHierarchy} col={(col != null ? col.bounds.size.ToString() : "-")} rend={(r != null ? r.bounds.size.ToString() : "-")} single={it.m_EnableSingleInteraction}");
+                    }
+                }
+
+                Plugin.L.LogInfo($"INTERSURVEY -> {file}");
+                break;
+            }
+            case "compsurvey":
+            {
+                // compsurvey Type1,Type2,... [n]: every live instance of each game component type, with its fields
+                // (transforms with local rotation, colliders with sizes) -> dumps/compsurvey_<scene>.txt
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var per = a.Length > 1 ? int.Parse(a[1]) : 10;
+                var dir = Path.Combine(Plugin.DataDir, "dumps");
+                Directory.CreateDirectory(dir);
+                var file = Path.Combine(dir, $"compsurvey_{SceneManager.GetActiveScene().name}_{DateTime.Now:HHmmss}.txt");
+                using var w = new StreamWriter(file);
+                string Val(object v)
+                {
+                    switch (v)
+                    {
+                        case null: return "null";
+                        case Transform tr: return $"T:{tr.name} lrot={tr.localEulerAngles} lpos={tr.localPosition} kids={tr.childCount}";
+                        case Collider col: return $"C:{col.GetIl2CppType().Name}:{col.name} size={col.bounds.size} trig={col.isTrigger} en={col.enabled}";
+                        case Component comp: return $"{comp.GetIl2CppType().Name}:{comp.name}";
+                        case Object uo: return $"{uo.GetIl2CppType().Name}:{uo.name}";
+                        case Il2CppSystem.Object io: return io.ToString();
+                        default: return v.ToString();
+                    }
+                }
+
+                foreach (var tn in a[0].Split(','))
+                {
+                    var type = InteropType(tn);
+                    if (type == null)
+                    {
+                        w.WriteLine($"== {tn}: type not found");
+                        continue;
+                    }
+
+                    var all = Resources.FindObjectsOfTypeAll(Il2CppType.From(type)).Select(o => o.Cast<Component>()).Where(c => c.gameObject.scene.IsValid()).ToList();
+                    w.WriteLine($"== {tn}: {all.Count} ({all.Count(c => c.gameObject.activeInHierarchy)} active)");
+                    var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly).Where(pi => pi.GetIndexParameters().Length == 0 && !pi.Name.StartsWith("Native")).ToList();
+                    foreach (var c in all.Take(per))
+                    {
+                        var o = Activator.CreateInstance(type, c.Pointer);
+                        w.WriteLine($"   {PathOf(c.transform)} active={c.gameObject.activeInHierarchy} pos={c.transform.position}");
+                        foreach (var pi in props)
+                        {
+                            string v;
+                            try { v = Val(pi.GetValue(o)); }
+                            catch (Exception e) { v = "!" + e.GetType().Name; }
+                            w.WriteLine($"      {pi.Name} = {v}");
+                        }
+
+                        foreach (var col in c.GetComponentsInChildren<Collider>(true).Take(6))
+                            w.WriteLine($"      collider {PathOf(col.transform).Replace(PathOf(c.transform), "~")} {col.GetIl2CppType().Name} size={col.bounds.size} trig={col.isTrigger} layer={col.gameObject.layer}");
+                    }
+                }
+
+                Plugin.L.LogInfo($"COMPSURVEY -> {file}");
+                break;
+            }
             case "inksurvey":
             {
                 // inksurvey: everything ink-like in the level, grouped, with components and shapes -> dumps/inksurvey_<scene>.txt

@@ -22,6 +22,7 @@ public static class ModConfig
     public static ConfigEntry<bool> PhysicalMelee;
     public static ConfigEntry<bool> AimGunsWithHand;
     public static ConfigEntry<bool> PhysicalInteractions;
+    public static ConfigEntry<bool> PhysicalDoors;
     public static ConfigEntry<bool> PhysicalThrow;
     public static ConfigEntry<bool> TwoHandedGuns;
     public static ConfigEntry<bool> Holster;
@@ -91,7 +92,8 @@ public static class ModConfig
         InteractWithHand = cfg.Bind("Controls", "InteractWithHand", true, "Point at things with your dominant hand to interact (off = look at them, like the flat game).");
         PhysicalMelee = cfg.Bind("Controls", "PhysicalMelee", true, "Swing your arm to hit with melee weapons (the axe, the pipe...). The attack button still swings too.");
         AimGunsWithHand = cfg.Bind("Controls", "AimGunsWithHand", true, "Guns fire where your hand points (off = where you look, like the flat game).");
-        PhysicalInteractions = cfg.Bind("Controls", "PhysicalInteractions", true, "Grip a valve and turn it, grip a lever and pull it, grip Bacon Soup and bring it to your mouth to eat (off = grip just presses them). X always presses.");
+        PhysicalDoors = cfg.Bind("Controls", "PhysicalDoors", true, "Doors swing by hand: push them, grip and pull them, fling them shut; locked doors rattle (off = they open as the game opens them).");
+        PhysicalInteractions = cfg.Bind("Controls", "PhysicalInteractions", true, "By hand: grip a valve and turn it, a lever and pull it, a lid or drawer and lift or pull it, Bacon Soup and bring it to your mouth; grip an item to take it; press buttons, tape recorders and keys with a fingertip (off = grip just presses them). X always presses.");
         PhysicalThrow = cfg.Bind("Controls", "PhysicalThrow", true, "Throwables (Ch4's soup cans): hold the trigger, swing, let go to throw with your arm (off = the trigger throws straight away).");
         TwoHandedGuns = cfg.Bind("Controls", "TwoHandedGuns", true, "Grip the front of a gun with your other hand to aim it with both hands.");
         Holster = cfg.Bind("Controls", "Holster", true, "Reach over your shoulder and grip to put your weapon away; do it again to draw it.");

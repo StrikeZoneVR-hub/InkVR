@@ -853,8 +853,9 @@ public static class InkStains
         {
             _uploadCursor = (_uploadCursor + 1) % Parts.Count;
             var p = Parts[_uploadCursor];
-            // Fresh ink shows at up to 30 frames a second; slow drying at 4 (a big change carries on next frame).
-            var interval = now - p.LastInk < 1f || p.UpY1 >= p.UpY0 ? 1f / 30f : 0.25f;
+            // Fresh ink shows at up to 30 frames a second (a big change carries on over the next frames).
+            // (drying is slow and subtle: sending it more often only loads the graphics card)
+            var interval = now - p.LastInk < 1f || p.UpY1 >= p.UpY0 ? 1f / 30f : 1.5f;
             if (!p.Dirty || now - p.LastUpload < interval) continue;
             Compose(p);
             budget -= UploadRows(p, budget);
