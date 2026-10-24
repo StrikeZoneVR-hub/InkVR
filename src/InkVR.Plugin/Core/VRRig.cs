@@ -108,6 +108,7 @@ public static class VRRig
         if (!XrManager.IsRunning)
         {
             if (_cinemaOrigin != null) _cinemaOrigin.gameObject.SetActive(false);
+            HurtVisor.Clear();
             return;
         }
 
@@ -146,6 +147,7 @@ public static class VRRig
             FollowHeadWithBody();
             MotionSmoothing.Apply(_origin);
             PlaceGamePanel();
+            HurtVisor.Update(_uiCam);
             Rendering.VRGraphics.Update(_gameCam);
         }
 

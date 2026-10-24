@@ -197,7 +197,9 @@ public static class InkDrops
         var scale = VRRig.ActiveScale;
         var speed = velocity.Len / scale;
         if (speed < 2f || radius < 0.0015f * scale) return;
-        var n = Mathf.Clamp((int)(speed * 0.6f), 1, 4);
+        // Under a heavy pour the air is already full of drops: splashes thin out rather than multiply.
+        if (_n > Max * 3 / 4) return;
+        var n = _n > Max / 2 ? 1 : Mathf.Clamp((int)(speed * 0.6f), 1, 4);
         var bounce = (velocity - normal * (2f * F3.Dot(velocity, normal))) * 0.22f;
         for (var i = 0; i < n; i++)
         {
@@ -268,9 +270,32 @@ public static class InkDrops
         Render();
     }
 
+    /// <summary>
+    /// Each blot is a pass over the part's triangles, so under a heavy pour only the first few a frame are painted
+    /// one by one; the rest of that frame's hits on each part are pooled into one bigger blot (FlushPooled).
+    /// </summary>
+    private const int BlotsPerFrame = 12;
+
+    private static int _blotFrame = -1, _blots;
+    private static readonly Dictionary<StainPart, (F3 sum, F3 vel, float r, int n, InkBody.Cap cap)> Pooled = new();
+
     /// <summary>A drop (or one of the game's drips) meets Henry.</summary>
     public static void HitBody(InkBody.Cap cap, F3 contact, F3 normal, F3 velocity, float radius)
     {
+        if (_blotFrame != Time.frameCount)
+        {
+            FlushPooled();
+            _blotFrame = Time.frameCount;
+            _blots = 0;
+        }
+
+        if (_blots++ >= BlotsPerFrame)
+        {
+            Pooled.TryGetValue(cap.P, out var q);
+            Pooled[cap.P] = (q.sum + contact, q.vel + velocity, FM.Max(q.r, radius), q.n + 1, cap);
+            return;
+        }
+
         var scale = VRRig.ActiveScale;
         var blot = FM.Clamp(radius * 2.6f, 0.005f * scale, 0.035f * scale);
         var amount = FM.Clamp(radius / (0.004f * scale), 0.45f, 1f);
@@ -282,6 +307,28 @@ public static class InkDrops
             _nextTick = InkClock.Now + 0.05f;
             XrInput.Haptic(cap.Group == 1 ? Hand.Left : Hand.Right, FM.Clamp(radius / (0.006f * scale), 0.08f, 0.3f), 0.012f);
         }
+    }
+
+    /// <summary>This frame's pooled hits: one blot per part (and one splash), for all of them.</summary>
+    public static void FlushPooled()
+    {
+        if (Pooled.Count == 0) return;
+        foreach (var kv in Pooled)
+        {
+            var (sum, vel, r, n, cap) = kv.Value;
+            HitPooled(cap, sum * (1f / n), vel * (1f / n), r, n);
+        }
+
+        Pooled.Clear();
+    }
+
+    private static void HitPooled(InkBody.Cap cap, F3 contact, F3 velocity, float radius, int count)
+    {
+        var scale = VRRig.ActiveScale;
+        var blot = FM.Clamp(radius * 2.6f * System.MathF.Sqrt(count), 0.008f * scale, 0.06f * scale);
+        InkStains.Deposit(cap.P, cap.P.NearestSurface(contact), blot, 1f, velocity);
+        var normal = (contact - (cap.A + cap.B) * 0.5f).Norm;
+        Splash(contact, normal, velocity, radius, cap.Group);
     }
 
     private static void Remove(int i) => D[i] = D[--_n];
@@ -371,7 +418,12 @@ public static class WorldInk
         public MeshRenderer R;
         public float Born, Size, Alpha;
         public Vector3 Pos, Normal;
+        public bool On; // kept here: asking the GameObject costs an interop call per splat per drop
     }
+
+    private const int NewPerFrame = 8;
+    private static int _madeFrame = -1, _made;
+    private static float _nextFade;
 
     private const int Max = 160;
     private const float Life = 180f, FadeTime = 60f;
@@ -386,7 +438,7 @@ public static class WorldInk
         {
             var n = 0;
             foreach (var s in Splats)
-                if (s.T != null && s.T.gameObject.activeSelf)
+                if (s.On)
                     n++;
             return n;
         }
@@ -399,11 +451,23 @@ public static class WorldInk
         if (!ModConfig.InkOnHands.Value) return;
         var scale = VRRig.ActiveScale;
         var size = Mathf.Clamp(dropRadius * 7f, 0.012f * scale, 0.12f * scale);
+        if (_madeFrame != Time.frameCount)
+        {
+            _madeFrame = Time.frameCount;
+            _made = 0;
+        }
+
+        // A heavy pour: past a few new splats a frame, the rest only join splats near them (wider), or are lost.
+        var busy = _made >= NewPerFrame;
+        var catchK = busy ? 1f : 0.16f;
+        var now = InkClock.Now;
         // Landing on top of a fresh splat makes it bigger rather than piling up quads.
         foreach (var s in Splats)
         {
-            if (s.T == null || !s.T.gameObject.activeSelf || InkClock.Now - s.Born > 30f) continue;
-            if ((s.Pos - point).sqrMagnitude > s.Size * s.Size * 0.16f || Vector3.Dot(s.Normal, normal) < 0.8f) continue;
+            if (!s.On || now - s.Born > 30f) continue;
+            float dx = s.Pos.x - point.x, dy = s.Pos.y - point.y, dz = s.Pos.z - point.z;
+            if (dx * dx + dy * dy + dz * dz > s.Size * s.Size * catchK) continue;
+            if (s.Normal.x * normal.x + s.Normal.y * normal.y + s.Normal.z * normal.z < 0.8f) continue;
             // Drips landing on one spot pool a little, but a trail of drips must not snowball into one huge
             // splat (each merge widens the catch area), so a merged splat stays drip-sized.
             s.Size = Mathf.Min(Mathf.Sqrt(s.Size * s.Size + size * size * 0.5f), Mathf.Max(s.Size, 0.09f * scale));
@@ -413,6 +477,8 @@ public static class WorldInk
             return;
         }
 
+        if (busy) return;
+        _made++;
         var sp = Take();
         // A drop that lands at a slant smears along the way it was going.
         var along = Vector3.ProjectOnPlane(velocity, normal);
@@ -427,6 +493,7 @@ public static class WorldInk
         sp.Pos = point;
         sp.Normal = normal;
         sp.Alpha = 1f;
+        sp.On = true;
         sp.T.gameObject.SetActive(true);
         SetAlpha(sp, 1f);
     }
@@ -439,7 +506,7 @@ public static class WorldInk
         var scale = VRRig.ActiveScale;
         foreach (var s in Splats)
         {
-            if (s.Normal.y < 0.7f || now - s.Born > 90f || s.T == null || !s.T.gameObject.activeSelf) continue;
+            if (!s.On || s.Normal.y < 0.7f || now - s.Born > 90f) continue;
             var age = now - s.Born;
             var r = s.Size * 0.45f + radius;
             float dx = s.Pos.x - point.x, dy = s.Pos.y - point.y, dz = s.Pos.z - point.z;
@@ -452,14 +519,23 @@ public static class WorldInk
 
     public static void Update()
     {
+        // Fading over a minute: a few steps a second is smooth enough.
         var now = InkClock.Now;
+        if (now < _nextFade) return;
+        _nextFade = now + 0.2f;
         foreach (var s in Splats)
         {
-            if (s.T == null || !s.T.gameObject.activeSelf) continue;
+            if (!s.On) continue;
             var age = now - s.Born;
-            if (age > Life) s.T.gameObject.SetActive(false);
+            if (age > Life) Off(s);
             else if (age > Life - FadeTime) SetAlpha(s, s.Alpha * (Life - age) / FadeTime);
         }
+    }
+
+    private static void Off(Mark s)
+    {
+        s.On = false;
+        if (s.T != null) s.T.gameObject.SetActive(false);
     }
 
     /// <summary>Make the splat textures and quads now (a level is loading) rather than on the first drop.</summary>
@@ -467,9 +543,7 @@ public static class WorldInk
 
     public static void Clear()
     {
-        foreach (var s in Splats)
-            if (s.T != null)
-                s.T.gameObject.SetActive(false);
+        foreach (var s in Splats) Off(s);
     }
 
     private static void SetAlpha(Mark s, float a)
@@ -483,7 +557,7 @@ public static class WorldInk
     {
         Build();
         foreach (var s in Splats)
-            if (s.T != null && !s.T.gameObject.activeSelf)
+            if (!s.On && s.T != null)
                 return s;
         if (Splats.Count < Max)
         {

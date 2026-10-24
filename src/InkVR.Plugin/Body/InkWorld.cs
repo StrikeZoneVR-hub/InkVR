@@ -162,7 +162,9 @@ public static class InkWorld
             Prof.Lap(5);
         }
 
+        SoakIn();
         InkDrops.Update(dt);
+        InkDrops.FlushPooled();
         Prof.Lap(6);
         WorldInk.Update();
         Prof.Lap(7);
@@ -502,6 +504,7 @@ public static class InkWorld
                 var from = pos - vel * (dt * 1.3f);
                 if (!InkBody.Hit(from, pos, radius, 0, out var cap, out var contact, out var normal)) continue;
                 InkDrops.HitBody(cap, contact, normal, vel, radius);
+
                 LastDripHit = $"{ps.name} on {cap.P.T.name} r={radius / scale * 1000f:F1} mm, {InkStains.LastDepositTexels} texels, ready={cap.P.Ready}";
                 pt.m_Lifetime = -1f; // it stopped on Henry: it doesn't fall on through him
                 _buf[i] = pt;
@@ -548,6 +551,8 @@ public static class InkWorld
     // Gushing pipes
     // =====================================================================================================
 
+    private static readonly HashSet<StainPart> PouredOn = new();
+
     private static void Pours(float dt)
     {
         if (Spouts.Count == 0) return;
@@ -558,9 +563,15 @@ public static class InkWorld
             var b = spout.bounds;
             // The visible stream is a little narrower than its box.
             b.extents = new Vector3(b.extents.x * 0.8f, b.extents.y, b.extents.z * 0.8f);
+            var box = Box3.Of(b);
+            PouredOn.Clear();
             foreach (var cap in InkBody.Caps)
             {
-                if (!cap.P.R.bounds.Intersects(b)) continue;
+                // a part is several capsules: it's painted once
+                var cb = Box3.Around(cap.A, cap.R);
+                cb.Encapsulate(cap.B, cap.R);
+                if (!cb.Intersects(box)) continue;
+                if (!PouredOn.Add(cap.P)) continue;
                 InkStains.DepositInside(cap.P, b, 5f * dt, Vector3.down);
                 cap.P.InInkUntil = InkClock.Now + 0.2f;
                 if (cap.Group is 1 or 2) XrInput.Haptic(cap.Group == 1 ? Hand.Left : Hand.Right, 0.25f, 0.04f);
@@ -650,19 +661,27 @@ public static class InkWorld
         var head = headT.position;
         var body = Hands.Body;
         var now = InkClock.Now;
+        var fsw = System.Diagnostics.Stopwatch.StartNew();
+        double tPuddles = 0, tSplats = 0, tWet = 0, tPrints = 0, tDeposit = 0;
+        var nDeposit = 0;
         if (now >= _nextPuddles)
         {
             _nextPuddles = now + 0.5f;
             ReadPuddles(head);
+            tPuddles = fsw.Elapsed.TotalMilliseconds;
         }
 
-        // Head under the ink: everything is soaked.
+        // Head under the ink (crouching into a pool you're wading in): everything is soaked. Only a pool you could be
+        // standing in counts: one big ink surface often spans rooms at other heights, and ink on the floor above
+        // (a ceiling between) isn't over your head either.
         foreach (var pool in Pools)
         {
             if (pool.R == null || !pool.R.gameObject.activeInHierarchy) continue;
             var b = pool.B;
-            if (head.x > b.min.x && head.x < b.max.x && head.z > b.min.z && head.z < b.max.z && pool.Top > head.y && pool.Top - head.y < 0.5f * k)
-                Soak("went under the ink");
+            if (head.x <= b.min.x || head.x >= b.max.x || head.z <= b.min.z || head.z >= b.max.z || pool.Top <= head.y || pool.Top - head.y >= 0.5f * k) continue;
+            if (pool.Top - Hands.GroundAt(head) > 1.25f * k) continue;
+            if (Physics.Raycast(head, Vector3.up, Mathf.Max(0.01f * k, pool.Top - head.y - 0.02f * k), InkDrops.Mask(), QueryTriggerInteraction.Ignore)) continue;
+            Soak($"went under the ink: {pool.R.name}, surface {(pool.Top - head.y) / k * 100f:F0} cm over the eyes");
         }
 
         var game = player.CurrentFootstepType;
@@ -711,6 +730,7 @@ public static class InkWorld
             }
 
             var probe = foot + Vector3.up * (0.03f * k);
+            var t0 = fsw.Elapsed.TotalMilliseconds;
             foreach (var s in Splats)
             {
                 if (s.R == null || !s.B.Contains(probe) && s.B.SqrDistance(probe) > 0.01f * k * k) continue;
@@ -730,7 +750,10 @@ public static class InkWorld
                 break;
             }
 
+            var t1 = fsw.Elapsed.TotalMilliseconds;
+            tSplats += t1 - t0;
             var ours = WorldInk.WetAt(foot, 0.06f * k);
+            tWet += fsw.Elapsed.TotalMilliseconds - t1;
             if (ours > 0.25f)
             {
                 surface = Mathf.Max(surface ?? float.MinValue, ground + 0.006f * k);
@@ -745,11 +768,19 @@ public static class InkWorld
                 why = "dev";
             }
 
+            var t2 = fsw.Elapsed.TotalMilliseconds;
             Footprints.SetInInk(f, surface.HasValue);
-            if (!surface.HasValue) continue;
+            if (!surface.HasValue)
+            {
+                tPrints += fsw.Elapsed.TotalMilliseconds - t2;
+                continue;
+            }
+
             if (!lowest.HasValue || surface.Value > lowest.Value) lowest = surface;
             WadeWhy += $"{(f == 0 ? "L" : "R")}:{why.Trim()} ";
             Footprints.Wet(f, wet);
+            var t3 = fsw.Elapsed.TotalMilliseconds;
+            tPrints += t3 - t2;
             if (body == null) continue;
             // That foot's shoe (and trouser leg, if it's deep) up to the ink line.
             foreach (var p in body.Stains)
@@ -757,10 +788,16 @@ public static class InkWorld
                 {
                     InkStains.DepositBelow(p, surface.Value, 0.015f * k, 0.7f, foot, 0.22f * k);
                     p.InInkUntil = now + 0.3f;
+                    nDeposit++;
                 }
+            tDeposit += fsw.Elapsed.TotalMilliseconds - t3;
         }
 
         WadeSurface = lowest;
+        var total = fsw.Elapsed.TotalMilliseconds;
+        if (total > 15 && InkVR.Dev.DevSaveGuard.Active)
+            Plugin.L.LogWarning($"FEETHITCH {total:F1} ms: puddles {tPuddles:F1} ({PuddleSpots.Count} spots), splats {tSplats:F1}, fresh splats {tWet:F1}, footprints {tPrints:F1}, " +
+                                $"ink line {tDeposit:F1} ({nDeposit} parts) | {WadeWhy}");
     }
 
     private static void ReadPuddles(Vector3 around)
@@ -831,28 +868,68 @@ public static class InkWorld
         foreach (var hand in new[] { Hand.Left, Hand.Right }) XrInput.Haptic(hand, 0.6f, 0.15f);
     }
 
-    private static float _lastSoak = -10;
+    private static float _lastSoak = -10, _soakedUntil = -10;
+    private static readonly Queue<StainPart> SoakQueue = new();
 
-    /// <summary>Soaked from head to toe (fallen in, or the dev "drench" test).</summary>
+    /// <summary>
+    /// Soaked from head to toe (fallen in, or the dev "drench" test). The parts soak in over a few frames, a couple
+    /// of milliseconds each, not all in one frame. Staying under keeps Henry soaked (nothing dries) instead of
+    /// soaking him again and again.
+    /// </summary>
     public static void Soak(string why)
     {
-        if (InkClock.Now - _lastSoak < 2f) return;
-        _lastSoak = InkClock.Now;
+        var now = InkClock.Now;
+        var holding = now < _soakedUntil;
+        _soakedUntil = now + 1f;
+        if (holding || now - _lastSoak < 2f)
+        {
+            KeepSoaked(now);
+            return;
+        }
+
+        _lastSoak = now;
+        SoakQueue.Clear();
         foreach (var hand in new[] { Hand.Left, Hand.Right })
         {
             var parts = Hands.StainParts(hand);
             if (parts == null) continue;
-            foreach (var p in parts) InkStains.Soak(p, 0.95f);
+            foreach (var p in parts) SoakQueue.Enqueue(p);
             XrInput.Haptic(hand, 0.7f, 0.3f);
         }
 
         var body = Hands.Body?.Stains;
         if (body != null)
             foreach (var p in body)
-                InkStains.Soak(p, 0.95f);
+                SoakQueue.Enqueue(p);
+        KeepSoaked(now);
         Footprints.Wet(0, 1f);
         Footprints.Wet(1, 1f);
         Plugin.L.LogInfo($"Henry is soaked in ink ({why})");
+    }
+
+    private static void KeepSoaked(float now)
+    {
+        foreach (var hand in new[] { Hand.Left, Hand.Right })
+        {
+            var parts = Hands.StainParts(hand);
+            if (parts != null)
+                foreach (var p in parts)
+                    p.InInkUntil = now + 1f;
+        }
+
+        var body = Hands.Body?.Stains;
+        if (body != null)
+            foreach (var p in body)
+                p.InInkUntil = now + 1f;
+    }
+
+    /// <summary>The queued soak, about 2.5 ms of it a frame.</summary>
+    private static void SoakIn()
+    {
+        if (SoakQueue.Count == 0) return;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (SoakQueue.Count > 0 && sw.Elapsed.TotalMilliseconds < 2.5)
+            InkStains.Soak(SoakQueue.Dequeue(), 0.95f);
     }
 
     private static readonly Vector3[] PrevPos = new Vector3[2], PrevVel = new Vector3[2], PeakVel = new Vector3[2];

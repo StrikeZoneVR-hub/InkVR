@@ -1,10 +1,31 @@
 # Testing InkVR
 
-## Current build: 0.7.0, the release candidate (motion controls finished: doors by hand, pressing, picking up)
+## Current build: 0.7.1, the release (fixes from your 0.7.0 recording)
 
-Everything is installed in your game folder. Start it as before: Virtual Desktop Streamer → `InkVR Launcher.exe` → PLAY IN VR.
+Everything is installed in your game folder. Start it as before: Virtual Desktop Streamer → `InkVR Launcher.exe` → PLAY IN VR. Your HEIGHT ADJUST is on NONE now, which is what's recommended.
 
-**Before you test: set your height adjust back to none.** It's called HEIGHT ADJUST → NONE in the game's VR SETTINGS, and HEIGHT → AS TRACKED in the launcher's OPTIONS. It's on UP 50 CM at the moment, which puts the game's floor 50 cm below your real floor. Doorknobs, buttons and ink on the floor are then lower than your real hands can comfortably go. Your setting hasn't been changed; it's only a recommendation.
+### Fixed in 0.7.1: the lag when heavy ink falls on you
+In the Chapter 1 finale (the ink rain and the big splashes just before the cut-out scare), heavy ink made the game stutter. It was measured in a test session that stood in that ink, with extra bursts and drips on top:
+- **Before:** in one pour, 7 stalls of 16–28 ms from the falling drops, the worst frames 40–80 ms, and down to 63 fps.
+- **Now:** no stalls; the worst frames are 22–27 ms.
+
+What changed:
+- **Ink hitting you:** only the first 12 blots a frame are painted one by one. The rest of that frame's hits on each part of Henry pool into one bigger blot, with one splash.
+- **Splashes:** they thin out when the air is already full of drops, rather than multiplying.
+- **Ink on the world:** splats on the floor and walls no longer ask the game about every other splat for each drop that lands, and only a few new ones are made a frame.
+- **Pouring pipes:** they paint each part of Henry once, not once for every capsule on it.
+- **Head under the ink:** this now only counts for a pool you could be standing in, with nothing solid between your head and the surface. A big ink surface that also spans the rooms at other heights no longer counts as "over your head".
+  - A real dunk (crouching your head into a pool) soaks Henry over a few frames, and staying under keeps him soaked instead of soaking him again every 2 seconds.
+
+### Fixed in 0.7.1: the ink box when something hits you
+When a Searcher hits you, the game's ink splatters creep in from the edges of the screen. In VR they were drawn on the floating game panel, so they showed as a box hanging in front of you.
+- They're now drawn around the edges of your own view (your headset's field of view is read from the game), so the ink frames your vision the way it frames a monitor.
+- Past the edges they carry on, so you never see where they stop.
+- The black that closes in at the last hit covers your whole view.
+
+**Try this:** let a Searcher hit you once or twice in Chapter 2, then stand in the Chapter 1 finale's ink as it falls.
+
+## Previous build: 0.7.0 (motion controls finished: doors by hand, pressing, picking up)
 
 ### New in 0.7.0: doors you open with your hands
 

@@ -630,6 +630,28 @@ public class DevTools : MonoBehaviour
             case "inkburst":
                 InkVR.Body.InkWorld.Splatter(arg.Length > 0 ? int.Parse(arg) : 14);
                 break;
+            case "hurt":
+            {
+                // hurt: the game's hurt border, the way a hit shows it (silent; it makes the controller on first use);
+                // hurt hide; hurt state: what the VR visor draws
+                var gm = GameManager.Instance;
+                if (gm == null) break;
+                if (arg.StartsWith("fov "))
+                {
+                    // hurt fov <half yaw> <half pitch> (degrees; 0 0 = the headset's own view)
+                    var f = arg.Split(' ');
+                    InkVR.UI.HurtVisor.HalfYaw = float.Parse(f[1], System.Globalization.CultureInfo.InvariantCulture);
+                    InkVR.UI.HurtVisor.HalfPitch = float.Parse(f[2], System.Globalization.CultureInfo.InvariantCulture);
+                }
+                else if (arg != "state" && arg != "hide") gm.ShowHurtBorder(true);
+                var hb = gm.m_HurtBordersController;
+                if (hb == null) { Plugin.L.LogInfo("HURT no controller"); break; }
+                if (arg == "hide") hb.HideBorder();
+                var vc = InkVR.Core.VRRig.GameCamera;
+                Plugin.L.LogInfo($"HURT hits={hb.m_HitCount}/{hb.m_HitMax} isHit={hb.m_IsHit} visor showing={InkVR.UI.HurtVisor.Showing}" +
+                                 (vc != null ? $" | eye view {vc.fieldOfView:F0} deg tall, aspect {vc.aspect:F2}" : ""));
+                break;
+            }
             case "pool":
             {
                 // pool [gain <x> | poke [depth m] [metres ahead]]: the ink pool's surface simulation
