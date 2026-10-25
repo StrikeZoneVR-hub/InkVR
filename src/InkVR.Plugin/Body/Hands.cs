@@ -95,7 +95,7 @@ public static class Hands
     {
         var c = XrInput.Get(hand);
         var valid = dev.HasValue || (XrInput.Ready && c.PoseValid);
-        model.SetVisible(valid, valid && ModConfig.ArmsShown && !VRRig.BodyHidden);
+        model.SetVisible(valid, valid && ModConfig.ArmsShown);
         if (!valid) return;
 
         var gripPos = dev?.pos ?? c.GripPosition;
@@ -118,7 +118,6 @@ public static class Hands
 
         model.Animate(index, grip, thumb, dt);
 
-        if (VRRig.BodyHidden) return;
         if (Body != null)
         {
             // Full body: the arms hang from its shoulders.
@@ -153,8 +152,9 @@ public static class Hands
 
     private static void PoseBody(float scale, int layer, float dt)
     {
-        // a cutscene or scripted moment has Henry: the body steps aside (the hands stay)
-        var want = !ModConfig.FullBody || VRRig.BodyHidden ? (BodyStyle?)null : ModConfig.Lifelike ? BodyStyle.Lifelike : BodyStyle.Toon;
+        // (cutscenes and scripted moments too: the body stands under your view and stays yours; lying on the floor,
+        // HenryBody.Pose has it step aside until you're up)
+        var want = !ModConfig.FullBody ? (BodyStyle?)null : ModConfig.Lifelike ? BodyStyle.Lifelike : BodyStyle.Toon;
         var head = VRRig.Head;
         if (want == null || head == null)
         {

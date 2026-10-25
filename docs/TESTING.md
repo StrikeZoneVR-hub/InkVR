@@ -1,6 +1,43 @@
 # Testing InkVR
 
-## Current build: 0.8.3 (no more flipping when tied up, a weapon wheel that works every time)
+## Current build: 0.8.4 (hits keep you in Henry, your body in every scene, solid ink, a steady theatre)
+
+### Fixed in 0.8.4: "going out of full body and into the floor or ceiling when getting hit"
+- **Cause:** when an enemy hits Henry, the game shakes its camera. The shake puts the camera down by Henry's feet, about 3 units below his eyes. 0.8.1 to 0.8.3 treated any camera move by the game as a cutscene. So every hit sent your view to the floor and hid the body.
+  - Your 25 Oct session log shows it on every hit in Chapter 3: "the game set its camera itself (3.0 units from Henry)" next to the hurt border.
+  - Dying did the same with the game's death camera.
+- **Fix:** InkVR now knows when Henry is hit (the game's hurt border) or dies. For a moment after a hit (1.5 s), and through a death (until the respawn, or 8 s), nothing the game does to its camera is followed. You stay in Henry's body, your view stays in your head, and the hurt border still shows.
+- **Checked:** three hits in a row in Chapter 2. The game's camera shook down to the floor each time (logged), and InkVR started no scene. A real scene (the knockout roll) still plays in VR.
+
+### Changed in 0.8.4: your body stays yours in cutscenes and scripted moments
+- **Before:** Henry's body stepped aside whenever a cutscene had the camera or the game held Henry still (tied up, talking, lifts). Only the hands stayed.
+- **Now:** the full body and arms stay, and they follow your head and hands as usual. Only walking is held: the stick doesn't move Henry until the scene is over. You can still look round, lean and use your arms.
+  - In a scene the body stands under your view, its feet on the floor below you.
+  - If the scene puts you down on the floor (the knockout, waking up), the body steps aside until you're up, as it always has when your head is near the floor.
+- **Checked:** body shots while the game held Henry still, and in the middle of a scene (the knockout roll). The full body was there both times, standing on the floor.
+
+### Fixed in 0.8.4: see-through ink
+- **Seen in your recording at 24:17 (Chapter 3):** round your hands, the ink pool was see-through, and the floorboards showed through it.
+- **Cause:** InkVR draws a 3 m patch of moving ink round you over the game's own pool. Many of the game's ink floors carry extra settings of their own on top of the shared ink material. The patch only copied the shared material, so it drew as a different ink, one that dissolved to nothing, and it hid the real pool under it.
+  - The patch also carried its light glints in its vertex colours, which the ink shader can read as "fade out here".
+- **Fix:** the patch now copies each pool's own settings (and keeps them up to date). The glints moved to a layer of their own, so the ink itself is always solid.
+- **Checked:** Chapter 3's inked floor by the lift (the same kind as in your recording) looks the same with the moving patch on and off: solid black, with the pool's own ragged edges. Ripple glints still show in Chapter 2's flooded hallway.
+
+### Fixed in 0.8.4: the flicker above the curtains in the theatre
+- **Cause:** two thin gold strips sat almost on top of other parts:
+  - the patterned frieze along the arch over the curtains, only 5 mm in front of the beam behind it;
+  - the cornice frieze higher up, with an open gap behind it you could see into.
+  - At that distance the headset can't tell 5 mm apart, so the two kept swapping places as you moved: a shimmering line.
+- **Fix:** the arch frieze now stands 4 cm clear of the beam, the cornice has an underside closing the gap, and the same spacing went to the plaque lettering, Bendy's medallion ring and the balcony's frieze and sign.
+- **Checked:** the flickering pixels under the plaque went from about 600 to none, in shots taken with the head moved by under a millimetre.
+
+### What to try (0.8.4)
+1. Let an enemy hit you (a Searcher in Chapter 3 is easiest): you stay standing in Henry's body, with the hurt border round your view.
+2. Play a scripted moment (a conversation, a lift, Sammy's scene): look down to see your body, and move your arms.
+3. Stand in the inked floor by the Chapter 3 lift (or any ink pool) and look round your hands: solid black ink, with glints when you splash.
+4. In the main-menu theatre, look at the gold band over the curtains while moving your head: it should hold still.
+
+## Previous build: 0.8.3 (no more flipping when tied up, a weapon wheel that works every time)
 
 ### Fixed in 0.8.3: "stuck between two places, glitching in and out"
 Tied up for Sammy's sacrifice, the view flipped back and forth between Sammy and the wall behind you.
@@ -34,7 +71,7 @@ Tied up for Sammy's sacrifice, the view flipped back and forth between Sammy and
 2. Use the weapon wheel several times: flick to HANDS, flick to your weapon, open it and press B.
 3. Snap and smooth turn, walk, and ride a lift: everything should move as before.
 
-## Previous build: 0.8.2 (Sammy's knockout, a world that never tilts, quitting to the menu)
+## Earlier build: 0.8.2 (Sammy's knockout, a world that never tilts, quitting to the menu)
 
 ### Fixed in 0.8.2: the sickening knockout in Chapter 2 (from your recording)
 Your video showed Sammy's knockout. After the hit, the whole world rolled 20–30° and swept round you, and then, tied up, you faced the wooden post instead of Sammy.

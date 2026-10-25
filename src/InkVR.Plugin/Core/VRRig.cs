@@ -666,6 +666,7 @@ public static partial class VRRig
             var head = HeadLocalPosition;
             _steadyOffset = -(Quaternion.Euler(0, _steadyYaw, 0) * new Vector3(head.x, 0, head.z) * Scale);
             _blink = 1f;
+            HurtOver();
             Plugin.L.LogInfo($"Scripted moment: the game moved Henry; facing the way it turned him ({YawOf(t.rotation):F0} deg)");
         }
 

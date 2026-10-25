@@ -167,7 +167,9 @@ public static class InkPool
         Build();
         _go.layer = r.gameObject.layer;
         var mr = _go.GetComponent<MeshRenderer>();
-        mr.sharedMaterials = new Il2CppReferenceArray<Material>(new[] { r.sharedMaterial, _shine });
+        mr.sharedMaterial = r.sharedMaterial;
+        _shineRenderer.gameObject.layer = r.gameObject.layer;
+        CopyLook(mr, true);
         mr.receiveShadows = r.receiveShadows;
         mr.lightmapIndex = r.lightmapIndex;
         mr.lightmapScaleOffset = r.lightmapScaleOffset;
@@ -181,6 +183,22 @@ public static class InkPool
     }
 
     public static void Hide() => Off();
+
+    private static MaterialPropertyBlock _block;
+
+    /// <summary>
+    /// Many of the game's ink floors get their own settings on top of the shared material (its MaterialInstanceController
+    /// puts them in a property block on the pool's renderer). Without them the patch drew as a different ink, one
+    /// that dissolved to nothing: a clear square round your hands where the floor showed through the pool.
+    /// </summary>
+    private static void CopyLook(MeshRenderer mr, bool log = false)
+    {
+        if (_pool == null || mr == null) return;
+        _block ??= new MaterialPropertyBlock();
+        _pool.GetPropertyBlock(_block);
+        mr.SetPropertyBlock(_block);
+        if (log && !_block.isEmpty) Plugin.L.LogInfo($"Ink pool: {_pool.name} has its own ink settings; the moving surface uses them too");
+    }
 
     /// <summary>Dev: ridges across the whole patch (to see that it draws, and how the ink's light plays on it).</summary>
     public static void DevRidges(float amp)
@@ -266,6 +284,50 @@ public static class InkPool
                 else if (t == UnityEngine.Rendering.ShaderPropertyType.Color) sb.Append($"={m.GetColor(n)}");
             }
             sb.Append($" | keywords={string.Join(",", m.shaderKeywords)}");
+        }
+
+        // the game's own pool mesh: what its vertex colours and UVs carry (the shader's edge fade reads one of them)
+        var mf = _pool != null ? _pool.GetComponent<MeshFilter>() : null;
+        var pm = mf != null ? mf.sharedMesh : null;
+        if (pm != null)
+        {
+            sb.Append($" || pool mesh {pm.name} verts={pm.vertexCount} readable={pm.isReadable}");
+            if (pm.isReadable)
+            {
+                var cols = pm.colors32;
+                if (cols != null && cols.Length > 0)
+                {
+                    int r0 = 255, r1 = 0, a0 = 255, a1 = 0;
+                    foreach (var c in cols)
+                    {
+                        r0 = Math.Min(r0, c.r);
+                        r1 = Math.Max(r1, c.r);
+                        a0 = Math.Min(a0, c.a);
+                        a1 = Math.Max(a1, c.a);
+                    }
+
+                    sb.Append($" colors={cols.Length} r {r0}..{r1} a {a0}..{a1} first={cols[0]}");
+                }
+                else sb.Append(" colors=none");
+
+                var uv = pm.uv;
+                if (uv != null && uv.Length > 0)
+                {
+                    float u0 = 9e9f, u1 = -9e9f, v0 = 9e9f, v1 = -9e9f;
+                    foreach (var p in uv)
+                    {
+                        u0 = Math.Min(u0, p.x);
+                        u1 = Math.Max(u1, p.x);
+                        v0 = Math.Min(v0, p.y);
+                        v1 = Math.Max(v1, p.y);
+                    }
+
+                    sb.Append($" uv u {u0:F2}..{u1:F2} v {v0:F2}..{v1:F2}");
+                }
+
+                var b = pm.bounds;
+                sb.Append($" localBounds={b.center}/{b.size}");
+            }
         }
 
         return sb.ToString();
@@ -713,6 +775,7 @@ public static class InkPool
         _go.AddComponent<MeshFilter>().sharedMesh = _mesh;
         var mr = _go.AddComponent<MeshRenderer>();
         mr.shadowCastingMode = ShadowCastingMode.Off;
+        _inkRenderer = mr;
         _verts = new Il2CppStructArray<Vector3>(N * N);
         _norms = new Il2CppStructArray<Vector3>(N * N);
         _uvs = new Il2CppStructArray<Vector2>(N * N);
@@ -738,7 +801,26 @@ public static class InkPool
 
         _mesh.vertices = _verts;
         _mesh.triangles = tris;
+
+        // The glints are a second surface of their own. They're carried in vertex colours (clear where there's
+        // no glint), and the pool's ink shader reads vertex colours as its edge fade: sharing one mesh, the ink
+        // faded out wherever there was no glint, and you saw the floor through the pool round your hands.
+        var shine = new GameObject("InkVR_InkPoolShine");
+        shine.transform.SetParent(_go.transform, false);
+        _shineMesh = new Mesh { name = "InkVR_InkPoolShine" };
+        _shineMesh.MarkDynamic();
+        shine.AddComponent<MeshFilter>().sharedMesh = _shineMesh;
+        _shineRenderer = shine.AddComponent<MeshRenderer>();
+        _shineRenderer.shadowCastingMode = ShadowCastingMode.Off;
+        _shineRenderer.receiveShadows = false;
+        _shineRenderer.sharedMaterial = _shine;
+        _shineMesh.vertices = _verts;
+        _shineMesh.triangles = tris;
     }
+
+    private static Mesh _shineMesh;
+    private static MeshRenderer _shineRenderer, _inkRenderer;
+    private static float _nextLook;
 
     // Ink is black: what shows a moving surface is the light it reflects. The pool's own shader takes its shine
     // from its texture, not the shape of the surface, so the ripples' highlights are worked out here from the
@@ -805,6 +887,13 @@ public static class InkPool
     private static void Draw()
     {
         if (_go == null) return;
+        if (InkClock.Now >= _nextLook)
+        {
+            // the game can change a pool's own settings as it plays (its ink rising, fading): keep up
+            _nextLook = InkClock.Now + 0.25f;
+            CopyLook(_inkRenderer);
+        }
+
         var moved = _uvDirty;
         if (_uvDirty)
         {
@@ -961,9 +1050,11 @@ public static class InkPool
             col.a = (byte)(a * 255f);
         }
 
+        // the ink itself has no vertex colours (read as solid, like the pool's own quad); the glints have them
         _mesh.vertices = _verts;
         _mesh.normals = _norms;
-        _mesh.colors32 = _cols;
+        _shineMesh.vertices = _verts;
+        _shineMesh.colors32 = _cols;
         var size = N * _dx;
         Vector3 c = default, s = default;
         c.x = centre.X;
@@ -973,6 +1064,7 @@ public static class InkPool
         s.y = 0.2f * k;
         s.z = size;
         _mesh.bounds = new Bounds(c, s);
+        _shineMesh.bounds = _mesh.bounds;
     }
 
     // ---------------- sound ----------------

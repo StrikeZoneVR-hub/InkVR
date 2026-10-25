@@ -30,6 +30,9 @@ public sealed class Theatre
     private const float RowGap = 0.95f, FirstRowZ = 3.0f, RakeFromZ = -1.3f, Riser = 0.12f;
     private const int Rows = 15, SeatsPerSide = 12, BalconyRows = 5;
     private const float AisleHalf = 1.0f, SeatW = 0.56f, SeatStart = 1.1f;
+    // Layers laid over another surface stand at least this far off it: the headset's depth can't tell 5 mm apart
+    // at the far end of the theatre, and the two flicker in and out of each other as you move.
+    private const float FriezeOut = 0.28f; // the arch's frieze: 4 cm clear of the beam's face (z - 0.24)
     private const float BalconyZ = -7.5f, BalconyY = 4.2f, SoffitY = 3.9f, BalconyRise = 0.38f, ParapetTop = 5.15f;
     private static readonly float[] PilasterZ = { 3.7f, 0.25f, -3.2f, -6.65f, -10.1f, -13.55f };
 
@@ -673,6 +676,9 @@ public sealed class Theatre
 
         Patch(_wall, new Vector3(-OpenHalf, OpenTop, z), new Vector3(OpenHalf, OpenTop, z), new Vector3(OpenHalf, CorniceY, z), new Vector3(-OpenHalf, CorniceY, z), n, Paper * 0.95f, 10, 4, 1.2f, 1.2f);
         Band(_ornament, new Vector3(-Half, CorniceY, z - 0.12f), new Vector3(Half, CorniceY, z - 0.12f), Vector3.up, 0.6f, n, Gold, 1.6f);
+        // its underside, back to the wall: without it you looked up past the frieze into the empty dark behind it,
+        // a sliver that flickered as you moved
+        Patch(_box, new Vector3(-Half, CorniceY, z), new Vector3(-Half, CorniceY, z - 0.12f), new Vector3(Half, CorniceY, z - 0.12f), new Vector3(Half, CorniceY, z), Vector3.down, GoldDark);
         Patch(_wall, new Vector3(-Half, CorniceY + 0.6f, z), new Vector3(Half, CorniceY + 0.6f, z), new Vector3(Half, CeilingY, z), new Vector3(-Half, CeilingY, z), n, Plaster * 0.8f, 12, 1, 1.2f, 1.2f);
 
         // The arch: an inner gilded frieze band and a stepped dark outer frame.
@@ -680,19 +686,19 @@ public sealed class Theatre
         {
             var xi = s * (OpenHalf + 0.17f);
             Box(_box, new Vector3(xi, (OpenTop + 0.35f) * 0.5f, z - 0.12f), new Vector3(0.35f, OpenTop + 0.35f, 0.24f), GoldDark);
-            Band(_ornament, new Vector3(xi, 0, z - 0.245f) - Vector3.right * 0.17f, new Vector3(xi, OpenTop + 0.35f, z - 0.245f) - Vector3.right * 0.17f, Vector3.right, 0.34f, n, Gold, 1.3f);
+            Band(_ornament, new Vector3(xi, 0, z - FriezeOut) - Vector3.right * 0.17f, new Vector3(xi, OpenTop + 0.35f, z - FriezeOut) - Vector3.right * 0.17f, Vector3.right, 0.34f, n, Gold, 1.3f);
             var xo = s * (OpenHalf + 0.52f);
             Box(_box, new Vector3(xo, (OpenTop + 0.7f) * 0.5f, z - 0.07f), new Vector3(0.35f, OpenTop + 0.7f, 0.14f), WoodDark);
         }
 
         Box(_box, new Vector3(0, OpenTop + 0.175f, z - 0.12f), new Vector3(2 * (OpenHalf + 0.35f), 0.35f, 0.24f), GoldDark);
-        Band(_ornament, new Vector3(-(OpenHalf + 0.35f), OpenTop + 0.005f, z - 0.245f), new Vector3(OpenHalf + 0.35f, OpenTop + 0.005f, z - 0.245f), Vector3.up, 0.34f, n, Gold, 1.3f);
+        Band(_ornament, new Vector3(-(OpenHalf + 0.35f), OpenTop + 0.005f, z - FriezeOut), new Vector3(OpenHalf + 0.35f, OpenTop + 0.005f, z - FriezeOut), Vector3.up, 0.34f, n, Gold, 1.3f);
         Box(_box, new Vector3(0, OpenTop + 0.525f, z - 0.07f), new Vector3(2 * (OpenHalf + 0.7f), 0.35f, 0.14f), WoodDark);
 
         // The studio's name on a plaque, Bendy's face in a gilded medallion, and a sunburst behind it.
         Box(_box, new Vector3(0, 7.5f, z - 0.1f), new Vector3(6.6f, 0.8f, 0.2f), Dark);
         Box(_box, new Vector3(0, 7.5f, z - 0.06f), new Vector3(6.9f, 1.0f, 0.1f), Gold);
-        Signs.Add(new SignSpec { Text = "JOEY DREW STUDIOS", Pos = new Vector3(0, 7.48f, z - 0.215f), Rot = Quaternion.identity, Height = 0.55f, Width = 6.4f, Color = new Color(0.98f, 0.82f, 0.5f) });
+        Signs.Add(new SignSpec { Text = "JOEY DREW STUDIOS", Pos = new Vector3(0, 7.48f, z - 0.24f), Rot = Quaternion.identity, Height = 0.55f, Width = 6.4f, Color = new Color(0.98f, 0.82f, 0.5f) });
 
         var medal = new Vector3(0, 8.75f, z - 0.16f);
         for (var k = 0; k < 13; k++)
@@ -703,7 +709,7 @@ public sealed class Theatre
             Box(_box, medal + rot * Vector3.up * (0.78f + len * 0.5f) + Vector3.forward * 0.1f, new Vector3(0.12f, len, 0.05f), Quaternion.Euler(0, 0, a), Gold);
         }
 
-        Annulus(_box, medal + Vector3.back * 0.01f, 0.64f, 0.8f, Gold, 40);
+        Annulus(_box, medal + Vector3.back * 0.04f, 0.64f, 0.8f, Gold, 40);
         Patch(_medal, medal + new Vector3(-0.66f, -0.66f, 0f), medal + new Vector3(0.66f, -0.66f, 0f), medal + new Vector3(0.66f, 0.66f, 0f), medal + new Vector3(-0.66f, 0.66f, 0f), n, new Color(1f, 0.95f, 0.85f), 1, 1);
     }
 
@@ -905,14 +911,14 @@ public sealed class Theatre
         // The parapet: panelled, a gilded frieze, a rail on top, and the marquee in the middle.
         var front = BalconyZ;
         Box(_box, new Vector3(0, (SoffitY + ParapetTop) * 0.5f, front - 0.15f), new Vector3(2 * Half, ParapetTop - SoffitY, 0.3f), WoodDark);
-        Band(_ornament, new Vector3(-Half, ParapetTop - 0.42f, front + 0.005f), new Vector3(Half, ParapetTop - 0.42f, front + 0.005f), Vector3.up, 0.36f, Vector3.forward, Gold, 1.4f);
-        Band(_ornament, new Vector3(-Half, SoffitY + 0.02f, front + 0.005f), new Vector3(Half, SoffitY + 0.02f, front + 0.005f), Vector3.up, 0.22f, Vector3.forward, GoldDark, 1.0f);
+        Band(_ornament, new Vector3(-Half, ParapetTop - 0.42f, front + 0.04f), new Vector3(Half, ParapetTop - 0.42f, front + 0.04f), Vector3.up, 0.36f, Vector3.forward, Gold, 1.4f);
+        Band(_ornament, new Vector3(-Half, SoffitY + 0.02f, front + 0.04f), new Vector3(Half, SoffitY + 0.02f, front + 0.04f), Vector3.up, 0.22f, Vector3.forward, GoldDark, 1.0f);
         Box(_box, new Vector3(0, ParapetTop + 0.04f, front - 0.15f), new Vector3(2 * Half, 0.08f, 0.44f), Wood);
 
         var plaque = new Vector3(0, 4.45f, front + 0.08f);
         Box(_box, plaque, new Vector3(4.4f, 0.92f, 0.16f), Gold);
         Box(_box, plaque + Vector3.forward * 0.04f, new Vector3(4.1f, 0.7f, 0.12f), Dark);
-        Signs.Add(new SignSpec { Text = "DREAMS COME TRUE", Pos = plaque + Vector3.forward * 0.105f, Rot = Quaternion.Euler(0, 180, 0), Height = 0.42f, Width = 4f, Color = new Color(1f, 0.84f, 0.5f) });
+        Signs.Add(new SignSpec { Text = "DREAMS COME TRUE", Pos = plaque + Vector3.forward * 0.14f, Rot = Quaternion.Euler(0, 180, 0), Height = 0.42f, Width = 4f, Color = new Color(1f, 0.84f, 0.5f) });
         var bulb = 0;
         void Bulb(Vector3 p) => Glow(p, 0.22f, new Color(1f, 0.88f, 0.6f, 1f), GlowGroup.Chase, bulb++);
         for (var x = -2.1f; x <= 2.11f; x += 0.21f) Bulb(plaque + new Vector3(x, 0.4f, 0.12f));
@@ -956,6 +962,7 @@ public sealed class Theatre
         Patch(_wood, new Vector3(-Half, top, z), new Vector3(Half, top, z), new Vector3(Half, top + 1.1f, z), new Vector3(-Half, top + 1.1f, z), n, WoodDark, 12, 1, 1.6f, 1.6f);
         Patch(_wall, new Vector3(-Half, top + 1.1f, z), new Vector3(Half, top + 1.1f, z), new Vector3(Half, CorniceY, z), new Vector3(-Half, CorniceY, z), n, Paper * 0.9f, 12, 4, 1.2f, 1.2f);
         Band(_ornament, new Vector3(-Half, CorniceY, z + 0.12f), new Vector3(Half, CorniceY, z + 0.12f), Vector3.up, 0.6f, n, Gold, 1.6f);
+        Patch(_box, new Vector3(-Half, CorniceY, z), new Vector3(Half, CorniceY, z), new Vector3(Half, CorniceY, z + 0.12f), new Vector3(-Half, CorniceY, z + 0.12f), Vector3.down, GoldDark);
         Patch(_wall, new Vector3(-Half, CorniceY + 0.6f, z), new Vector3(Half, CorniceY + 0.6f, z), new Vector3(Half, CeilingY, z), new Vector3(-Half, CeilingY, z), n, Plaster * 0.8f, 12, 1, 1.2f, 1.2f);
         foreach (var x in new[] { -1.7f, 0f, 1.7f })
         {

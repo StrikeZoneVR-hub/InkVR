@@ -1,3 +1,4 @@
+using HarmonyLib;
 using UnityEngine;
 
 namespace InkVR.Core;
@@ -9,8 +10,9 @@ namespace InkVR.Core;
 /// does, the headset follows that camera through the world, so you're on the floor, getting up, being dragged, in VR.
 /// Only its position is followed: the way it faces is taken once when the scene starts (and again on a cut), and your
 /// own head does all the looking, so the world never tilts, rolls or swings round you (the play space is always kept
-/// level). A short blink of black hides the jump in and out and any cuts. Henry's body steps aside while the game has
-/// the camera, or the player, and the hands stay.
+/// level). A short blink of black hides the jump in and out and any cuts. Henry's body stays yours throughout: it
+/// stands under your view and your arms move it; only walking is held until the scene is over.
+/// Being hit or killed isn't a scene: the game's camera shake and death fall are ignored, and you stay in Henry.
 /// </summary>
 public static partial class VRRig
 {
@@ -18,13 +20,14 @@ public static partial class VRRig
     private const float CutTurn = 60f;       // degrees in one frame
     private const float EndAfter = 0.25f;    // s back home before the scene counts as over
     private const float BlinkIn = 0.35f;     // s from black back to the scene
+    private const float HitShake = 1.5f;     // s after a hit when the game's camera shake is ignored
+    private const float DeathFall = 8f;      // s after dying when the game's death camera is ignored
 
     /// <summary>The game has the camera (a cutscene or scripted moment): the headset is following it.</summary>
     public static bool CutsceneActive { get; private set; }
 
-    /// <summary>Henry's body (not the hands) steps aside: a cutscene has the camera, or a scripted moment has the player.</summary>
-    public static bool BodyHidden => InGame && !_cinemaActive && (CutsceneActive || _lockedFor > 0.3f);
-    // (held still while still able to look round counts too: tied up for Sammy's sacrifice)
+    /// <summary>A cutscene is playing: you keep Henry's body, arms and head, but the stick doesn't walk him.</summary>
+    public static bool MovementHeld => CutsceneActive && InGame && !_cinemaActive;
 
     private static Transform _camOwner;                 // a rig the game put the camera itself on, if it did
     private static Vector3 _ownerLocalPos;
@@ -33,7 +36,8 @@ public static partial class VRRig
     private static float _lastRawYaw;
     private static float _cutYaw;                       // the play space's turn while following
     private static Vector3 _cutHead;                    // your tracked head (metres) when the scene was lined up
-    private static float _homeFor, _lockedFor, _blink;
+    private static float _homeFor, _blink;
+    private static float _hurtUntil;                    // a hit's shake or a death's fall is playing until then
 
     // the camera pose the game last set itself (it never does outside scripted scenes)
     private static Vector3 _appliedPos, _writtenPos;
@@ -65,6 +69,13 @@ public static partial class VRRig
         var turned = Quaternion.Angle(lr, _appliedRot) > 12f;
         if (!moved && !turned) return;
         _appliedValid = false;
+        if (Hurting)
+        {
+            // the game shaking its camera for a hit, or dropping it for a death: not a scene, you stay in Henry
+            _written = false;
+            return;
+        }
+
         if (HolderAway())
         {
             // moved relative to the holder the game took away (the Chapter 2 wake-up): the holder is what's followed
@@ -99,6 +110,30 @@ public static partial class VRRig
         Plugin.L.LogInfo("Cutscene: the game stopped setting its camera");
         return false;
     }
+
+    // ---------------- hits and deaths ----------------
+
+    private static bool Hurting => Time.unscaledTime < _hurtUntil;
+
+    /// <summary>
+    /// An enemy hit Henry (or he died). The game shakes its camera for a hit and drops it to the floor for a death,
+    /// which looked like a scene: the view went into the floor (or up near the ceiling) and Henry's body vanished.
+    /// For a moment, nothing the game does to its camera is followed. A scene that only just started is that shake.
+    /// </summary>
+    internal static void NoteHurt(bool died)
+    {
+        _hurtUntil = Mathf.Max(_hurtUntil, Time.unscaledTime + (died ? DeathFall : HitShake));
+        _written = false;
+        if (CutsceneActive && _camOwner == null && !HolderAway() && _player != null)
+        {
+            Plugin.L.LogInfo(died ? "Henry died: not following the game's death camera" : "Henry was hit: not following the game's camera shake");
+            EndCutscene();
+            _blink = 0f; // it only just started: no blink for a hit
+        }
+    }
+
+    /// <summary>The game took Henry somewhere else (a respawn): any hit or death before it is over.</summary>
+    private static void HurtOver() => _hurtUntil = 0f;
 
     /// <summary>The game has taken its camera holder off Henry's head, or is tilting the player it hangs from.</summary>
     private static bool HolderAway()
@@ -139,6 +174,7 @@ public static partial class VRRig
             var feet = _player.transform.TransformPoint(FeetLocal());
             _origin.SetPositionAndRotation(feet - rot * new Vector3(head.x, 0, head.z) * Scale, rot);
             _blink = 1f;
+            HurtOver();
             Plugin.L.LogInfo($"The game moved Henry {moved.magnitude / Scale:F1} m; facing the way it turned him ({YawOf(_player.transform.rotation):F0} deg)");
             StoreAnchor();
             return;
@@ -250,7 +286,6 @@ public static partial class VRRig
     private static void UpdateCutscene()
     {
         var dt = Time.unscaledDeltaTime;
-        _lockedFor = _player.isLocked || _player.isMoveLocked ? _lockedFor + dt : 0f;
         _blink = Mathf.MoveTowards(_blink, 0f, dt / BlinkIn);
 
         if (!GameView(out var pos, out var rot, out var away))
@@ -261,7 +296,8 @@ public static partial class VRRig
 
         if (!CutsceneActive)
         {
-            if (away) BeginCutscene(pos, rot);
+            // (a hit or a death tilting the player or moving the holder isn't a scene either)
+            if (away && !Hurting) BeginCutscene(pos, rot);
             return;
         }
 
@@ -348,9 +384,23 @@ public static partial class VRRig
         CutsceneActive = false;
         _camOwner = null;
         _written = _appliedValid = false;
-        _lockedFor = _homeFor = 0f;
+        _homeFor = _hurtUntil = 0f;
     }
 
     /// <summary>The blink of black over cuts, on top of the game's own fades.</summary>
     private static float CutsceneBlink => _blink;
+}
+
+/// <summary>The game's hit (the hurt border, which shakes the camera) and Henry's death.</summary>
+[HarmonyPatch]
+internal static class HurtPatches
+{
+    [HarmonyPostfix, HarmonyPatch(typeof(HurtBordersController), nameof(HurtBordersController.ShowBorder))]
+    private static void Hit() => VRRig.NoteHurt(false);
+
+    [HarmonyPostfix, HarmonyPatch(typeof(GameManager), nameof(GameManager.ShowHurtBorder))]
+    private static void HitShown() => VRRig.NoteHurt(false);
+
+    [HarmonyPrefix, HarmonyPatch(typeof(PlayerController), nameof(PlayerController.Die))]
+    private static void Died() => VRRig.NoteHurt(true);
 }

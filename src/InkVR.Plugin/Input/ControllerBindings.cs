@@ -47,7 +47,8 @@ public static class ControllerBindings
         var offGrip = off.GripPressed && !(OffHand == Hand.Left ? claimL : claimR);
         VirtualGamepad.Current = new VirtualGamepad.State
         {
-            LeftStick = Deadzone(off.Stick, 0.15f),
+            // (a cutscene holds walking: you keep your body, arms and head, but the stick doesn't move Henry)
+            LeftStick = VRRig.MovementHeld ? Vector2.zero : Deadzone(off.Stick, 0.15f),
             A = dom.Primary,
             B = dom.Secondary,
             X = off.Primary || (!uiHasPointer && (domGrip || offGrip)),
