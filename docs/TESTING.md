@@ -1,6 +1,46 @@
 # Testing InkVR
 
-## Current build: 0.8.0 (seated play, gravity pull, weapon wheel, inventory card, cartoon Toon body)
+## Current build: 0.8.1 (cutscenes in VR, melee hits anywhere on an enemy)
+
+### Fixed in 0.8.1: cutscenes and scripted moments now play in VR
+Before, InkVR kept you standing where Henry was while the game played its scene somewhere else, and Henry's body stayed drawn through it.
+- **How the game does it:** for its scenes (waking up on the floor, getting knocked down, getting up, being carried) the game takes its camera off Henry's head and moves it itself.
+- **Now the headset follows that camera through the world.** You're on the floor when Henry is, and you rise with him as he gets up.
+- **Comfort:**
+  - Only the position is followed. The direction is set once when the scene starts (and again on a real cut).
+  - Your own head does all the looking, so the world never tilts, rolls or spins round you.
+  - A quick blink of black hides the jump into a scene and any cuts. Leaving a scene blinks only if the view has to jump.
+- **Henry's body and arms step aside** while the game has the camera, or holds Henry for a scripted moment. Your hands stay.
+- **Checked:** the openings of Chapters 2–5 and dying.
+  - **Chapter 2:** lying on your side among the candles, then kneeling and standing.
+  - **Chapter 3:** on your back by the cot, then sitting up.
+  - **Chapter 4:** a short hold, with no camera move.
+  - **Chapter 5:** lying behind the lattice, looking through the hatch, then the corridor.
+  - **Dying:** you walk the ink tunnel as normal.
+
+### Fixed in 0.8.1: weapons hit enemies anywhere
+- **Any part of the enemy counts:** head, arms and legs. Before, only a narrow capsule round its middle counted, about 25 cm across the Fisher.
+  - While an enemy is alive, the game switches off the collision on its skeleton; it's only for the ragdoll when it dies.
+  - InkVR now measures your swing against those bones as they animate.
+- **Any part of the weapon counts:** the head and down the shaft, not just the tip.
+- **Pulling the trigger mid-swing no longer cancels your swing.** The trigger started the game's own canned swing, which:
+  - took the weapon over for about a second;
+  - only hit what your eyes pointed at.
+  Now a trigger pulled while your arm is already moving is left to your swing. Pulled with your arm still, it's the game's swing as before.
+- **Checked on Chapter 3's Striker and Fisher:**
+  - Striker's head: 4 → 1 health.
+  - Striker's upper forearm, well outside its body: 1 → dead (it fell as a ragdoll).
+  - Fisher: 5 → 2 → dead.
+  - A trigger pulled mid-swing was held back, and the swing landed.
+
+### What to try (0.8.1)
+1. Start Chapter 2 from chapter select. You should wake on the floor and get up with Henry, with no body in the way.
+2. Play the Chapter 1 ending (the floor gives way) and the Chapter 2 ending (Sammy). Tell me how they feel; those two weren't tested here.
+3. Fight a few Searchers and the Butcher Gang:
+   - hit their heads, arms and legs;
+   - try with and without pulling the trigger.
+
+## Previous build: 0.8.0 (seated play, gravity pull, weapon wheel, inventory card, cartoon Toon body)
 
 All of these are options, and all are on by default except SEATED play. They're in the VR SETTINGS page (in the game's Options) and the launcher's OPTIONS page.
 
@@ -71,7 +111,7 @@ All of these are options, and all are on by default except SEATED play. They're 
    - Look at your gloves and shoes; get ink on them.
    - Check Lifelike looks as it did.
 
-## Previous build: 0.7.2 (0.7.1 plus weapon hits that always count)
+## Earlier build: 0.7.2 (0.7.1 plus weapon hits that always count)
 
 ### Fixed in 0.7.2: swings that sometimes didn't hit
 Swinging the axe, pipe or plunger sometimes didn't register. Real swings could lose their hit four ways, and each is fixed:

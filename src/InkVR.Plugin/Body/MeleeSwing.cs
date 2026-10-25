@@ -8,13 +8,15 @@ using UnityEngine;
 namespace InkVR.Body;
 
 /// <summary>
-/// Swing your arm to hit. The held melee weapon's head (its far end from your hand) is swept through the
-/// world every frame; when it moves fast enough and passes through something, the game's own hit runs on
-/// that spot (BaseWeapon.OnRaycastHit: the same damage, breaking, sounds and effects as a button swing).
-/// One hit on something hittable per swing; knocking a wall or the floor on the way (a wind-up that scrapes
-/// the ceiling) still thuds but doesn't use the swing up. A swing ends when the weapon slows down or turns
-/// back, so each chop of a quick chop-chop is its own swing. Speed is measured in your play space, so
-/// walking and turning never count as swinging. The attack button still plays the game's swing.
+/// Swing your arm to hit. The held melee weapon is swept through the world every frame, its head and three points
+/// down its shaft; when it moves fast enough and passes through something, the game's own hit runs on that spot
+/// (BaseWeapon.OnRaycastHit: the same damage, breaking, sounds and effects as a button swing). Enemies count
+/// anywhere on them: their head, arms and legs, not just the narrow capsule the game keeps round their middle
+/// (see EnemyReach). One hit on something hittable per swing; knocking a wall or the floor on the way (a wind-up
+/// that scrapes the ceiling) still thuds but doesn't use the swing up. A swing ends when the weapon slows down or
+/// turns back, so each chop of a quick chop-chop is its own swing. Speed is measured in your play space, so
+/// walking and turning never count as swinging. The attack button still plays the game's swing, but not when
+/// it's pulled while your arm is already swinging: then it's your swing that hits.
 /// </summary>
 [HarmonyPatch(typeof(BaseWeapon))]
 public static class MeleeSwing
@@ -27,8 +29,12 @@ public static class MeleeSwing
 
     private static BaseWeapon _weapon;
     private static Transform _model;
-    private static Vector3 _headLocal, _neckLocal; // the far end of the weapon, and a little way back from it
-    private static Vector3 _prevHead, _prevNeck, _prevHeadTracking, _swingDir;
+    // the far end of the weapon (the head), and points back down it towards the hand
+    private static readonly float[] Along = { 0.92f, 0.78f, 0.62f, 0.46f };
+    private static readonly Vector3[] PointsLocal = new Vector3[Along.Length];
+    private static readonly Vector3[] Prev = new Vector3[Along.Length], Now = new Vector3[Along.Length];
+    private static readonly F3[] PrevF = new F3[Along.Length], NowF = new F3[Along.Length];
+    private static Vector3 _prevHeadTracking, _swingDir, _prevGrip;
     private static bool _havePrev, _swinging, _hitThisSwing;
     private static float _lastHit = -10f, _slowFor, _gameSwingUntil, _lastThudAt = -10f;
     private static System.IntPtr _lastThud;
@@ -38,6 +44,9 @@ public static class MeleeSwing
 
     /// <summary>Head speed this frame (m/s, play space), the fastest this swing, and totals (dev/log).</summary>
     public static float Speed, PeakSpeed;
+
+    /// <summary>How fast the hand holding the weapon is moving (m/s, play space).</summary>
+    public static float HandSpeed;
     public static int Swings, Hits;
     public static string LastHit = "";
 
@@ -56,8 +65,8 @@ public static class MeleeSwing
         }
 
         var origin = VRRig.ActiveOrigin;
-        var head = _model.TransformPoint(_headLocal);
-        var neck = _model.TransformPoint(_neckLocal);
+        for (var i = 0; i < PointsLocal.Length; i++) Now[i] = _model.TransformPoint(PointsLocal[i]);
+        var head = Now[0];
         var headTracking = origin.InverseTransformPoint(head); // metres: the origin carries the world scale
         var c = ControllerBindings.Dom;
         if (c.PoseValid)
@@ -66,9 +75,11 @@ public static class MeleeSwing
         var dt = Time.unscaledDeltaTime;
         if (!_havePrev || dt < 1e-4f)
         {
-            Remember(head, neck, headTracking);
+            Remember(headTracking, c.GripPosition);
             return;
         }
+
+        HandSpeed = c.PoseValid ? (c.GripPosition - _prevGrip).magnitude / dt : 0f;
 
         var vel = (headTracking - _prevHeadTracking) / dt;
         Speed = vel.magnitude;
@@ -77,14 +88,14 @@ public static class MeleeSwing
             // Tracking jumped (lost and found again, or a recentre): not a swing.
             Speed = 0;
             _swinging = false;
-            Remember(head, neck, headTracking);
+            Remember(headTracking, c.GripPosition);
             return;
         }
 
         if (!c.PoseValid)
         {
             // A fast swing can lose tracking for a frame: carry on with the swing, just don't sweep this frame.
-            Remember(head, neck, headTracking);
+            Remember(headTracking, c.GripPosition);
             return;
         }
 
@@ -93,7 +104,7 @@ public static class MeleeSwing
         if (!ModConfig.PhysicalMelee.Value || gameSwing || !VRRig.InGame || VRRig.CinemaActive || GameManager.Instance?.Player?.isMoveLocked == true)
         {
             _swinging = false;
-            Remember(head, neck, headTracking);
+            Remember(headTracking, c.GripPosition);
             return;
         }
 
@@ -119,7 +130,13 @@ public static class MeleeSwing
             XrInput.Haptic(ControllerBindings.Dominant, 0.12f, 0.03f);
         }
 
-        if (_swinging && !_hitThisSwing && now - _lastHit > Cooldown && Sweep(head, neck, out var hit, out var hittable))
+        if (_swinging && !_hitThisSwing && now - _lastHit > Cooldown && HitEnemy())
+        {
+            _hitThisSwing = true;
+            _lastHit = now;
+            Hits++;
+        }
+        else if (_swinging && !_hitThisSwing && now - _lastHit > Cooldown && Sweep(out var hit, out var hittable))
         {
             // A wall or the floor thuds once (not again while you scrape along it) and doesn't use the swing up.
             var thudAgain = !hittable && hit.collider.Pointer == _lastThud && now - _lastThudAt < 0.6f;
@@ -140,19 +157,82 @@ public static class MeleeSwing
                 LastHit = $"{Dev.DevTools.PathOf(hit.collider.transform)} at {hit.point} speed {PeakSpeed:F1} m/s {(hittable ? "(hittable)" : "(solid)")}";
                 Plugin.L.LogInfo($"Swing hit {LastHit}");
                 XrInput.Haptic(ControllerBindings.Dominant, hittable ? 0.9f : 0.5f, hittable ? 0.12f : 0.06f);
+                var ai = hittable ? hit.collider.GetComponentInParent<Ai.BaseAiController>() : null;
+                var before = ai != null ? ai.m_CurrentHealth : 0;
                 _weapon.OnRaycastHit(hit);
+                if (ai != null)
+                {
+                    var own = hit.collider.GetComponent<IHittable>() != null;
+                    Plugin.L.LogInfo($"Swing hit enemy {ai.GetIl2CppType().Name} '{ai.name}': collider '{hit.collider.name}' layer {hit.collider.gameObject.layer} trigger={hit.collider.isTrigger} hittableOnCollider={own}; health {before} -> {ai.m_CurrentHealth} of {ai.m_Health}");
+                }
             }
         }
 
-        Remember(head, neck, headTracking);
+        Remember(headTracking, c.GripPosition);
     }
 
-    private static void Remember(Vector3 head, Vector3 neck, Vector3 headTracking)
+    private static void Remember(Vector3 headTracking, Vector3 grip)
     {
-        _prevHead = head;
-        _prevNeck = neck;
+        for (var i = 0; i < Now.Length; i++) Prev[i] = Now[i];
         _prevHeadTracking = headTracking;
+        _prevGrip = grip;
         _havePrev = true;
+    }
+
+    /// <summary>Any part of the weapon touched any part of a living enemy this frame: the game's own hit, on that enemy.</summary>
+    private static bool HitEnemy()
+    {
+        var scale = VRRig.ActiveScale;
+        for (var i = 0; i < Now.Length; i++)
+        {
+            PrevF[i] = F3.Of(Prev[i]);
+            NowF[i] = F3.Of(Now[i]);
+        }
+
+        var mask = ~_weapon.m_IgnoreLayers.value & ~(1 << VRLayers.UI);
+        if (!EnemyReach.Touch(PrevF, NowF, HeadRadius * scale, Now[0], 1.6f * scale, mask, out var ai, out var body, out var at)) return false;
+
+        // The game takes the hit on the enemy's own body collider: aim at it from just outside, through the spot touched.
+        var bounds = body.bounds;
+        var centre = bounds.center;
+        centre.y = Mathf.Clamp(at.y, bounds.min.y, bounds.max.y);
+        var outward = at - centre;
+        if (outward.sqrMagnitude < 1e-6f) outward = -(Now[0] - Prev[0]);
+        var from = centre + outward.normalized * (bounds.extents.magnitude + 0.5f * scale);
+        if (!body.Raycast(new Ray(from, (centre - from).normalized), out var hit, 10f * scale))
+        {
+            Plugin.L.LogInfo($"Swing touched {ai.name} but couldn't reach its body collider");
+            return false;
+        }
+
+        hit.point = at;
+        var before = ai.m_CurrentHealth;
+        LastHit = $"{Dev.DevTools.PathOf(body.transform)} at {at} speed {PeakSpeed:F1} m/s (enemy)";
+        XrInput.Haptic(ControllerBindings.Dominant, 0.9f, 0.12f);
+        _weapon.OnRaycastHit(hit);
+        Plugin.L.LogInfo($"Swing hit enemy {ai.GetIl2CppType().Name} '{ai.name}' at {at}: health {before} -> {ai.m_CurrentHealth} of {ai.m_Health}");
+        return true;
+    }
+
+    private static bool _attackHeld, _attackSwallowed;
+
+    /// <summary>
+    /// The attack trigger as the game hears it, with a melee weapon in hand. Pulled while your arm is already
+    /// swinging, the game's canned swing would take the weapon over (and only hit what your eyes point at), so the
+    /// game doesn't hear that pull: your own swing does the hitting. Pulled with your arm still, it's the game's swing.
+    /// </summary>
+    public static float FilterAttack(float trigger)
+    {
+        var down = trigger > 0.35f;
+        if (down && !_attackHeld)
+        {
+            _attackSwallowed = ModConfig.PhysicalMelee.Value && _weapon != null && _model != null && _model.gameObject.activeInHierarchy
+                               && (_swinging || HandSpeed > 1.2f);
+            if (_attackSwallowed) Plugin.L.LogInfo($"Trigger pulled mid-swing (hand {HandSpeed:F1} m/s): your swing hits, not the game's button swing");
+        }
+
+        _attackHeld = down;
+        return down && _attackSwallowed ? 0f : trigger;
     }
 
     private static BaseWeapon HeldMelee()
@@ -184,9 +264,8 @@ public static class MeleeSwing
         var hand = _model.InverseTransformPoint(weapon.transform.parent != null ? HandPoint(weapon) : weapon.transform.position);
         var far = (a - hand).sqrMagnitude > (z - hand).sqrMagnitude ? a : z;
         var near = far == a ? z : a;
-        _headLocal = Vector3.Lerp(near, far, 0.92f);
-        _neckLocal = Vector3.Lerp(near, far, 0.72f);
-        Plugin.L.LogInfo($"Melee weapon: {weapon.name}, swing to hit (head at {_headLocal} of {b.size} in {_model.name})");
+        for (var i = 0; i < Along.Length; i++) PointsLocal[i] = Vector3.Lerp(near, far, Along[i]);
+        Plugin.L.LogInfo($"Melee weapon: {weapon.name}, swing to hit (head at {PointsLocal[0]} of {b.size} in {_model.name})");
     }
 
     /// <summary>Where the hand holds the weapon: the game's HandContainer/Hand mount.</summary>
@@ -202,7 +281,7 @@ public static class MeleeSwing
     /// Sweep the head (and a point behind it) from last frame to now. Something hittable (a plank, a Searcher) wins
     /// over a wall or the floor in the same sweep, nearest first; hittable trigger volumes count too.
     /// </summary>
-    private static bool Sweep(Vector3 head, Vector3 neck, out RaycastHit best, out bool hittable)
+    private static bool Sweep(out RaycastHit best, out bool hittable)
     {
         best = default;
         hittable = false;
@@ -215,8 +294,10 @@ public static class MeleeSwing
         var bestSolid = float.MaxValue;
         var bestHittable = float.MaxValue;
 
-        foreach (var (from, to) in new[] { (_prevHead, head), (_prevNeck, neck) })
+        for (var p = 0; p < Now.Length; p++)
         {
+            var from = Prev[p];
+            var to = Now[p];
             var move = to - from;
             var length = move.magnitude;
             if (length < 1e-5f) continue;
@@ -251,8 +332,9 @@ public static class MeleeSwing
 
         // Already inside something (pressed against a plank, then swung through it): hit it from just behind the head.
         _overlap ??= new Il2CppReferenceArray<Collider>(8);
+        var head = Now[0];
         var count = Physics.OverlapSphereNonAlloc(head, radius, _overlap, mask, QueryTriggerInteraction.Ignore);
-        var back = (head - _prevHead).normalized;
+        var back = (head - Prev[0]).normalized;
         for (var i = 0; i < count; i++)
         {
             var col = _overlap[i];
@@ -347,7 +429,7 @@ public static class MeleeSwing
         XrInput.DevRightAim = (path - rot * HeadInAim.Value, rot);
         XrInput.ApplyDev();
         if (_devChops == 1 && since > -0.05f && since < 0.35f)
-            Plugin.L.LogInfo($"SWINGF t={since:F3} speed={Speed:F2} swinging={_swinging} head={(_model != null ? _model.TransformPoint(_headLocal) : Vector3.zero)} aim={XrInput.Get(Hand.Right).AimPosition} valid={XrInput.Get(Hand.Right).PoseValid} dom={ControllerBindings.Dominant} melee={ModConfig.PhysicalMelee.Value} locked={GameManager.Instance?.Player?.isMoveLocked} gameSwing={Time.unscaledTime < _gameSwingUntil} gameSwings={GameSwings}");
+            Plugin.L.LogInfo($"SWINGF t={since:F3} speed={Speed:F2} swinging={_swinging} head={(_model != null ? _model.TransformPoint(PointsLocal[0]) : Vector3.zero)} aim={XrInput.Get(Hand.Right).AimPosition} valid={XrInput.Get(Hand.Right).PoseValid} dom={ControllerBindings.Dominant} melee={ModConfig.PhysicalMelee.Value} locked={GameManager.Instance?.Player?.isMoveLocked} gameSwing={Time.unscaledTime < _gameSwingUntil} gameSwings={GameSwings}");
         if (since > (_devChops * 2 - 1) * 0.25f + 0.35f)
         {
             Plugin.L.LogInfo($"SWING done: chops={_devChops} swings={Swings} hits={Hits} (this test {Hits - _devHitsAtStart}) peak={PeakSpeed:F1} m/s last=[{LastHit}]");

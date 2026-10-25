@@ -1025,6 +1025,29 @@ public class DevTools : MonoBehaviour
             case "trace":
                 InkVR.Core.VRRig.DevTraceFrames = int.Parse(arg);
                 break;
+            case "enemies":
+            {
+                // enemies [n]: every enemy in the level (asleep too), nearest first, with its health and colliders
+                var from = GameManager.Instance.Player.transform.position;
+                var list = new List<(float d, string text)>();
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Ai.BaseAiController>()))
+                {
+                    var ai = o.Cast<Ai.BaseAiController>();
+                    if (!ai.gameObject.scene.IsValid()) continue;
+                    var cols = ai.GetComponentsInChildren<Collider>(true);
+                    var cs = string.Join(", ", cols.Take(6).Select(c => $"{c.name}{(c.isTrigger ? "(trig)" : "")}/L{c.gameObject.layer}{(c.enabled ? "" : "(off)")}"));
+                    list.Add(((ai.transform.position - from).magnitude,
+                        $"{ai.GetIl2CppType().Name} {PathOf(ai.transform)} active={ai.gameObject.activeInHierarchy} enabled={ai.enabled} health={ai.m_CurrentHealth}/{ai.m_Health} colliders[{cols.Length}]: {cs}"));
+                }
+
+                foreach (var (d, text) in list.OrderBy(x => x.d).Take(arg.Length > 0 ? int.Parse(arg) : 12)) Plugin.L.LogInfo($"ENEMY {d:F1} {text}");
+                Plugin.L.LogInfo($"ENEMIES {list.Count}");
+                break;
+            }
+            case "camwatch":
+                // camwatch <frames>: what the game does to its camera during scripted moments
+                InkVR.Core.VRRig.DevCamWatch = int.Parse(arg);
+                break;
             case "chapter":
             {
                 // chapter CH2: load a chapter directly (test runs only: saving is disabled there)
@@ -1072,7 +1095,7 @@ public class DevTools : MonoBehaviour
 
                 var t = Resolve(arg);
                 var col = t.GetComponentsInChildren<Collider>().FirstOrDefault(c => !c.isTrigger);
-                var target = col != null ? col.bounds.center : t.position;
+                var target = col != null && col.enabled ? col.bounds.center : t.position; // a switched-off (ragdoll) collider has no bounds
                 var player = GameManager.Instance.Player;
                 var scale = InkVR.Core.VRRig.ActiveScale;
                 var reach = (InkVR.Body.MeleeSwing.HeadInAim?.magnitude ?? 0.8f) + 0.15f;

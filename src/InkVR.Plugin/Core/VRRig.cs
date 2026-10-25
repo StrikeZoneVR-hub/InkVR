@@ -23,7 +23,7 @@ namespace InkVR.Core;
 ///       InkVR_UICamera   (layer 31: HUD panel, laser, fade)
 ///       InkVR_UIPanel    (subtitles, prompts, objectives, notes)
 /// </summary>
-public static class VRRig
+public static partial class VRRig
 {
     private const float GamePanelDistance = 1.6f, GamePanelWidth = 1.5f;
     private const float PanelFollowAngle = 35f;
@@ -137,6 +137,7 @@ public static class VRRig
         EnsureCinema();
         SetCinema(!InGame || IsPaused());
         HookPreCull();
+        if (DevCamWatch > 0 && InGame) CamWatch("U");
         if (InGame) KeepCameraInRig();
         ApplyHeadPose();
     }
@@ -144,6 +145,7 @@ public static class VRRig
     public static void LateUpdate()
     {
         if (!XrManager.IsRunning) return;
+        if (DevCamWatch > 0 && InGame) CamWatch("L");
         if (InGame) KeepCameraInRig();
         ApplyHeadPose();
 
@@ -159,9 +161,11 @@ public static class VRRig
 
         if (InGame && !_cinemaActive)
         {
+            UpdateCutscene();
             ApplySmoothTurn();
             FollowHeadWithBody();
-            MotionSmoothing.Apply(_origin);
+            if (CutsceneActive) MotionSmoothing.Remove();
+            else MotionSmoothing.Apply(_origin);
             PlaceGamePanel();
             HurtVisor.Update(_uiCam);
             Rendering.VRGraphics.Update(_gameCam);
@@ -231,6 +235,26 @@ public static class VRRig
 
     /// <summary>Dev: log player/camera positions for this many frames.</summary>
     public static int DevTraceFrames;
+
+    /// <summary>Dev: frames left to watch what the game does to its camera (every 3rd frame, before InkVR puts it back).</summary>
+    public static int DevCamWatch;
+
+    private static void CamWatch(string phase)
+    {
+        if (phase == "L") DevCamWatch--;
+        if (Time.frameCount % 3 != 0) return;
+        string V(Vector3 v) => $"({v.x:F2},{v.y:F2},{v.z:F2})";
+        string E(Quaternion q) { var e = q.eulerAngles; return $"({e.x:F0},{e.y:F0},{e.z:F0})"; }
+        var t = _gameCam.transform;
+        var p = _player.transform;
+        var gc = GameManager.Instance?.GameCamera;
+        var hc = gc?.HeadContainer;
+        var cc = gc?.CameraContainer;
+        var parent = t.parent;
+        var path = parent == null ? "none" : (parent.parent != null ? parent.parent.name + "/" : "") + parent.name;
+        Plugin.L.LogInfo($"CAMWATCH {phase} f={Time.frameCount} locked={_player.isLocked}/{_player.isMoveLocked} parent={path} camW={V(t.position - p.position)} camRot={E(t.rotation)} camLocal={V(t.localPosition)} {E(t.localRotation)}"
+                         + $" | player={V(p.position)} {E(p.rotation)} | head={(hc != null ? V(hc.localPosition) + E(hc.localRotation) : "-")} camC={(cc != null ? V(cc.localPosition) + E(cc.localRotation) : "-")} ccW={(cc != null ? V(cc.position - p.position) + E(cc.rotation) : "-")}");
+    }
 
     /// <summary>Dev: log the eye poses Unity renders with, before and after InkVR's world scaling.</summary>
     public static bool DevStereoReport;
@@ -340,7 +364,8 @@ public static class VRRig
 
         if (InGame && !_cinemaActive)
         {
-            HoldPlaySpaceSteady();
+            if (CutsceneActive) PlaceCutsceneView();
+            else HoldPlaySpaceSteady();
             KeepCameraInRig();
         }
 
@@ -504,6 +529,7 @@ public static class VRRig
     private static void DetachFromPlayer()
     {
         MotionSmoothing.Reset();
+        ResetCutscene();
         _player = null;
         _origin = null;
         _gameCam = null;
@@ -521,7 +547,7 @@ public static class VRRig
     /// <summary>Snap/smooth turning rotates the play space around your head.</summary>
     public static void Turn(float degrees)
     {
-        if (!InGame || _cinemaActive || _player.isLocked) return;
+        if (!InGame || _cinemaActive || _player.isLocked || CutsceneActive) return;
         _origin.RotateAround(_gameCam.transform.position, Vector3.up, degrees);
     }
 
@@ -561,6 +587,7 @@ public static class VRRig
             Plugin.L.LogInfo($"The game moved its camera to '{(t.parent != null ? t.parent.name : "nothing")}': keeping it in the VR rig");
         }
 
+        NoteCameraOwner(t);
         t.SetParent(_origin, false);
         KeepCameraScale(t);
         ApplyHeadPose();
@@ -611,6 +638,12 @@ public static class VRRig
 
     private static void FollowHeadWithBody()
     {
+        if (CutsceneActive)
+        {
+            PlaceCutsceneView();
+            return;
+        }
+
         if (_player.isLocked)
         {
             HoldPlaySpaceSteady();
@@ -781,6 +814,7 @@ public static class VRRig
         // In the theatre only the game's own fades during loads matter; a paused game shows no blocker.
         var c = ScreenFade.Current();
         if (_cinemaActive && InGame) c.a = 0;
+        else if (InGame && CutsceneBlink > c.a) c = new Color(0, 0, 0, CutsceneBlink);
         _fade.Color = c;
         _fade.Visible = c.a > 0.001f;
     }
