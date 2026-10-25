@@ -1044,6 +1044,29 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"ENEMIES {list.Count}");
                 break;
             }
+            case "invoke":
+            {
+                // invoke Type.Method: call a method (private too) on the first live instance, every argument null
+                // (dev: fire a scripted moment's trigger handler, e.g. CH2SammyOfficeController.HandleKnockoutEventTriggerOnEnter)
+                var dot = arg.LastIndexOf('.');
+                var type = InteropType(arg[..dot]);
+                var name = arg[(dot + 1)..];
+                var method = type?.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).FirstOrDefault(m => m.Name == name);
+                if (method == null) { Plugin.L.LogWarning($"invoke: {arg} not found"); break; }
+                var found = Object.FindObjectOfType(Il2CppType.From(type));
+                if (found == null) { Plugin.L.LogWarning($"invoke: no live {arg[..dot]}"); break; }
+                method.Invoke(Activator.CreateInstance(type, found.Pointer), new object[method.GetParameters().Length]);
+                Plugin.L.LogInfo($"invoke {arg}: done");
+                break;
+            }
+            case "devtilt":
+            {
+                // devtilt <degrees> <seconds>: roll and pitch the player object like a scripted knockout does
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                InkVR.Core.VRRig.DevTiltRoll = float.Parse(a[0], System.Globalization.CultureInfo.InvariantCulture);
+                InkVR.Core.VRRig.DevTiltUntil = Time.unscaledTime + float.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture);
+                break;
+            }
             case "camwatch":
                 // camwatch <frames>: what the game does to its camera during scripted moments
                 InkVR.Core.VRRig.DevCamWatch = int.Parse(arg);

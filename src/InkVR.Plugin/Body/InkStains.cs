@@ -448,6 +448,21 @@ public static class InkStains
         }
     }
 
+    private static float _nextPurge;
+
+    /// <summary>
+    /// Pieces whose objects are gone: the game's reset (quitting to the main menu) destroys everything kept between
+    /// scenes, Henry included. Drop them, or every frame would trip over them. (Checked once a second.)
+    /// </summary>
+    public static void PurgeDestroyed()
+    {
+        _nextPurge = Time.unscaledTime + 1f;
+        var removed = Parts.RemoveAll(p => p.T == null || p.R == null);
+        if (removed == 0) return;
+        _uploadCursor = 0;
+        Plugin.L.LogInfo($"Ink stains: {removed} pieces were cleared away with the game's reset");
+    }
+
     /// <summary>All of Henry's ink washed off (dev "inkclear").</summary>
     public static void WashAll()
     {
@@ -836,6 +851,7 @@ public static class InkStains
     public static void Tick()
     {
         if (Parts.Count == 0 || InkWorld.DevOff || InkWorld.DevStainsOff) return;
+        if (Time.unscaledTime >= _nextPurge) PurgeDestroyed();
         var sw = System.Diagnostics.Stopwatch.StartNew();
         if (DevSkip != "runs") UpdateRuns();
         InkWorld.Prof.Add(8, sw.Elapsed.TotalMilliseconds);

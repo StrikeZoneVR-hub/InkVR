@@ -1,6 +1,39 @@
 # Testing InkVR
 
-## Current build: 0.8.1 (cutscenes in VR, melee hits anywhere on an enemy)
+## Current build: 0.8.2 (Sammy's knockout, a world that never tilts, quitting to the menu)
+
+### Fixed in 0.8.2: the sickening knockout in Chapter 2 (from your recording)
+Your video showed Sammy's knockout. After the hit, the whole world rolled 20–30° and swept round you, and then, tied up, you faced the wooden post instead of Sammy.
+- **The roll:**
+  - **Cause:** to fake Henry falling and being dragged, the game tilts and rolls the player object. InkVR's play space hangs from that object, and in normal play it kept whatever tilt it inherited, which built up frame after frame.
+  - **Fix:** the play space is now always kept level, whatever the game does to the player.
+  - **Follow:** a tilted or rolled player now counts as a scene, so its position is followed and you go down with Henry.
+- **The knockout itself:**
+  - **Cause:** the game sets the camera's pose directly. It never does that in normal play (checked), so InkVR now takes it as a scene and follows it.
+  - **Result:** you drop to the floor of Sammy's office, level, and see Sammy's legs walk up to you.
+- **Tied up facing the post:**
+  - **Cause:** while the game holds Henry still, InkVR kept the direction you faced before the scene.
+  - **Fix:** when the game moves Henry somewhere new while holding him (tied up for the sacrifice), you now face the way the game turned him, in a blink.
+  - **Also:** a hold no longer nudges your view by your distance from the middle of your play area when it starts.
+
+### Fixed in 0.8.2: quitting to the main menu and loading again
+Your log had 27,500 errors after you quit to the menu and loaded again.
+- **Cause:** the game's reset on quitting destroys everything kept between scenes, Henry included. The hands rebuilt themselves, but the full body and Henry's ink stains kept pointing at the destroyed pieces.
+- **Effect:** every frame threw an error, which also stopped the hands and held weapon being posed.
+- **Fix:** Henry is now rebuilt cleanly after a reset. Destroyed stain pieces are also cleared out once a second, as a safety net.
+- **Checked:** quit to the menu through the pause menu's OK, then started Chapter 2 again. One error, from the very frame of the reset (now guarded), against 27,500 before.
+
+### Checked in 0.8.2
+- The openings of Chapters 2, 3 and 5 still follow as one clean scene each, with no false cuts.
+- The tumble test: the player object rolled up to 30°, and the view stayed level (0–1°).
+
+### What to try (0.8.2)
+1. **Chapter 2 (in VR):** play to Sammy's office and pull the lever.
+   - The knockout should drop you to the floor without any roll.
+   - Tied up, you should face Sammy.
+2. **Quit to the main menu,** load your save again, and play on. Henry's hands, body and weapon should all work.
+
+## Previous build: 0.8.1 (cutscenes in VR, melee hits anywhere on an enemy)
 
 ### Fixed in 0.8.1: cutscenes and scripted moments now play in VR
 Before, InkVR kept you standing where Henry was while the game played its scene somewhere else, and Henry's body stayed drawn through it.
@@ -40,7 +73,7 @@ Before, InkVR kept you standing where Henry was while the game played its scene 
    - hit their heads, arms and legs;
    - try with and without pulling the trigger.
 
-## Previous build: 0.8.0 (seated play, gravity pull, weapon wheel, inventory card, cartoon Toon body)
+## Earlier build: 0.8.0 (seated play, gravity pull, weapon wheel, inventory card, cartoon Toon body)
 
 All of these are options, and all are on by default except SEATED play. They're in the VR SETTINGS page (in the game's Options) and the launcher's OPTIONS page.
 

@@ -83,6 +83,7 @@ public static class Hands
 
     private static void PoseBoth(float scale, int layer, float dt)
     {
+        if (_root == null) return; // the game's reset destroyed Henry this frame; he's rebuilt on the next update
         PoseBody(scale, layer, dt);
         var holding = HoldingWeapon();
         Pose(_left, Hand.Left, DevLeft, scale, layer, holding && ControllerBindings.Dominant == Hand.Left, dt);
@@ -201,6 +202,24 @@ public static class Hands
     private static void Ensure()
     {
         if (_root != null) return;
+        if (_left != null || _toonBody != null || _studioBody != null)
+        {
+            // The game's reset (quitting to the main menu) destroyed everything kept between scenes, Henry included:
+            // let go of the old pieces and build him again from scratch.
+            foreach (var model in new[] { _left, _right })
+                if (model != null)
+                    InkStains.Forget(model.Stains);
+            foreach (var body in new[] { _toonBody, _studioBody })
+                if (body != null)
+                    InkStains.Forget(body.Stains);
+            _toonBody = _studioBody = null;
+            Body = null;
+            _handContainer = null;
+            _gameHand = null;
+            InkStains.PurgeDestroyed();
+            Plugin.L.LogInfo("Henry was cleared away with the game's reset: building him again");
+        }
+
         var go = new GameObject("InkVR_Henry");
         Object.DontDestroyOnLoad(go);
         _root = go.transform;

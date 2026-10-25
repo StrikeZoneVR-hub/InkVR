@@ -137,7 +137,16 @@ public static partial class VRRig
         EnsureCinema();
         SetCinema(!InGame || IsPaused());
         HookPreCull();
+        if (InGame && Time.unscaledTime < DevTiltUntil)
+        {
+            // dev: roll and pitch the player the way a scripted knockout does (game-side, before InkVR's update)
+            var k = Mathf.Sin((DevTiltUntil - Time.unscaledTime) * 2.1f);
+            var yaw = _player.transform.eulerAngles.y;
+            _player.transform.rotation = Quaternion.Euler(DevTiltRoll * 0.4f * k, yaw + 20f * Time.unscaledDeltaTime, DevTiltRoll * k);
+        }
+
         if (DevCamWatch > 0 && InGame) CamWatch("U");
+        if (InGame && !_cinemaActive) NoteCameraWrite();
         if (InGame) KeepCameraInRig();
         ApplyHeadPose();
     }
@@ -146,6 +155,7 @@ public static partial class VRRig
     {
         if (!XrManager.IsRunning) return;
         if (DevCamWatch > 0 && InGame) CamWatch("L");
+        if (InGame && !_cinemaActive) NoteCameraWrite();
         if (InGame) KeepCameraInRig();
         ApplyHeadPose();
 
@@ -236,6 +246,9 @@ public static partial class VRRig
     /// <summary>Dev: log player/camera positions for this many frames.</summary>
     public static int DevTraceFrames;
 
+    /// <summary>Dev: until this time, roll the player object by up to this many degrees each frame (a scripted knockout's tumble).</summary>
+    public static float DevTiltUntil, DevTiltRoll;
+
     /// <summary>Dev: frames left to watch what the game does to its camera (every 3rd frame, before InkVR puts it back).</summary>
     public static int DevCamWatch;
 
@@ -321,6 +334,7 @@ public static partial class VRRig
         {
             _gameCam.transform.SetLocalPositionAndRotation(pos, rot);
             _uiCam.transform.SetLocalPositionAndRotation(pos, rot);
+            NoteApplied(pos, rot);
         }
     }
 
@@ -364,8 +378,10 @@ public static partial class VRRig
 
         if (InGame && !_cinemaActive)
         {
+            NoteCameraWrite();
             if (CutsceneActive) PlaceCutsceneView();
             else HoldPlaySpaceSteady();
+            KeepLevel();
             KeepCameraInRig();
         }
 
@@ -608,6 +624,7 @@ public static partial class VRRig
 
     private static bool _heldSteady;
     private static float _steadyYaw;
+    private static Vector3 _steadyOffset, _steadyPlayerPos;
 
     /// <summary>
     /// The game sometimes takes the player over (waking up in Chapter 2, knockouts, grabs) and tilts and turns
@@ -624,16 +641,30 @@ public static partial class VRRig
             return;
         }
 
+        var t = _player.transform;
+        var feet = t.position + Vector3.up * (FeetLocal().y * t.lossyScale.y);
         if (!_heldSteady)
         {
-            var fwd = Vector3.ProjectOnPlane(_origin.forward, Vector3.up);
-            _steadyYaw = fwd.sqrMagnitude > 1e-4f ? Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg : 0f;
+            // hold the play space exactly where it is (your head stays put), level
+            _steadyYaw = YawOf(_origin.rotation);
+            _steadyOffset = Vector3.ProjectOnPlane(_origin.position - feet, Vector3.up);
             _heldSteady = true;
             Plugin.L.LogInfo("Scripted moment: holding the play space level and steady");
         }
+        else if ((t.position - _steadyPlayerPos).sqrMagnitude > 2.25f * Scale * Scale)
+        {
+            // The game moved Henry somewhere else (tied up for Sammy's sacrifice): in a blink, stand where he is and
+            // face the way the game turned him.
+            var headFwd = HeadLocalRotation * Vector3.forward;
+            _steadyYaw = YawOf(t.rotation) - Mathf.Atan2(headFwd.x, headFwd.z) * Mathf.Rad2Deg;
+            var head = HeadLocalPosition;
+            _steadyOffset = -(Quaternion.Euler(0, _steadyYaw, 0) * new Vector3(head.x, 0, head.z) * Scale);
+            _blink = 1f;
+            Plugin.L.LogInfo($"Scripted moment: the game moved Henry; facing the way it turned him ({YawOf(t.rotation):F0} deg)");
+        }
 
-        var t = _player.transform;
-        _origin.SetPositionAndRotation(t.position + Vector3.up * (FeetLocal().y * t.lossyScale.y), Quaternion.Euler(0, _steadyYaw, 0));
+        _steadyPlayerPos = t.position;
+        _origin.SetPositionAndRotation(feet + _steadyOffset, Quaternion.Euler(0, _steadyYaw, 0));
     }
 
     private static void FollowHeadWithBody()
@@ -677,8 +708,9 @@ public static partial class VRRig
             _cc.Move(delta + stick);
         }
 
-        // The play space stays where it was across the floor, and always sits on the player's feet.
-        _origin.SetPositionAndRotation(originPos, originRot);
+        // The play space stays where it was across the floor, and always sits on the player's feet (and level: a
+        // tilt the game gave the player this frame mustn't stay in it).
+        _origin.SetPositionAndRotation(originPos, Quaternion.Euler(0, YawOf(originRot), 0));
         var lp = _origin.localPosition;
         lp.y = FeetLocal().y;
         _origin.localPosition = lp;

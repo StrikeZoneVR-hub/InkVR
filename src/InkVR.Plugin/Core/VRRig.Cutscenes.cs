@@ -3,13 +3,14 @@ using UnityEngine;
 namespace InkVR.Core;
 
 /// <summary>
-/// Cutscenes and scripted moments in VR. The game plays them by taking its camera holder off Henry's head and
-/// moving it on its own (waking up on the floor at the start of Chapter 2, knockouts, falls, being carried), or by
-/// putting the camera on a rig of its own. While it does, the headset follows that camera through the world, so
-/// you're on the floor, getting up, being dragged, in VR. Only its position is followed: the way it faces is taken
-/// once when the scene starts (and again on a cut), and your own head does all the looking, so the world never
-/// tilts, rolls or swings round you. A short blink of black hides the jump in and out and any cuts. Henry's body
-/// steps aside while the game has the camera, or the player, and the hands stay.
+/// Cutscenes and scripted moments in VR. The game plays them in three ways: it takes its camera holder off Henry's
+/// head and moves it on its own (waking up on the floor at the start of Chapter 2), it sets the camera's pose itself
+/// (Sammy's knockout), or it tilts and rolls the player object to fake Henry falling and being dragged. Whichever it
+/// does, the headset follows that camera through the world, so you're on the floor, getting up, being dragged, in VR.
+/// Only its position is followed: the way it faces is taken once when the scene starts (and again on a cut), and your
+/// own head does all the looking, so the world never tilts, rolls or swings round you (the play space is always kept
+/// level). A short blink of black hides the jump in and out and any cuts. Henry's body steps aside while the game has
+/// the camera, or the player, and the hands stay.
 /// </summary>
 public static partial class VRRig
 {
@@ -33,6 +34,92 @@ public static partial class VRRig
     private static Vector3 _cutHead;                    // your tracked head (metres) when the scene was lined up
     private static float _homeFor, _lockedFor, _blink;
 
+    // the camera pose the game last set itself (it never does outside scripted scenes)
+    private static Vector3 _appliedPos, _writtenPos;
+    private static Quaternion _appliedRot = Quaternion.identity, _writtenRot = Quaternion.identity;
+    private static bool _appliedValid, _written;
+    private static float _writtenAt;
+    private static Vector3 _writtenPlayerPos;
+
+    /// <summary>InkVR just put the camera on your head: remember exactly where, to notice the game moving it.</summary>
+    private static void NoteApplied(Vector3 pos, Quaternion rot)
+    {
+        _appliedPos = pos;
+        _appliedRot = rot;
+        _appliedValid = true;
+    }
+
+    /// <summary>
+    /// Before InkVR poses the camera: if it isn't where InkVR left it, the game set it (a scripted scene: Sammy's
+    /// knockout puts it on the floor of his office). That pose is followed like any other cutscene camera.
+    /// </summary>
+    private static void NoteCameraWrite()
+    {
+        if (!_appliedValid || _gameCam == null || _origin == null) return;
+        var t = _gameCam.transform;
+        if (t.parent != _origin) return; // put on a rig of its own: NoteCameraOwner follows that
+        var lp = t.localPosition;
+        var lr = t.localRotation;
+        var moved = (lp - _appliedPos).sqrMagnitude > 0.04f; // 20 cm (the rig works in metres)
+        var turned = Quaternion.Angle(lr, _appliedRot) > 12f;
+        if (!moved && !turned) return;
+        _appliedValid = false;
+        if (HolderAway())
+        {
+            // moved relative to the holder the game took away (the Chapter 2 wake-up): the holder is what's followed
+            _written = false;
+            return;
+        }
+
+        if (lp.sqrMagnitude < 0.0025f && Quaternion.Angle(lr, Quaternion.identity) < 1f)
+        {
+            // the game putting its camera back to rest (zero, relative to the holder it thinks it's in): the scene is over
+            if (_written) Plugin.L.LogInfo("Cutscene: the game put its camera back to rest");
+            _written = false;
+            return;
+        }
+
+        if (!_written) Plugin.L.LogInfo($"Cutscene: the game set its camera itself ({(t.position - _player.transform.position).magnitude:F1} units from Henry); following it in VR");
+        _written = true;
+        _writtenPos = t.position;
+        _writtenRot = t.rotation;
+        _writtenAt = Time.unscaledTime;
+        _writtenPlayerPos = _player.transform.position;
+    }
+
+    /// <summary>The game's camera pose stays the scene's view while it keeps setting it, or while it still holds Henry.</summary>
+    private static bool WrittenViewLive()
+    {
+        if (!_written) return false;
+        var since = Time.unscaledTime - _writtenAt;
+        var teleported = (_player.transform.position - _writtenPlayerPos).sqrMagnitude > 4f * Scale * Scale;
+        if (since < 0.6f || (_player.isLocked && since < 30f && !teleported)) return true;
+        _written = false;
+        Plugin.L.LogInfo("Cutscene: the game stopped setting its camera");
+        return false;
+    }
+
+    /// <summary>The game has taken its camera holder off Henry's head, or is tilting the player it hangs from.</summary>
+    private static bool HolderAway()
+    {
+        var gc = GameManager.Instance?.GameCamera;
+        var holder = gc?.CameraContainer;
+        var head = gc?.HeadContainer;
+        if (holder == null || head == null || _player == null) return false;
+        if (holder.parent != head || PlayerTilted) return true;
+        return _player.isLocked && ((holder.position - head.position).magnitude > 0.6f || Quaternion.Angle(holder.rotation, head.rotation) > 40f);
+    }
+
+    /// <summary>The game is tilting or rolling the player object (faking Henry falling or being dragged).</summary>
+    private static bool PlayerTilted => _player != null && Vector3.Angle(_player.transform.up, Vector3.up) > 8f;
+
+    /// <summary>The play space never tilts or rolls, whatever the game does to the player it hangs from.</summary>
+    private static void KeepLevel()
+    {
+        if (_origin == null || Vector3.Angle(_origin.up, Vector3.up) < 0.01f) return;
+        _origin.rotation = Quaternion.Euler(0, YawOf(_origin.rotation), 0);
+    }
+
     /// <summary>The game put its camera on something of its own (not the player's camera holder): follow that.</summary>
     private static void NoteCameraOwner(Transform cam)
     {
@@ -42,6 +129,7 @@ public static partial class VRRig
         {
             if (_camOwner != null) Plugin.L.LogInfo("Cutscene: the game gave its camera back to Henry's head");
             _camOwner = null;
+            if (parent == holder) _written = false; // handed back to its holder: any pose it set is over
             return;
         }
 
@@ -65,16 +153,27 @@ public static partial class VRRig
             return true;
         }
 
-        var gc = GameManager.Instance?.GameCamera;
-        var holder = gc?.CameraContainer;
-        var head = gc?.HeadContainer;
-        if (holder == null || head == null) return false;
+        var holder = GameManager.Instance?.GameCamera?.CameraContainer;
+        if (holder == null) return false;
         pos = holder.position;
         rot = holder.rotation;
-        var moved = holder.parent != head;
-        var dist = (holder.position - head.position).magnitude;
-        var turned = Quaternion.Angle(holder.rotation, head.rotation);
-        away = moved || (_player.isLocked && (dist > 0.6f || turned > 40f));
+        away = HolderAway();
+        if (away)
+        {
+            // The holder is the scene's camera; anything the game does to the camera itself now is relative to it
+            // (the Chapter 2 wake-up nudges it as Henry kneels), so it isn't a pose of its own.
+            _written = false;
+            return true;
+        }
+
+        // The holder is home, but the game set the camera itself (Sammy's knockout): that pose is the scene's view.
+        if (WrittenViewLive())
+        {
+            pos = _writtenPos;
+            rot = _writtenRot;
+            away = true;
+        }
+
         return true;
     }
 
@@ -193,6 +292,7 @@ public static partial class VRRig
     {
         CutsceneActive = false;
         _camOwner = null;
+        _written = _appliedValid = false;
         _lockedFor = _homeFor = 0f;
     }
 
