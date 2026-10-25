@@ -1,0 +1,49 @@
+name: Bug report
+description: Something is wrong in VR (please attach your log file).
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for playing InkVR! Close the game first, then attach your log: `BepInEx\LogOutput.log` in the
+        game's folder (in Steam, right-click Bendy and the Ink Machine, Manage, Browse local files).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead. A short clip helps a lot.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where in the game?
+      placeholder: "e.g. Chapter 3, Level K; Sammy's office; the main-menu theatre"
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: How do you connect your headset?
+      options:
+        - Virtual Desktop
+        - Quest Link / Air Link
+        - SteamVR
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: headset
+    attributes:
+      label: Headset
+      placeholder: "e.g. Quest 3, Quest 2, Index, Pico 4"
+  - type: input
+    id: version
+    attributes:
+      label: InkVR version
+      placeholder: "0.8.4 (the launcher's ABOUT page shows it)"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log file
+      description: Drag LogOutput.log into this box.
+    validations:
+      required: true
