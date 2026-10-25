@@ -8,9 +8,10 @@ using Object = UnityEngine.Object;
 namespace InkVR.UI;
 
 /// <summary>
-/// The weapon wheel: hold the right stick down and an ink splat opens in front of your hand, its choices lettered
-/// round it in the title screen's brush lettering. Tilt the stick (or move your hand) towards one and let go:
-///   your weapon (draw it), HANDS (put it away), SEEING TOOL (when the game lets Henry have it), INVENTORY.
+/// The weapon wheel: click the right stick and an ink splat opens in front of your hand, its choices lettered round
+/// it in the title screen's brush lettering. Flick the stick towards one and let it spring back (or point your hand at
+/// one and pull the trigger, or click the stick again); B closes it. Holding the click, tilting and letting go works
+/// too. The choices: your weapon (draw it), HANDS (put it away), SEEING TOOL (when the game lets Henry have it), INVENTORY.
 /// Putting away and drawing are the same as the shoulder holster; the Seeing Tool and the inventory are the game's own.
 /// </summary>
 public static class WeaponWheel
@@ -27,7 +28,6 @@ public static class WeaponWheel
     private static readonly List<Slot> Slots = new();
     private static Transform _root;
     private static VRPanel _back;
-    private static float _heldSince = -1f;
     private static bool _open;
     private static Vector3 _openHand;
     private static int _choice = -1;
@@ -39,31 +39,73 @@ public static class WeaponWheel
     public static bool? DevClick;
     public static Vector2? DevStick;
 
+    private static bool _clickWas, _triggerWas, _backWas, _flicked;
+    private static int _flickChoice = -1;
+    private static float _openedAt;
+
     public static void Update()
     {
         var on = ModConfig.WeaponWheel.Value && XrManager.IsRunning && VRRig.InGame && !VRRig.CinemaActive;
         var dom = ControllerBindings.Dom;
         var click = DevClick ?? dom.StickClick;
+        var trigger = dom.Trigger > 0.6f;
+        var back = dom.Secondary;
+        var clickDown = click && !_clickWas;
+        var clickUp = !click && _clickWas;
+        var triggerDown = trigger && !_triggerWas;
+        var backDown = back && !_backWas;
+        (_clickWas, _triggerWas, _backWas) = (click, trigger, back);
         if (!on)
         {
             if (_open) Close(false);
-            _heldSince = -1f;
             return;
         }
 
-        if (click)
+        var now = Time.unscaledTime;
+        if (!_open)
         {
-            if (_heldSince < 0) _heldSince = Time.unscaledTime;
-            if (!_open && Time.unscaledTime - _heldSince >= HoldToOpen) Open();
-        }
-        else
-        {
-            _heldSince = -1f;
-            if (_open) Close(true);
+            if (clickDown) Open();
             return;
         }
 
-        if (_open) Choose(DevStick ?? dom.Stick);
+        var stick = DevStick ?? dom.Stick;
+        var tilted = stick.magnitude >= 0.5f;
+        Choose(stick);
+        if (tilted)
+        {
+            _flicked = true;
+            _flickChoice = _choice;
+        }
+
+        if (backDown)
+        {
+            Close(false);
+            return;
+        }
+
+        // held the click, tilted (or pointed), let go
+        if (clickUp && now - _openedAt >= HoldToOpen && _choice >= 0)
+        {
+            Close(true);
+            return;
+        }
+
+        // clicked again, or pulled the trigger: what's lit up (or just close, if nothing is)
+        if ((clickDown && now - _openedAt > 0.05f) || triggerDown)
+        {
+            Close(true);
+            return;
+        }
+
+        // flicked the stick towards one and let it spring back
+        if (_flicked && !tilted && !click && _flickChoice >= 0)
+        {
+            _choice = _flickChoice;
+            Close(true);
+            return;
+        }
+
+        if (now - _openedAt > 8f && _choice < 0) Close(false);
     }
 
     // ---------------- opening ----------------
@@ -81,7 +123,7 @@ public static class WeaponWheel
             Slots.Add(new Slot { Label = "SEEING\nTOOL", Act = () => player.UseSeeingTool(!player.isSeeingToolActive) });
         Slots.Add(new Slot { Label = "INVENTORY", Act = InventoryButton.Show });
 
-        Build();
+        Build(); // (shows the wheel first: TextMeshPro only sets a label up once it's showing)
         var head = VRRig.Head;
         _openHand = HandPos();
         var toHead = head != null ? (head.position - _openHand).normalized : Vector3.back;
@@ -92,6 +134,10 @@ public static class WeaponWheel
         _root.gameObject.SetActive(true);
         _open = true;
         _choice = -1;
+        _flickChoice = -1;
+        _flicked = false;
+        _openedAt = Time.unscaledTime;
+        Plugin.L.LogInfo($"Weapon wheel open ({Slots.Count} choices)");
         XrInput.Haptic(ControllerBindings.Dominant, 0.25f, 0.04f);
         InkPool.InkSound(_root.position, 0.4f);
     }
@@ -159,7 +205,12 @@ public static class WeaponWheel
     {
         _open = false;
         if (_root != null) _root.gameObject.SetActive(false);
-        if (!apply || _choice < 0 || _choice >= Slots.Count) return;
+        if (!apply || _choice < 0 || _choice >= Slots.Count)
+        {
+            Plugin.L.LogInfo("Weapon wheel closed");
+            return;
+        }
+
         var s = Slots[_choice];
         Plugin.L.LogInfo($"Weapon wheel: {s.Label.Split('\n')[0]}");
         XrInput.Haptic(ControllerBindings.Dominant, 0.4f, 0.06f);
@@ -168,10 +219,17 @@ public static class WeaponWheel
 
     // ---------------- drawing ----------------
 
+    // The labels are made once and reused. Destroying and remaking them every time the wheel opened broke it from
+    // the second time on (TextMeshPro gave the new label the destroyed one's material).
+    private static readonly List<TMPro.TextMeshPro> Labels = new();
+
     private static void Build()
     {
-        if (_root == null)
+        if (_root == null || Labels.Exists(l => l == null))
         {
+            // first time, or the game's reset (quitting to the main menu) destroyed it: make it all afresh
+            if (_root != null) Object.Destroy(_root.gameObject);
+            Labels.Clear();
             _root = new GameObject("InkVR_WeaponWheel").transform;
             Object.DontDestroyOnLoad(_root.gameObject);
             _root.gameObject.layer = VRLayers.UI;
@@ -179,25 +237,44 @@ public static class WeaponWheel
             _back.SetSize(Size, Size);
         }
 
-        // VR rigs are rebuilt per level: follow the origin's scale
-        foreach (var t in _root.GetComponentsInChildren<TMPro.TextMeshPro>(true)) Object.Destroy(t.gameObject);
-        for (var i = 0; i < Slots.Count; i++)
+        _root.gameObject.SetActive(true);
+        while (Labels.Count < Slots.Count) Labels.Add(MakeLabel(Labels.Count));
+        for (var i = 0; i < Labels.Count; i++)
         {
-            var go = new GameObject("InkVR_WheelLabel" + i);
-            go.layer = VRLayers.UI;
-            go.transform.SetParent(_root, false);
-            var tmp = go.AddComponent<TMPro.TextMeshPro>();
+            var used = i < Slots.Count;
+            Labels[i].gameObject.SetActive(used);
+            if (!used) continue;
             var font = GameFonts.Title;
-            if (font != null) tmp.font = font;
-            tmp.text = Slots[i].Label;
-            tmp.alignment = TMPro.TextAlignmentOptions.Center;
-            tmp.enableWordWrapping = false;
-            tmp.rectTransform.sizeDelta = new Vector2(0.16f, 0.06f);
-            var mat = tmp.fontMaterial;
-            mat.renderQueue = 4045;
-            mat.SetFloat("unity_GUIZTestMode", (float)UnityEngine.Rendering.CompareFunction.Always);
-            Slots[i].Text = tmp;
+            if (font != null && Labels[i].font != font) Labels[i].font = font;
+            Labels[i].text = Slots[i].Label;
+            OnTop(Labels[i]); // drawn over the splat (again each time: a new font or text can bring a fresh material)
+            Labels[i].ForceMeshUpdate();
+            Slots[i].Text = Labels[i];
         }
+    }
+
+    private static TMPro.TextMeshPro MakeLabel(int i)
+    {
+        var go = new GameObject("InkVR_WheelLabel" + i);
+        go.layer = VRLayers.UI;
+        go.transform.SetParent(_root, false);
+        var tmp = go.AddComponent<TMPro.TextMeshPro>();
+        var font = GameFonts.Title;
+        if (font != null) tmp.font = font;
+        tmp.alignment = TMPro.TextAlignmentOptions.Center;
+        tmp.enableWordWrapping = false;
+        tmp.rectTransform.sizeDelta = new Vector2(0.16f, 0.06f);
+        OnTop(tmp);
+        return tmp;
+    }
+
+    /// <summary>Drawn over the splat, in front of everything.</summary>
+    private static void OnTop(TMPro.TextMeshPro t)
+    {
+        var mat = t.fontMaterial;
+        if (mat == null) return;
+        mat.renderQueue = 4045;
+        mat.SetFloat("unity_GUIZTestMode", (float)UnityEngine.Rendering.CompareFunction.Always);
     }
 
     private static void Layout()
@@ -207,9 +284,9 @@ public static class WeaponWheel
             var t = Slots[i].Text;
             if (t == null) continue;
             var picked = i == _choice;
-            var d = SlotDir(i) * (Size * 0.3f);
+            var d = SlotDir(i) * (Size * 0.37f);
             t.transform.localPosition = new Vector3(d.x, d.y, -0.004f);
-            t.fontSize = picked ? 0.36f : 0.28f;
+            t.fontSize = picked ? 0.3f : 0.24f;
             t.color = picked ? new Color(0.93f, 0.67f, 0.2f) : new Color(0.95f, 0.89f, 0.76f);
         }
     }

@@ -72,7 +72,7 @@ public static class VRSettingsMenu
         Toggle("LIGHT BEAMS", ModConfig.VolumetricLightVR, "ON", "OFF"),
     };
 
-    /// <summary>The weapon wheel (hold the right stick) and the inventory card (Y) in one row: both, either, or neither.</summary>
+    /// <summary>The weapon wheel (click the right stick) and the inventory card (hold Y) in one row: both, either, or neither.</summary>
     private static Row WheelAndInventory()
     {
         var labels = new[] { "BOTH", "WHEEL ONLY", "INVENTORY ONLY", "OFF" };

@@ -216,7 +216,7 @@ namespace InkVR.Launcher
                     case QuestPart.Trigger: return dominant ? ("WEAPON", "OR SWING YOUR ARM TO HIT") : ("RUN", null);
                     case QuestPart.Stick:
                         return dominant
-                            ? (turn, wheel ? "HOLD IT IN: WEAPON WHEEL" : snap ? "OR SMOOTH TURN IN OPTIONS" : "OR SNAP TURN IN OPTIONS")
+                            ? (turn, wheel ? "CLICK IT: WEAPON WHEEL" : snap ? "OR SMOOTH TURN IN OPTIONS" : "OR SNAP TURN IN OPTIONS")
                             : ("MOVE", "CLICK IT TO RUN");
                     case QuestPart.Primary: return dominant ? ("JUMP", null) : ("INTERACT", null);
                     case QuestPart.Secondary: return dominant ? ("BACK", "IN MENUS") : inventory ? ("INVENTORY", "HOLD IT") : (null, null);

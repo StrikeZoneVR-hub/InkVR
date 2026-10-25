@@ -24,6 +24,7 @@ public static partial class VRRig
 
     /// <summary>Henry's body (not the hands) steps aside: a cutscene has the camera, or a scripted moment has the player.</summary>
     public static bool BodyHidden => InGame && !_cinemaActive && (CutsceneActive || _lockedFor > 0.3f);
+    // (held still while still able to look round counts too: tied up for Sammy's sacrifice)
 
     private static Transform _camOwner;                 // a rig the game put the camera itself on, if it did
     private static Vector3 _ownerLocalPos;
@@ -108,6 +109,60 @@ public static partial class VRRig
         if (holder == null || head == null || _player == null) return false;
         if (holder.parent != head || PlayerTilted) return true;
         return _player.isLocked && ((holder.position - head.position).magnitude > 0.6f || Quaternion.Angle(holder.rotation, head.rotation) > 40f);
+    }
+
+    // ---------------- the play space's own place in the world ----------------
+
+    private static bool _anchored;
+    private static Vector3 _anchorPos, _anchorPlayer;
+    private static float _anchorYaw;
+
+    /// <summary>
+    /// The play space hangs from the player object, so anything the game does to the player moves it too. The game
+    /// moving Henry (a lift, being carried, a teleport) should carry you along; the game turning him should not: tied
+    /// up for Sammy's sacrifice the game keeps turning Henry back into the view it allows while InkVR turns him to
+    /// face where you look, and the whole world flipped between the two. So the play space keeps its own facing
+    /// (InkVR's turns only) and follows only the player's moves. Called at the start of each frame's VR update.
+    /// </summary>
+    private static void ReAnchor(bool allowRealign = true)
+    {
+        if (!_anchored || _origin == null || _player == null) return;
+        var moved = _player.transform.position - _anchorPlayer;
+        if (allowRealign && !CutsceneActive && !_player.isLocked && moved.sqrMagnitude > 2.25f * Scale * Scale)
+        {
+            // The game put Henry somewhere else while you can still look around (tied up, respawned): in a blink,
+            // stand where he is and face the way the game turned him.
+            var headFwd = HeadLocalRotation * Vector3.forward;
+            var yaw = YawOf(_player.transform.rotation) - Mathf.Atan2(headFwd.x, headFwd.z) * Mathf.Rad2Deg;
+            var rot = Quaternion.Euler(0, yaw, 0);
+            var head = HeadLocalPosition;
+            var feet = _player.transform.TransformPoint(FeetLocal());
+            _origin.SetPositionAndRotation(feet - rot * new Vector3(head.x, 0, head.z) * Scale, rot);
+            _blink = 1f;
+            Plugin.L.LogInfo($"The game moved Henry {moved.magnitude / Scale:F1} m; facing the way it turned him ({YawOf(_player.transform.rotation):F0} deg)");
+            StoreAnchor();
+            return;
+        }
+
+        _origin.SetPositionAndRotation(_anchorPos + moved, Quaternion.Euler(0, _anchorYaw, 0));
+    }
+
+    /// <summary>After the frame's VR update: where the play space is, and where the player was, to carry on from.</summary>
+    private static void StoreAnchor()
+    {
+        if (_origin == null || _player == null) return;
+        _anchorPos = _origin.position;
+        _anchorYaw = YawOf(_origin.rotation);
+        _anchorPlayer = _player.transform.position;
+        _anchored = true;
+    }
+
+    /// <summary>Just before rendering: the same again, in case the game turned the player after InkVR's update.</summary>
+    private static void HoldAnchor()
+    {
+        if (!_anchored || _origin == null || _player == null) return;
+        var pos = _anchorPos + (_player.transform.position - _anchorPlayer) + MotionSmoothing.OffsetOn(_origin);
+        _origin.SetPositionAndRotation(pos, Quaternion.Euler(0, _anchorYaw, 0));
     }
 
     /// <summary>The game is tilting or rolling the player object (faking Henry falling or being dragged).</summary>
@@ -195,7 +250,7 @@ public static partial class VRRig
     private static void UpdateCutscene()
     {
         var dt = Time.unscaledDeltaTime;
-        _lockedFor = _player.isLocked ? _lockedFor + dt : 0f;
+        _lockedFor = _player.isLocked || _player.isMoveLocked ? _lockedFor + dt : 0f;
         _blink = Mathf.MoveTowards(_blink, 0f, dt / BlinkIn);
 
         if (!GameView(out var pos, out var rot, out var away))

@@ -103,7 +103,7 @@ public static class ModConfig
         TwoHandedGuns = cfg.Bind("Controls", "TwoHandedGuns", true, "Grip the front of a gun with your other hand to aim it with both hands.");
         Holster = cfg.Bind("Controls", "Holster", true, "Reach over your shoulder and grip to put your weapon away; do it again to draw it.");
         GravityPull = cfg.Bind("Controls", "GravityPull", true, "Point a hand at an item, grip, then flick your hand back (or keep holding the grip) and it flies into your hand, trailing ink.");
-        WeaponWheel = cfg.Bind("Controls", "WeaponWheel", true, "Hold the right stick down for a wheel at your hand: draw your weapon, put it away, or use the Seeing Tool.");
+        WeaponWheel = cfg.Bind("Controls", "WeaponWheel", true, "Click the right stick for a wheel at your hand: draw your weapon, put it away, use the Seeing Tool or see your inventory. Flick the stick to a choice (or point and pull the trigger); B closes it.");
         InventoryButton = cfg.Bind("Controls", "InventoryButton", true, "Y shows your current objective and what you've collected, on a card by your hand.");
         ReduceFlashes = cfg.Bind("Comfort", "ReduceFlashes", false, "Calm the theatre's projector flicker and film scratches.");
 

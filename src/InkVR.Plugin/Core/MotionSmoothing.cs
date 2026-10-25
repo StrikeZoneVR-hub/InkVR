@@ -16,6 +16,9 @@ public static class MotionSmoothing
     private static Vector3 _applied;
     private static Transform _appliedTo;
 
+    /// <summary>The offset drawn onto this transform right now (zero if none).</summary>
+    public static Vector3 OffsetOn(Transform t) => _appliedTo != null && _appliedTo == t ? _applied : Vector3.zero;
+
     internal static void OnFixedStep(Vector3 delta)
     {
         // A scripted teleport is not motion to smooth.

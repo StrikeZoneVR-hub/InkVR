@@ -1,6 +1,40 @@
 # Testing InkVR
 
-## Current build: 0.8.2 (Sammy's knockout, a world that never tilts, quitting to the menu)
+## Current build: 0.8.3 (no more flipping when tied up, a weapon wheel that works every time)
+
+### Fixed in 0.8.3: "stuck between two places, glitching in and out"
+Tied up for Sammy's sacrifice, the view flipped back and forth between Sammy and the wall behind you.
+- **Cause:** a fight over which way Henry faces.
+  - Henry is held in place but still allowed to look round within limits, and the game keeps turning him back into the view it allows (towards Sammy).
+  - InkVR kept turning him to face where your head looks.
+  - Your play space hangs from Henry, so every turn the game gave him turned your whole world, and the two fought every frame.
+- **Fix:** the play space now has its own place and facing in the world.
+  - It still goes wherever the game moves Henry (walking, lifts, being carried).
+  - Turns the game gives him no longer turn you. Only your snap and smooth turns do.
+- **When the game moves Henry somewhere new while you can still look round** (tied up, a respawn), you now face the way the game points him, in a blink. Tied up, that's Sammy.
+- **Henry's body also steps aside** while he's held in place but able to look round.
+- **Checked on your own Save 2** (loaded in a test session where saving is blocked; your save file is unchanged):
+  - Pulled the lever in Sammy's office and watched the knockout, then the whole tied-up monologue.
+  - The view stayed facing Sammy the whole time, with no flips (one facing over 1,151 samples).
+  - Snap turns and walking still work as before.
+
+### Fixed in 0.8.3: the weapon wheel
+- **It only worked once per session.**
+  - **Cause:** every opening threw its labels away and made new ones, and from the second opening on, the new labels were made before the wheel was showing. TextMeshPro can't set a label up then, so it crashed.
+  - **Fix:** the labels are made once and reused, so the wheel works every time. The labels are now spaced further apart, so INVENTORY and HANDS no longer overlap.
+- **It was awkward to work:** you had to hold the stick pressed in while tilting it. The new controls:
+  - **Open:** click the right stick (a quick press is enough). The wheel opens and stays open.
+  - **Pick:** flick the stick towards a choice and let it spring back, point your hand at one and pull the trigger, or click the stick again. The old way still works too: hold the click, tilt, let go.
+  - **Close:** press B, or leave it for 8 seconds with nothing picked.
+  - The trigger doesn't swing your weapon while the wheel is open.
+- **Checked:** five openings in a row, using every way to pick.
+
+### What to try (0.8.3)
+1. Load Save 2, pull the lever in Sammy's office and sit through the scene in the headset: no flipping, and you face Sammy.
+2. Use the weapon wheel several times: flick to HANDS, flick to your weapon, open it and press B.
+3. Snap and smooth turn, walk, and ride a lift: everything should move as before.
+
+## Previous build: 0.8.2 (Sammy's knockout, a world that never tilts, quitting to the menu)
 
 ### Fixed in 0.8.2: the sickening knockout in Chapter 2 (from your recording)
 Your video showed Sammy's knockout. After the hit, the whole world rolled 20–30° and swept round you, and then, tied up, you faced the wooden post instead of Sammy.
@@ -33,7 +67,7 @@ Your log had 27,500 errors after you quit to the menu and loaded again.
    - Tied up, you should face Sammy.
 2. **Quit to the main menu,** load your save again, and play on. Henry's hands, body and weapon should all work.
 
-## Previous build: 0.8.1 (cutscenes in VR, melee hits anywhere on an enemy)
+## Earlier build: 0.8.1 (cutscenes in VR, melee hits anywhere on an enemy)
 
 ### Fixed in 0.8.1: cutscenes and scripted moments now play in VR
 Before, InkVR kept you standing where Henry was while the game played its scene somewhere else, and Henry's body stayed drawn through it.

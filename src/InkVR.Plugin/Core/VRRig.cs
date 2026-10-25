@@ -171,9 +171,11 @@ public static partial class VRRig
 
         if (InGame && !_cinemaActive)
         {
+            ReAnchor();
             UpdateCutscene();
             ApplySmoothTurn();
             FollowHeadWithBody();
+            StoreAnchor();
             if (CutsceneActive) MotionSmoothing.Remove();
             else MotionSmoothing.Apply(_origin);
             PlaceGamePanel();
@@ -380,7 +382,8 @@ public static partial class VRRig
         {
             NoteCameraWrite();
             if (CutsceneActive) PlaceCutsceneView();
-            else HoldPlaySpaceSteady();
+            else if (_player.isLocked) HoldPlaySpaceSteady();
+            else HoldAnchor();
             KeepLevel();
             KeepCameraInRig();
         }
@@ -545,6 +548,7 @@ public static partial class VRRig
     private static void DetachFromPlayer()
     {
         MotionSmoothing.Reset();
+        _anchored = false;
         ResetCutscene();
         _player = null;
         _origin = null;
@@ -564,7 +568,9 @@ public static partial class VRRig
     public static void Turn(float degrees)
     {
         if (!InGame || _cinemaActive || _player.isLocked || CutsceneActive) return;
+        ReAnchor(false);
         _origin.RotateAround(_gameCam.transform.position, Vector3.up, degrees);
+        StoreAnchor();
     }
 
     private static void ApplySmoothTurn()

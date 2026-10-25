@@ -1059,6 +1059,10 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"invoke {arg}: done");
                 break;
             }
+            case "turn":
+                // turn <degrees>: a snap turn, the same path as the stick
+                InkVR.Core.VRRig.Turn(float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture));
+                break;
             case "devtilt":
             {
                 // devtilt <degrees> <seconds>: roll and pitch the player object like a scripted knockout does
