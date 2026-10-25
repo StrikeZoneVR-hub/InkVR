@@ -38,6 +38,7 @@ public static class VRSettingsMenu
 
     private static readonly Dictionary<IntPtr, Page> Pages = new();
     private const string Credit = "VR MOD MADE BY STRIKEZONEVR";
+    private const string SecondColumn = "CONTROLS";
 
     // ---------------- settings definition ----------------
 
@@ -48,25 +49,46 @@ public static class VRSettingsMenu
         Choice("SNAP ANGLE", ModConfig.SnapTurnAngle, new[] { 30f, 45f, 60f, 90f }, v => $"{v:0} DEGREES"),
         Choice("SMOOTH TURN SPEED", ModConfig.SmoothTurnSpeed, new[] { 60f, 90f, 120f, 150f, 180f, 240f }, v => $"{v:0} PER SEC"),
         WorldSize(),
+        Toggle("PLAY", ModConfig.SeatedMode, "SEATED", "STANDING"),
         Toggle("CALM THEATRE FLICKER", ModConfig.ReduceFlashes, "ON", "OFF"),
+        Category("HENRY"),
+        Pick("BODY", ModConfig.BodyMode, new[] { "Full", "Arms", "Hands", "None" }, new[] { "FULL BODY", "ARMS & HANDS", "HANDS ONLY", "NONE" }),
+        Pick("STYLE", ModConfig.BodyStyle, new[] { "Lifelike", "Toon" }, new[] { "LIFELIKE", "TOON" }),
+        Toggle("INK ON HENRY", ModConfig.InkOnHands, "ON", "OFF"),
         Category("CONTROLS"),
         Toggle("DOMINANT HAND", ModConfig.LeftHanded, "LEFT", "RIGHT"),
         Toggle("INTERACT", ModConfig.InteractWithHand, "HAND HOVER", "LOOK AT IT"),
         Toggle("MELEE", ModConfig.PhysicalMelee, "SWING YOUR ARM", "BUTTON ONLY"),
         Toggle("GUN AIM", ModConfig.AimGunsWithHand, "HAND", "HEAD"),
         MotionControls(),
+        Toggle("GRAVITY PULL", ModConfig.GravityPull, "ON", "OFF"),
+        WheelAndInventory(),
         Choice("HEIGHT ADJUST", ModConfig.HeightOffset, Range(-0.6f, 0.6f, 0.05f), v => Mathf.Abs(v) < 0.001f ? "NONE" : v > 0 ? $"UP {v * 100:0} CM" : $"DOWN {-v * 100:0} CM"),
         Toggle("LASER POINTER", ModConfig.LaserPointer, "ON", "OFF"),
-        Category("HENRY"),
-        Pick("BODY", ModConfig.BodyMode, new[] { "Full", "Arms", "Hands", "None" }, new[] { "FULL BODY", "ARMS & HANDS", "HANDS ONLY", "NONE" }),
-        Pick("STYLE", ModConfig.BodyStyle, new[] { "Lifelike", "Toon" }, new[] { "LIFELIKE", "TOON" }),
-        Toggle("INK ON HENRY", ModConfig.InkOnHands, "ON", "OFF"),
         Category("GRAPHICS"),
         Choice("RENDER SCALE", ModConfig.RenderScale, Range(0.6f, 1.5f, 0.1f), v => $"{v * 100:0}%"),
         Toggle("AUTO RESOLUTION", ModConfig.DynamicResolution, "ON", "OFF"),
         Toggle("HALF-RES AMBIENT OCCLUSION", ModConfig.VRAODownsample, "ON", "OFF"),
         Toggle("LIGHT BEAMS", ModConfig.VolumetricLightVR, "ON", "OFF"),
     };
+
+    /// <summary>The weapon wheel (hold the right stick) and the inventory card (Y) in one row: both, either, or neither.</summary>
+    private static Row WheelAndInventory()
+    {
+        var labels = new[] { "BOTH", "WHEEL ONLY", "INVENTORY ONLY", "OFF" };
+        int Current() => ModConfig.WeaponWheel.Value ? (ModConfig.InventoryButton.Value ? 0 : 1) : (ModConfig.InventoryButton.Value ? 2 : 3);
+        return new Row
+        {
+            Label = "WHEEL & INVENTORY",
+            Value = () => labels[Current()],
+            Step = dir =>
+            {
+                var i = (Current() + dir + labels.Length) % labels.Length;
+                ModConfig.WeaponWheel.Value = i <= 1;
+                ModConfig.InventoryButton.Value = i == 0 || i == 2;
+            }
+        };
+    }
 
     /// <summary>AUTO (sized to your height) or a fixed world size.</summary>
     private static Row WorldSize() => new()
@@ -223,20 +245,25 @@ public static class VRSettingsMenu
 
         var nav = root.transform.Find("Navigation");
         for (var i = nav.childCount - 1; i >= 0; i--) Object.DestroyImmediate(nav.GetChild(i).gameObject);
+        // The list outgrew one column: CONTROLS onwards goes in a second one (the stick still runs down the first, then the second).
+        var nav2 = Object.Instantiate(nav.gameObject, nav.parent).transform;
+        nav2.name = "InkVR_Navigation2";
+        var column = nav;
 
         foreach (var row in Definition())
         {
             if (row.Value == null)
             {
-                var cat = Object.Instantiate(ctrl.m_MenuItemCategoryPrefab, nav);
+                if (row.Label == SecondColumn) column = nav2;
+                var cat = Object.Instantiate(ctrl.m_MenuItemCategoryPrefab, column);
                 cat.gameObject.SetActive(true);
-                cat.Init(nav, row.Label);
+                cat.Init(column, row.Label);
                 SetText(cat.transform.Find("CategoryLbl"), row.Label);
                 continue;
             }
 
             // The game's option row, set up by InkVR (MenuItemOption.Init expects localisation keys).
-            var item = Object.Instantiate(ctrl.m_MenuItemOptionPrefab, nav);
+            var item = Object.Instantiate(ctrl.m_MenuItemOptionPrefab, column);
             item.gameObject.SetActive(true);
             item.enabled = false;
             row.Item = item;
@@ -258,10 +285,31 @@ public static class VRSettingsMenu
             page.Rows.Add(row);
         }
 
-        // A few more rows than the game's own pages: tighten the list so it clears the credit.
-        nav.localScale = new Vector3(0.72f, 0.72f, 1f);
-        var navRt = nav.GetComponent<RectTransform>();
-        if (navRt != null) navRt.anchoredPosition += new Vector2(0, 30f);
+        // Two columns side by side, right of the page title, both hung from the same top line and clear of the credit.
+        foreach (var (col, x) in new[] { (nav, -137f), (nav2, 568f) })
+        {
+            col.localScale = new Vector3(0.92f, 0.92f, 1f);
+            var rt = col.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.sizeDelta = new Vector2(620f, 800f);
+                rt.anchoredPosition = new Vector2(x, 22f);
+            }
+
+            var group = col.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
+            if (group != null)
+            {
+                group.childAlignment = TextAnchor.UpperCenter;
+                group.spacing += 4f; // a little air under each heading
+            }
+        }
+
+        // the game's ring of brush strokes frames a single list; with two it would cut through them
+        var images = root.transform.Find("Images");
+        if (images != null)
+            for (var i = 0; i < images.childCount; i++)
+                if (images.GetChild(i) != title)
+                    images.GetChild(i).gameObject.SetActive(false);
         AddCredit(root.transform, title);
         root.SetActive(false);
     }

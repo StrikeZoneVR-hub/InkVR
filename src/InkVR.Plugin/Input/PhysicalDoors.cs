@@ -807,7 +807,7 @@ public static class PhysicalDoors
         var p = frame.origin + along * (u * d.Width) + Vector3.up * (mid + h * k) + normal * (off * k + d.Thick * 0.5f);
         // the grip sits a few centimetres behind the palm
         var grip = p + normal * (0.05f * k);
-        var local = VRRig.ActiveOrigin.InverseTransformPoint(grip) - Vector3.up * ModConfig.HeightOffset.Value;
+        var local = VRRig.ActiveOrigin.InverseTransformPoint(grip) - Vector3.up * VRRig.HeightLift;
         Dev.DevRecorder.HandGoTo(local, seconds);
         return $"hand to {d.Root.name} u={u} h={h} off={off} (tracking {local})";
     }

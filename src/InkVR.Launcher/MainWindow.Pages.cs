@@ -198,6 +198,9 @@ namespace InkVR.Launcher
             var snap = _cfg == null || _cfg.GetBool("Comfort", "SnapTurn", true);
             var angle = _cfg?.GetFloat("Comfort", "SnapTurnAngle", 45) ?? 45;
             var turn = snap ? $"SNAP TURN {angle:0}°" : "SMOOTH TURN";
+            var wheel = _cfg == null || _cfg.GetBool("Controls", "WeaponWheel", true);
+            var inventory = _cfg == null || _cfg.GetBool("Controls", "InventoryButton", true);
+            var pull = _cfg == null || _cfg.GetBool("Controls", "GravityPull", true);
 
             // Sheet coordinates. Controllers sit side by side; labels hang off their outer sides.
             const double lx = 430, rx = 930, cy = 165;
@@ -211,9 +214,12 @@ namespace InkVR.Launcher
                 switch (part)
                 {
                     case QuestPart.Trigger: return dominant ? ("WEAPON", "OR SWING YOUR ARM TO HIT") : ("RUN", null);
-                    case QuestPart.Stick: return dominant ? (turn, snap ? "OR SMOOTH TURN IN OPTIONS" : "OR SNAP TURN IN OPTIONS") : ("MOVE", "CLICK IT TO RUN");
+                    case QuestPart.Stick:
+                        return dominant
+                            ? (turn, wheel ? "HOLD IT IN: WEAPON WHEEL" : snap ? "OR SMOOTH TURN IN OPTIONS" : "OR SNAP TURN IN OPTIONS")
+                            : ("MOVE", "CLICK IT TO RUN");
                     case QuestPart.Primary: return dominant ? ("JUMP", null) : ("INTERACT", null);
-                    case QuestPart.Secondary: return dominant ? ("BACK", "IN MENUS") : (null, null);
+                    case QuestPart.Secondary: return dominant ? ("BACK", "IN MENUS") : inventory ? ("INVENTORY", "HOLD IT") : (null, null);
                     case QuestPart.Menu: return ("PAUSE", null);
                     case QuestPart.Grip: return ("GRAB / USE", "EITHER HAND");
                     default: return (null, null);
@@ -299,10 +305,11 @@ namespace InkVR.Launcher
                 "SWING THE AXE TO HIT. HOLD THE TRIGGER, SWING AND LET GO TO THROW. GUNS FIRE WHERE YOUR HAND POINTS (GRIP THE FRONT TOO FOR TWO HANDS).",
                 "GRIP A VALVE AND TURN IT, A LEVER AND PULL IT, SOUP AND BRING IT TO YOUR MOUTH. REACH OVER YOUR SHOULDER AND GRIP TO HOLSTER.",
                 "PUSH DOORS OPEN WITH YOUR HAND, OR GRIP AND PULL THEM. PRESS BUTTONS, TAPE RECORDERS AND KEYS WITH A FINGER. GRIP ITEMS TO PICK THEM UP.",
+                (pull ? "OUT OF REACH? POINT, GRIP AND FLICK BACK TO PULL IT TO YOU. " : "") + "SITTING DOWN? PLAY: SEATED IN OPTIONS.",
             });
             var memo = Look.MemoText(notes, 26, Paint.Ink, 1180, 0.9);
             memo.TextAlignment = TextAlignment.Center;
-            sheet.Children.Add(memo.At((SheetW - 1180) / 2, 760));
+            sheet.Children.Add(memo.At((SheetW - 1180) / 2, 735));
         }
 
         // ------------------------------------------------------------------ VR CHECK
@@ -438,7 +445,7 @@ namespace InkVR.Launcher
         {
             var cfg = _cfg;
             var y = 180.0;
-            const double rowH = 49;
+            const double rowH = 44;
             var col = 0;
 
             void Header(string text, int c, double hy = 160)
@@ -515,9 +522,18 @@ namespace InkVR.Launcher
                 }, has);
             Row("MAIN HAND", new[] { "RIGHT", "LEFT" }, has && cfg.GetBool("Controls", "LeftHanded", false) ? 1 : 0, i => cfg.Set("Controls", "LeftHanded", i == 1), has);
             Row("INTERACT", new[] { "HAND HOVER", "LOOK AT IT" }, has && !cfg.GetBool("Controls", "InteractWithHand", true) ? 1 : 0, i => cfg.Set("Controls", "InteractWithHand", i == 0), has);
+            Row("GRAVITY PULL", new[] { "ON", "OFF" }, has && !cfg.GetBool("Controls", "GravityPull", true) ? 1 : 0, i => cfg.Set("Controls", "GravityPull", i == 0), has);
+            var wheel = !has || cfg.GetBool("Controls", "WeaponWheel", true);
+            var inventory = !has || cfg.GetBool("Controls", "InventoryButton", true);
+            Row("WHEEL & INVENTORY", new[] { "BOTH", "WHEEL ONLY", "INVENTORY ONLY", "OFF" }, wheel ? (inventory ? 0 : 1) : (inventory ? 2 : 3), i =>
+            {
+                cfg.Set("Controls", "WeaponWheel", i <= 1);
+                cfg.Set("Controls", "InventoryButton", i == 0 || i == 2);
+            }, has);
             var heights = Enumerable.Range(-12, 25).Select(k => k * 0.05f).ToArray();
             Row("HEIGHT", heights.Select(h => h == 0 ? "AS TRACKED" : (h > 0 ? "UP " : "DOWN ") + Math.Abs(Math.Round(h * 100)) + " CM").ToArray(),
                 Nearest(heights, cfg?.GetFloat("VR", "HeightOffset", 0) ?? 0), i => cfg.Set("VR", "HeightOffset", heights[i]), has);
+            Row("PLAY", new[] { "STANDING", "SEATED" }, has && cfg.GetBool("Comfort", "SeatedMode", false) ? 1 : 0, i => cfg.Set("Comfort", "SeatedMode", i == 1), has);
             var scales = new[] { 0.7f, 0.8f, 0.9f, 1.0f, 1.1f, 1.2f, 1.3f, 1.4f };
             Row("RENDER SCALE", scales.Select(s => Math.Round(s * 100) + "%").ToArray(), Nearest(scales, cfg?.GetFloat("Graphics", "RenderScale", 1) ?? 1), i => cfg.Set("Graphics", "RenderScale", scales[i]), has);
             Row("AUTO RESOLUTION", new[] { "ON", "OFF" }, has && !cfg.GetBool("Graphics", "DynamicResolution", true) ? 1 : 0, i => cfg.Set("Graphics", "DynamicResolution", i == 0), has);

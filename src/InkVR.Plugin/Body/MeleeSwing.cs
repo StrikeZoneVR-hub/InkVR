@@ -61,7 +61,7 @@ public static class MeleeSwing
         var headTracking = origin.InverseTransformPoint(head); // metres: the origin carries the world scale
         var c = ControllerBindings.Dom;
         if (c.PoseValid)
-            HeadInAim = Quaternion.Inverse(c.AimRotation) * (headTracking - Vector3.up * ModConfig.HeightOffset.Value - c.AimPosition);
+            HeadInAim = Quaternion.Inverse(c.AimRotation) * (headTracking - Vector3.up * VRRig.HeightLift - c.AimPosition);
 
         var dt = Time.unscaledDeltaTime;
         if (!_havePrev || dt < 1e-4f)
@@ -332,7 +332,7 @@ public static class MeleeSwing
     {
         if (!_devTarget.HasValue || !HeadInAim.HasValue || VRRig.ActiveOrigin == null) return;
         var origin = VRRig.ActiveOrigin;
-        var target = origin.InverseTransformPoint(_devTarget.Value) - Vector3.up * ModConfig.HeightOffset.Value;
+        var target = origin.InverseTransformPoint(_devTarget.Value) - Vector3.up * VRRig.HeightLift;
         var eye = VRRig.HeadLocalPosition;
         var flat = Vector3.ProjectOnPlane(target - eye, Vector3.up);
         var rot = Quaternion.LookRotation(flat.sqrMagnitude > 1e-4f ? flat.normalized : Vector3.forward);

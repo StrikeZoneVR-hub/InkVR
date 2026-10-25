@@ -984,6 +984,9 @@ public static class InkPool
     /// <summary>The game's own ink splash sounds, if this chapter has any loaded.</summary>
     public static string[] ClipNames = { "ink_splash", "barrel_ink_splash", "ink_moves", "Ink_Squirt", "INK_DEEP", "ink_deep", "Ink_Step", "ink_step" };
 
+    /// <summary>One of the game's ink sounds at a point (gravity pull's ink, too).</summary>
+    internal static void InkSound(Vector3 at, float loud) => SplashSound(at, loud);
+
     private static void SplashSound(Vector3 at, float loud)
     {
         if (InkClock.Now < _nextSound) return;

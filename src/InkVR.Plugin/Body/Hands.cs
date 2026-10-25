@@ -126,7 +126,7 @@ public static class Hands
         {
             // Shoulder estimated from the head: down, out to the side, a little back; elbow hangs down/out.
             var side = hand == Hand.Left ? -1f : 1f;
-            var headPos = VRRig.HeadLocalPosition - Vector3.up * ModConfig.HeightOffset.Value;
+            var headPos = VRRig.HeadLocalPosition - Vector3.up * VRRig.HeightLift;
             var fwd = VRRig.HeadLocalRotation * Vector3.forward;
             var yaw = Quaternion.Euler(0, Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg, 0);
             var shoulder = headPos + yaw * new Vector3(0.17f * side, -0.24f, -0.07f);
@@ -250,7 +250,7 @@ public static class Hands
         _ => HenryTextures.Flat(Color.magenta, "InkVR_Missing_" + key)
     };
 
-    private static readonly string[] HandKeys = { "finger", "tip", "palm", "forearm", "sleeve", "sleeveRolled", "strap", "dial", "gold", "ink" };
+    private static readonly string[] HandKeys = { "finger", "tip", "palm", "forearm", "sleeve", "sleeveRolled", "strap", "dial", "gold", "ink", "glove", "glovePalm", "gloveCuff", "toonForearm" };
 
     private static void SetMaterial(string key, Texture2D tex)
     {
@@ -274,6 +274,10 @@ public static class Hands
         Set("tip", HenryTextures.Finger(true, ink, 12));
         Set("palm", HenryTextures.Palm(ink, 13));
         Set("forearm", HenryTextures.Forearm(ink, 14));
+        Set("glove", HenryTextures.GloveFinger(ink, 21));
+        Set("glovePalm", HenryTextures.GlovePalm(ink, 22));
+        Set("gloveCuff", HenryTextures.GloveCuff(23));
+        Set("toonForearm", HenryTextures.CartoonForearm(ink, 24));
         Set("sleeve", HenryTextures.Sleeve(false, 15));
         Set("sleeveRolled", HenryTextures.Sleeve(true, 16));
         Set("strap", HenryTextures.Strap(17));

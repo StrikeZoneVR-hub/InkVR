@@ -15,7 +15,7 @@ public static class BodyTextures
     public static readonly Color ToonShirt = new(0.94f, 0.87f, 0.66f);
     public static readonly Color ToonTrousers = new(0.47f, 0.32f, 0.2f);
     public static readonly Color ToonBraces = new(0.5f, 0.15f, 0.09f);
-    public static readonly Color ToonShoe = new(0.2f, 0.12f, 0.075f);
+    public static readonly Color ToonShoe = new(0.1f, 0.075f, 0.06f); // glossy cartoon black
     public static readonly Color StudioShirt = new(0.93f, 0.87f, 0.72f);
     public static readonly Color StudioVest = new(0.3f, 0.21f, 0.14f);
     public static readonly Color StudioTrousers = new(0.36f, 0.32f, 0.27f);
@@ -44,6 +44,22 @@ public static class BodyTextures
         }
     }
 
+    /// <summary>Cartoon two-tone: flat colour across the front, one hard step of shadow round the back, as the cartoons paint it.</summary>
+    private static void CelShade(InkCanvas c, float strength)
+    {
+        for (var x = 0; x < c.W; x++)
+        {
+            var u = (float)x / c.W;
+            var front = Mathf.Cos((u - 0.25f) * Mathf.PI * 2) * 0.5f + 0.5f;
+            var k = front > 0.36f ? 1f : front > 0.3f ? 1f - strength * 0.5f : 1f - strength;
+            for (var y = 0; y < c.H; y++)
+            {
+                var p = c.Px[y * c.W + x];
+                c.Px[y * c.W + x] = new Color(p.r * k, p.g * k, p.b * k, 1);
+            }
+        }
+    }
+
     private static void Spatter(InkCanvas c, float inkLevel, float vMin, float vMax, int count, float size)
     {
         var n = Mathf.RoundToInt(count * inkLevel);
@@ -54,7 +70,8 @@ public static class BodyTextures
     public static Texture2D Shirt(bool studio, float inkLevel)
     {
         var c = new InkCanvas(512, 512, studio ? StudioShirt : ToonShirt, studio ? 201 : 101);
-        Shade(c, 0.28f);
+        if (studio) Shade(c, 0.28f);
+        else CelShade(c, 0.3f);
         var front = c.W * 0.25f;
         c.Stroke(front - 7, 0, front - 7, c.H * 0.97f, 1.6f, Ink, 0.4f, 0.85f);
         c.Stroke(front + 7, 0, front + 7, c.H * 0.97f, 1.6f, Ink, 0.4f, 0.85f);
@@ -77,22 +94,23 @@ public static class BodyTextures
             c.Stroke(x0 + 14, y1 - 30, x0 + 18, y1 + 26, 1f, Ink, 0.1f, 0.6f);
         }
 
-        // Creases: gathered at the waist, folds under the arms.
-        for (var i = 0; i < 18; i++)
+        // Creases: gathered at the waist, folds under the arms. The cartoon gets a few bold, inked ones.
+        for (var i = 0; i < (studio ? 18 : 9); i++)
         {
             var u = c.Rand(0, c.W);
-            c.Stroke(u, c.Rand(4, 30), u + c.Rand(-20, 20), c.Rand(50, 110), c.Rand(1.0f, 1.6f), Ink, 1f, 0.6f);
+            c.Stroke(u, c.Rand(4, 30), u + c.Rand(-20, 20), c.Rand(50, 110), studio ? c.Rand(1.0f, 1.6f) : c.Rand(2.4f, 3.4f), Ink, studio ? 1f : 0.5f, studio ? 0.6f : 0.85f);
         }
 
         foreach (var side in new[] { 0f, 0.5f })
-            for (var i = 0; i < 5; i++)
+            for (var i = 0; i < (studio ? 5 : 3); i++)
             {
                 var u = c.W * side + c.Rand(-25, 25);
                 var y = c.H * c.Rand(0.72f, 0.9f);
-                c.Stroke(u, y, u + c.Rand(-35, 35), y - c.Rand(30, 60), 1.3f, Ink, 0.8f, 0.6f);
+                c.Stroke(u, y, u + c.Rand(-35, 35), y - c.Rand(30, 60), studio ? 1.3f : 2.8f, Ink, studio ? 0.8f : 0.5f, studio ? 0.6f : 0.85f);
             }
 
-        c.Hatch(c.W * 0.6f, 0, c.W * 0.3f, c.H, 70, 8, 0.8f, Ink, 0.18f);
+        if (studio) c.Hatch(c.W * 0.6f, 0, c.W * 0.3f, c.H, 70, 8, 0.8f, Ink, 0.18f);
+        else c.Hatch(c.W * 0.6f, 0, c.W * 0.3f, c.H, 70, 14, 2.2f, Ink, 0.3f);
         Spatter(c, inkLevel, 0.0f, 0.5f, 5, 7f);
         return Done(c, studio ? "InkVR_StudioShirt" : "InkVR_ToonShirt");
     }
@@ -150,7 +168,8 @@ public static class BodyTextures
     public static Texture2D Trousers(bool studio, float inkLevel)
     {
         var c = new InkCanvas(512, 512, studio ? StudioTrousers : ToonTrousers, studio ? 202 : 102);
-        Shade(c, 0.32f);
+        if (studio) Shade(c, 0.32f);
+        else CelShade(c, 0.34f);
         if (studio)
             for (var x = 0; x < c.W; x += 22)
                 c.Stroke(x, 0, x, c.H, 0.8f, new Color(0.75f, 0.7f, 0.62f), 0.1f, 0.25f);
@@ -161,12 +180,12 @@ public static class BodyTextures
             c.Stroke(c.W * u + 3, 0, c.W * u + 3, c.H * 0.92f, 1.2f, new Color(1, 1, 1, 1), 0.5f, 0.15f);
         }
 
-        foreach (var u in new[] { 0f, 0.5f }) c.Stroke(c.W * u, 0, c.W * u, c.H, 1.6f, Ink, 0.4f, 0.8f);
-        for (var i = 0; i < 10; i++)
+        foreach (var u in new[] { 0f, 0.5f }) c.Stroke(c.W * u, 0, c.W * u, c.H, studio ? 1.6f : 2.6f, Ink, 0.4f, 0.8f);
+        for (var i = 0; i < (studio ? 10 : 5); i++)
         {
             var u = c.W * c.Rand(0.12f, 0.38f);
             var v = c.H * c.Rand(0.4f, 0.56f);
-            c.Stroke(u, v, u + c.Rand(18, 40), v + c.Rand(-8, 8), 1.3f, Ink, 0.8f, 0.6f);
+            c.Stroke(u, v, u + c.Rand(18, 40), v + c.Rand(-8, 8), studio ? 1.3f : 2.8f, Ink, studio ? 0.8f : 0.5f, studio ? 0.6f : 0.85f);
         }
 
         // Turned-up cuff at the ankle (v = 1).
@@ -181,7 +200,8 @@ public static class BodyTextures
     public static Texture2D Hips(bool studio)
     {
         var c = new InkCanvas(512, 256, studio ? StudioTrousers : ToonTrousers, studio ? 203 : 103);
-        Shade(c, 0.32f);
+        if (studio) Shade(c, 0.32f);
+        else CelShade(c, 0.34f);
         if (studio)
             for (var x = 0; x < c.W; x += 22)
                 c.Stroke(x, 0, x, c.H, 0.8f, new Color(0.75f, 0.7f, 0.62f), 0.1f, 0.25f);
@@ -209,15 +229,22 @@ public static class BodyTextures
         var front = c.W * 0.25f;
         c.Stroke(0, c.H * 0.24f, c.W, c.H * 0.24f, 2.4f, Ink, 0.3f);
         c.Stroke(0, c.H * 0.3f, c.W, c.H * 0.3f, 1.0f, new Color(0.6f, 0.45f, 0.3f), 0.3f, 0.7f);
-        c.Stroke(front - 30, c.H * 0.5f, front + 30, c.H * 0.5f, 1.6f, Ink, 1.2f, 0.8f);
-        for (var k = 0; k < (studio ? 6 : 3); k++)
+        if (studio) c.Stroke(front - 30, c.H * 0.5f, front + 30, c.H * 0.5f, 1.6f, Ink, 1.2f, 0.8f);
+        for (var k = 0; k < (studio ? 6 : 0); k++) // laces on the boots; the cartoon shoes are plain and glossy
         {
             var v = c.H * (0.6f + k * (studio ? 0.06f : 0.1f));
             c.Stroke(front - 12, v, front + 12, v + 6, 1.8f, new Color(0.85f, 0.75f, 0.55f), 0.2f);
             c.Stroke(front + 12, v, front - 12, v + 6, 1.8f, new Color(0.85f, 0.75f, 0.55f), 0.2f);
         }
 
-        c.Stroke(c.W * 0.15f, c.H * 0.7f, c.W * 0.2f, c.H * 0.85f, 3f, new Color(0.9f, 0.82f, 0.7f), 0.3f, 0.5f);
+        if (studio) c.Stroke(c.W * 0.15f, c.H * 0.7f, c.W * 0.2f, c.H * 0.85f, 3f, new Color(0.9f, 0.82f, 0.7f), 0.3f, 0.5f);
+        else
+        {
+            // the cartoon shine: a fat white bean on the toe and a fleck beside it
+            c.Stroke(c.W * 0.16f, c.H * 0.66f, c.W * 0.21f, c.H * 0.84f, 9f, new Color(0.97f, 0.95f, 0.9f), 0.2f);
+            c.Dot(c.W * 0.235f, c.H * 0.9f, 3.4f, new Color(0.97f, 0.95f, 0.9f));
+        }
+
         Spatter(c, inkLevel, 0.25f, 0.8f, 5, 5f);
         return Done(c, studio ? "InkVR_StudioBoot" : "InkVR_ToonShoe", 0.06f);
     }

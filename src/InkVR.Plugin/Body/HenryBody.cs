@@ -124,31 +124,31 @@ public sealed class HenryBody
     {
         // Shirt over a rounded barrel of a chest, closing in at the collar.
         Add(Tube(new[] { new Vector3(0, 0.97f, 0), new Vector3(0, 1.05f, 0.006f), new Vector3(0, 1.15f, 0.012f), new Vector3(0, 1.25f, 0.012f), new Vector3(0, 1.34f, 0.004f), new Vector3(0, 1.4f, -0.012f), new Vector3(0, 1.445f, -0.022f), new Vector3(0, 1.47f, -0.026f) },
-            new[] { 0.176f, 0.174f, 0.18f, 0.195f, 0.205f, 0.19f, 0.14f, 0.075f }, Vector3.forward, 30, false, false, new Vector2(1f, 0.68f)), "toonShirt", 0.005f, TorsoBones);
+            new[] { 0.176f, 0.174f, 0.18f, 0.195f, 0.205f, 0.19f, 0.14f, 0.075f }, Vector3.forward, 30, false, false, new Vector2(1f, 0.68f)), "toonShirt", 0.0088f, TorsoBones);
         foreach (var s in new[] { -1f, 1f })
-            Add(Blob(new Vector3(0.185f * s, 1.405f, -0.02f), new Vector3(0.075f, 0.07f, 0.075f)), "toonShirt", 0.004f, B.Chest);
-        Collar("toonShirt", 0.078f);
+            Add(Blob(new Vector3(0.185f * s, 1.405f, -0.02f), new Vector3(0.075f, 0.07f, 0.075f)), "toonShirt", 0.007f, B.Chest);
+        Collar("toonShirt", 0.078f, 1.75f);
 
         // Trousers: a sturdy seat, a belt with a brass buckle, chunky legs with turned-up cuffs.
         Add(Tube(new[] { new Vector3(0, 0.84f, 0), new Vector3(0, 0.92f, 0.003f), new Vector3(0, 1.0f, 0.006f) }, new[] { 0.17f, 0.182f, 0.18f }, Vector3.forward, 28, true, false, new Vector2(1f, 0.74f)),
-            "toonHips", 0.005f, B.Pelvis);
-        Add(Tube(new[] { new Vector3(0, 0.985f, 0.006f), new Vector3(0, 1.03f, 0.007f) }, new[] { 0.186f, 0.186f }, Vector3.forward, 28, false, false, new Vector2(1f, 0.73f)), "belt", 0.003f, B.Pelvis);
-        Add(Blob(new Vector3(0, 1.008f, 0.139f), new Vector3(0.038f, 0.029f, 0.012f), 12, 6), "gold", 0.002f, B.Pelvis);
+            "toonHips", 0.0088f, B.Pelvis);
+        Add(Tube(new[] { new Vector3(0, 0.985f, 0.006f), new Vector3(0, 1.03f, 0.007f) }, new[] { 0.186f, 0.186f }, Vector3.forward, 28, false, false, new Vector2(1f, 0.73f)), "belt", 0.0053f, B.Pelvis);
+        Add(Blob(new Vector3(0, 1.008f, 0.139f), new Vector3(0.038f, 0.029f, 0.012f), 12, 6), "gold", 0.0035f, B.Pelvis);
         foreach (var s in new[] { -1f, 1f })
         {
             Add(Tube(new[]
                 {
                     new Vector3(0.095f * s, 0.98f, 0), new Vector3(0.095f * s, 0.86f, 0.006f), new Vector3(0.095f * s, 0.7f, 0.012f), new Vector3(0.095f * s, 0.52f, 0.018f),
                     new Vector3(0.096f * s, 0.36f, 0.012f), new Vector3(0.098f * s, 0.22f, 0), new Vector3(0.1f * s, 0.14f, -0.006f), new Vector3(0.1f * s, 0.11f, -0.008f)
-                }, new[] { 0.125f, 0.12f, 0.108f, 0.097f, 0.091f, 0.088f, 0.094f, 0.094f }, Vector3.forward, 22, true, true), "toonTrousers", 0.005f,
+                }, new[] { 0.125f, 0.12f, 0.108f, 0.097f, 0.091f, 0.088f, 0.094f, 0.094f }, Vector3.forward, 22, true, true), "toonTrousers", 0.0088f,
                 s < 0 ? new[] { B.LThigh, B.LShin } : new[] { B.RThigh, B.RShin });
 
             // Big round cartoon shoes, like the ones in his cartoons.
             var a = Ankle(s);
             var foot = s < 0 ? B.LFoot : B.RFoot;
-            Add(Blob(a + new Vector3(0, -0.02f, 0.05f), new Vector3(0.082f, 0.07f, 0.17f)), "toonShoe", 0.0045f, foot);
-            Add(Blob(a + new Vector3(0, -0.015f, 0.17f), new Vector3(0.097f, 0.08f, 0.097f)), "toonShoe", 0.0045f, foot);
-            Add(Blob(a + new Vector3(0, -0.07f, 0.065f), new Vector3(0.092f, 0.018f, 0.2f), 18, 6), "belt", 0.003f, foot);
+            Add(Blob(a + new Vector3(0, -0.02f, 0.05f), new Vector3(0.082f, 0.07f, 0.17f)), "toonShoe", 0.0079f, foot);
+            Add(Blob(a + new Vector3(0, -0.015f, 0.17f), new Vector3(0.097f, 0.08f, 0.097f)), "toonShoe", 0.0079f, foot);
+            Add(Blob(a + new Vector3(0, -0.07f, 0.065f), new Vector3(0.092f, 0.018f, 0.2f), 18, 6), "belt", 0.0053f, foot);
 
             // Red braces over the shoulders, clipped to the waistband.
             var x = s;
@@ -157,8 +157,8 @@ public sealed class HenryBody
                     new Vector3(0.075f * x, 1.03f, 0.137f), new Vector3(0.08f * x, 1.15f, 0.138f), new Vector3(0.086f * x, 1.27f, 0.146f), new Vector3(0.092f * x, 1.37f, 0.136f),
                     new Vector3(0.095f * x, 1.474f, 0.01f), new Vector3(0.09f * x, 1.41f, -0.128f), new Vector3(0.075f * x, 1.27f, -0.142f), new Vector3(0.06f * x, 1.12f, -0.136f), new Vector3(0.055f * x, 1.03f, -0.135f)
                 }, new[] { 0.013f, 0.013f, 0.013f, 0.013f, 0.013f, 0.013f, 0.013f, 0.013f, 0.013f }, Vector3.right, 8, false, false, new Vector2(0.45f, 1.9f)),
-                "braces", 0.002f, TorsoBones);
-            Add(Blob(new Vector3(0.075f * x, 1.045f, 0.142f), new Vector3(0.022f, 0.016f, 0.008f), 10, 6), "gold", 0.0015f, B.Pelvis, B.Spine);
+                "braces", 0.0035f, TorsoBones);
+            Add(Blob(new Vector3(0.075f * x, 1.045f, 0.142f), new Vector3(0.022f, 0.016f, 0.008f), 10, 6), "gold", 0.0026f, B.Pelvis, B.Spine);
         }
     }
 
@@ -201,11 +201,11 @@ public sealed class HenryBody
         }
     }
 
-    private void Collar(string material, float radius)
+    private void Collar(string material, float radius, float ink = 1f)
     {
-        Add(Tube(new[] { new Vector3(0, 1.44f, -0.022f), new Vector3(0, 1.5f, -0.027f) }, new[] { radius, radius * 0.93f }, Vector3.forward, 24, false, false, new Vector2(1f, 0.92f)), material, 0.003f, B.Chest, B.Neck);
+        Add(Tube(new[] { new Vector3(0, 1.44f, -0.022f), new Vector3(0, 1.5f, -0.027f) }, new[] { radius, radius * 0.93f }, Vector3.forward, 24, false, false, new Vector2(1f, 0.92f)), material, 0.003f * ink, B.Chest, B.Neck);
         foreach (var s in new[] { -1f, 1f })
-            Add(Blob(new Vector3(0.036f * s, 1.452f, 0.042f), new Vector3(0.034f, 0.011f, 0.03f), 12, 6), material, 0.002f, B.Chest, B.Neck);
+            Add(Blob(new Vector3(0.036f * s, 1.452f, 0.042f), new Vector3(0.034f, 0.011f, 0.03f), 12, 6), material, 0.002f * ink, B.Chest, B.Neck);
     }
 
     // =====================================================================================================

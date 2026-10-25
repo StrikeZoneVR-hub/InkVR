@@ -64,7 +64,7 @@ public static class VRRig
     {
         get
         {
-            var h = _measuredHeight > 0 ? _measuredHeight : ModConfig.MeasuredEyeHeight.Value;
+            var h = ModConfig.SeatedMode.Value ? SeatedTargetEye : _measuredHeight > 0 ? _measuredHeight : ModConfig.MeasuredEyeHeight.Value;
             return h > 0.8f ? Mathf.Clamp(_henryEye / h, MinAutoScale, MaxAutoScale) : -1f;
         }
     }
@@ -74,7 +74,23 @@ public static class VRRig
 
     /// <summary>Your standing eye height in metres (measured, else last saved, else average), plus HEIGHT ADJUST.</summary>
     public static float StandingEyeHeight =>
-        (_measuredHeight > 0 ? _measuredHeight : ModConfig.MeasuredEyeHeight.Value > 0.8f ? ModConfig.MeasuredEyeHeight.Value : 1.62f) + ModConfig.HeightOffset.Value;
+        (ModConfig.SeatedMode.Value ? SeatedTargetEye : _measuredHeight > 0 ? _measuredHeight : ModConfig.MeasuredEyeHeight.Value > 0.8f ? ModConfig.MeasuredEyeHeight.Value : 1.62f)
+        + ModConfig.HeightOffset.Value;
+
+    /// <summary>
+    /// Metres added to your tracked height: HEIGHT ADJUST, plus in SEATED mode the lift from your seated eye height
+    /// up to standing height. Everything that turns tracking into the game world goes through this.
+    /// </summary>
+    public static float HeightLift => ModConfig.HeightOffset.Value + SeatedLift;
+
+    /// <summary>SEATED mode: how far your view is lifted (0 when standing).</summary>
+    public static float SeatedLift { get; private set; }
+
+    /// <summary>SEATED mode lifts you to this standing eye height: yours as last measured standing, unless that looks like it was measured sitting down.</summary>
+    public static float SeatedTargetEye => ModConfig.MeasuredEyeHeight.Value >= 1.35f ? ModConfig.MeasuredEyeHeight.Value : 1.62f;
+
+    private static readonly System.Collections.Generic.List<float> SeatedHeights = new();
+    private static bool _seatedSet, _seatedEasing;
     private static readonly System.Collections.Generic.List<float> Heights = new();
     private static float _nextHeightSample, _lastHeightSave;
 
@@ -157,7 +173,10 @@ public static class VRRig
         Hands.Update();
         if (InGame && !_cinemaActive) MeleeSwing.Update();
         WeaponHandling.Update();
+        UI.WeaponWheel.Update();
+        UI.InventoryCard.Update();
         Input.PhysicalInteract.Update();
+        Input.GravityPull.Update();
         Input.PhysicalDoors.Update();
         Input.PhysicalTouch.Update();
         InkWorld.Update();
@@ -174,7 +193,7 @@ public static class VRRig
         if (DevPendingTouch.HasValue && InGame && !_cinemaActive)
         {
             // Grip pose so the palm/fingers reach the point: grip half a hand-length back from it.
-            var local = _origin.InverseTransformPoint(DevPendingTouch.Value) - Vector3.up * ModConfig.HeightOffset.Value;
+            var local = _origin.InverseTransformPoint(DevPendingTouch.Value) - Vector3.up * HeightLift;
             var head = HeadLocalPosition;
             var dir = (local - head).normalized;
             Body.Hands.DevRight = (local - dir * 0.06f, Quaternion.LookRotation(Vector3.ProjectOnPlane(dir, Vector3.up).sqrMagnitude > 1e-4f ? Vector3.ProjectOnPlane(dir, Vector3.up) : Vector3.forward) * Quaternion.Euler(60, 0, 0));
@@ -250,7 +269,7 @@ public static class VRRig
     // ---------------- tracking ----------------
 
     public static Vector3 HeadLocalPosition =>
-        (DevHeadOverride?.pos ?? InputTracking.GetLocalPosition(XRNode.CenterEye)) + DevSway + Vector3.up * ModConfig.HeightOffset.Value;
+        (DevHeadOverride?.pos ?? InputTracking.GetLocalPosition(XRNode.CenterEye)) + DevSway + Vector3.up * HeightLift;
 
     /// <summary>Dev: simulate a real head's constant small movement (metres of sway; 0 = off).</summary>
     public static float DevSwayAmount;
@@ -335,7 +354,7 @@ public static class VRRig
     public static void TrackingToWorld(Vector3 localPos, Quaternion localRot, out Vector3 worldPos, out Quaternion worldRot)
     {
         var origin = ActiveOrigin;
-        localPos += Vector3.up * ModConfig.HeightOffset.Value;
+        localPos += Vector3.up * HeightLift;
         if (origin == null)
         {
             worldPos = localPos;
@@ -659,6 +678,22 @@ public static class VRRig
         _nextHeightSample = now + 0.1f;
         var y = (DevHeadOverride?.pos ?? InputTracking.GetLocalPosition(XRNode.CenterEye)).y;
         if (y < 0.3f || y > 2.5f) return;
+        if (ModConfig.SeatedMode.Value)
+        {
+            // Sitting: this isn't your standing height (it mustn't shrink the world); it sets the lift instead.
+            MeasureSeated(y);
+            return;
+        }
+
+        if (SeatedLift > 0 || _seatedSet)
+        {
+            SeatedLift = 0;
+            _seatedSet = false;
+            _seatedEasing = false;
+            SeatedHeights.Clear();
+            Plugin.L.LogInfo("Seated mode off: your view is your own height again");
+        }
+
         Heights.Add(y);
         if (Heights.Count > 120) Heights.RemoveAt(0);
         if (Heights.Count < 40) return;
@@ -674,6 +709,36 @@ public static class VRRig
             _lastHeightSave = now;
             ModConfig.MeasuredEyeHeight.Value = (float)System.Math.Round(h, 3);
             Plugin.L.LogInfo($"Height: your eyes are {h:F2} m up; Henry's are {_henryEye:F2} units, so AUTO makes the world {AutoScale:F2} units per metre ({2.95f / AutoScale:P0} world size)");
+        }
+    }
+
+    /// <summary>
+    /// SEATED mode: your seated eye height over the last 6 s (a high percentile, so leaning down to the floor doesn't
+    /// count), and the lift that takes it to standing height. Set at once the first time, then eased (30 cm/s) so
+    /// sitting up or slouching never jolts the view.
+    /// </summary>
+    private static void MeasureSeated(float y)
+    {
+        SeatedHeights.Add(y);
+        if (SeatedHeights.Count > 60) SeatedHeights.RemoveAt(0);
+        if (SeatedHeights.Count < 20) return;
+        var sorted = new System.Collections.Generic.List<float>(SeatedHeights);
+        sorted.Sort();
+        // the first time, the middle of two seconds of sitting; after that a high percentile, so leaning down doesn't count
+        var seated = sorted[(int)(sorted.Count * (_seatedSet ? 0.8f : 0.5f))];
+        var want = Mathf.Clamp(SeatedTargetEye - seated, 0f, 1.2f);
+        if (!_seatedSet)
+        {
+            _seatedSet = true;
+            SeatedLift = want;
+            Plugin.L.LogInfo($"Seated mode: your eyes are {seated:F2} m up sitting; lifted {want:F2} m to standing height {SeatedTargetEye:F2} m");
+        }
+        else if (_seatedEasing || Mathf.Abs(want - SeatedLift) > 0.05f)
+        {
+            // once it starts moving it goes all the way, rather than stopping 5 cm short
+            SeatedLift = Mathf.MoveTowards(SeatedLift, want, 0.03f);
+            _seatedEasing = Mathf.Abs(want - SeatedLift) > 0.005f;
+            if (!_seatedEasing) Plugin.L.LogInfo($"Seated mode: now {seated:F2} m up sitting; lift eased to {SeatedLift:F2} m");
         }
     }
 

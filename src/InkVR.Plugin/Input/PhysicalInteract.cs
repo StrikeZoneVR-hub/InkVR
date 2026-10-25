@@ -118,6 +118,9 @@ public static class PhysicalInteract
             }
         }
 
+        // pointing at something further off: take hold of its ink thread (gravity pull)
+        if (GravityPull.TryLock(hand)) return true;
+
         // a door: take hold of it and swing it yourself
         return PhysicalDoors.TryGrab(hand);
     }
@@ -195,7 +198,7 @@ public static class PhysicalInteract
 
     // ---------------- the gesture ----------------
 
-    private static void Begin(Kind kind, Hand hand, Interactable item, InteractableInputController ctrl)
+    private static void Begin(Kind kind, Hand hand, Interactable item, InteractableInputController ctrl, bool hiddenToo = false)
     {
         var grip = HandGrip(hand);
         var r = item.GetComponentInChildren<Renderer>();
@@ -225,7 +228,7 @@ public static class PhysicalInteract
         if (kind == Kind.Take)
         {
             // into your hand at once; the game takes it (its sound, its inventory) the same moment
-            CopyIntoHand(g, item.transform, false, grip.pos, grip.rot);
+            CopyIntoHand(g, item.transform, hiddenToo, grip.pos, grip.rot);
             var copy = g.Held;
             g.Held = null;
             Trophies.Add(new Trophy { Copy = copy, Hand = hand, Rot = g.HoldRot, Offset = g.HoldOffset, Original = item, CheckAt = Time.unscaledTime + 0.35f });
@@ -235,6 +238,26 @@ public static class PhysicalInteract
         }
         LastResult = $"{kind} {item.name}: started";
         Plugin.L.LogInfo($"Physical interaction: {kind} '{item.name}' with the {hand} hand");
+    }
+
+    /// <summary>
+    /// Gravity pull: an item has flown into your hand. It's taken just as if you'd gripped it there (a weapon is
+    /// equipped, a can of soup is in your hand to eat). Its own renderers may still be hidden from the flight.
+    /// </summary>
+    internal static bool CaughtFromPull(Kind kind, Hand hand, Interactable item)
+    {
+        if (_g != null || item == null) return false;
+        if (kind == Kind.Take || kind == Kind.Soup)
+        {
+            Begin(kind, hand, item, GameManager.Instance?.Player?.m_Interaction, hiddenToo: true);
+            return true;
+        }
+
+        var ctrl = GameManager.Instance?.Player?.m_Interaction;
+        if (ctrl != null && ctrl.Interactable != null && ctrl.Interactable.Pointer == item.Pointer) ctrl.Interact();
+        else item.Interact();
+        LastResult = $"pulled {item.name}";
+        return true;
     }
 
     /// <summary>A wheel turns about its thinnest axis.</summary>

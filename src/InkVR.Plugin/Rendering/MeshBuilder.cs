@@ -102,7 +102,9 @@ public class MeshBuilder
             {
                 var a = (float)s / sides * Mathf.PI * 2;
                 var dir = right * (Mathf.Cos(a) * el.x * rr) + ringUp * (Mathf.Sin(a) * el.y * rr) + outward * h;
-                Vert(center + dir * r, dir.normalized, new Vector2((float)s / sides, v));
+                // a flattened dome's normal (not its direction), so it meets the tube's shading without a step
+                var nrm = right * (Mathf.Cos(a) * rr / el.x) + ringUp * (Mathf.Sin(a) * rr / el.y) + outward * h;
+                Vert(center + dir * r, nrm.normalized, new Vector2((float)s / sides, v));
             }
         }
 

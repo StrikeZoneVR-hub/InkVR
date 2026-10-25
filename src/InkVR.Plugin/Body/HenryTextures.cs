@@ -91,6 +91,63 @@ public static class HenryTextures
         return Keep(c, "InkVR_HenryPalm");
     }
 
+    // ---------------- Toon: white rubber-hose cartoon gloves ----------------
+
+    private static readonly Color Glove = new(0.96f, 0.93f, 0.85f, 1f);
+    private static readonly Color GloveShade = new(0.78f, 0.72f, 0.62f, 1f);
+    private static readonly Color CartoonSkin = new(0.93f, 0.71f, 0.5f, 1f);
+
+    /// <summary>A glove's finger: clean cream-white with a drawn shading band underneath; ink gets on it chapter by chapter.</summary>
+    public static Texture2D GloveFinger(float inkLevel, int seed)
+    {
+        var c = new InkCanvas(256, 128, Glove, seed);
+        ShadeUnderside(c, GloveShade);
+        // a single drawn crease on the palm side at the joint, as on a cartoon glove
+        c.Stroke(c.W * 0.66f, 8, c.W * 0.84f, 9, 1.6f, Ink, 0.4f, 0.75f);
+        var blots = Mathf.RoundToInt(inkLevel * 5);
+        for (var i = 0; i < blots; i++) c.InkBlot(c.Rand(0, c.W), c.Rand(c.H * 0.4f, c.H), c.Rand(4, 8 + inkLevel * 8), Ink);
+        c.Grain(0.04f);
+        return Keep(c, "InkVR_GloveFinger");
+    }
+
+    /// <summary>The glove's hand: the three stitch lines down the back, as on every cartoon glove of the period.</summary>
+    public static Texture2D GlovePalm(float inkLevel, int seed)
+    {
+        var c = new InkCanvas(512, 256, Glove, seed);
+        ShadeUnderside(c, GloveShade);
+        for (var i = 0; i < 3; i++)
+        {
+            var u = c.W * (0.19f + i * 0.06f);
+            c.Stroke(u, c.H * 0.22f, u + c.Rand(-3, 3), c.H * 0.86f, 2.6f, Ink, 0.5f);
+        }
+
+        var blots = Mathf.RoundToInt(inkLevel * 5);
+        for (var i = 0; i < blots; i++) c.InkBlot(c.Rand(0, c.W), c.Rand(c.H * 0.3f, c.H), c.Rand(5, 9 + inkLevel * 10), Ink);
+        c.Grain(0.04f);
+        return Keep(c, "InkVR_GlovePalm");
+    }
+
+    /// <summary>The glove's flared cuff: white with a bold inked rim at the open end (v = 1).</summary>
+    public static Texture2D GloveCuff(int seed)
+    {
+        var c = new InkCanvas(256, 64, Glove, seed);
+        ShadeUnderside(c, GloveShade);
+        c.Stroke(0, c.H * 0.86f, c.W, c.H * 0.86f, 3.2f, Ink, 0.6f);
+        c.Grain(0.04f);
+        return Keep(c, "InkVR_GloveCuff");
+    }
+
+    /// <summary>Toon forearm: flat cartoon skin, a drawn shading band, nothing else.</summary>
+    public static Texture2D CartoonForearm(float inkLevel, int seed)
+    {
+        var c = new InkCanvas(256, 128, CartoonSkin, seed);
+        ShadeUnderside(c, new Color(0.76f, 0.52f, 0.33f, 1f));
+        var drips = Mathf.RoundToInt(inkLevel * 3);
+        for (var i = 0; i < drips; i++) c.InkBlot(c.Rand(0, c.W), c.Rand(c.H * 0.5f, c.H), c.Rand(4, 9), Ink);
+        c.Grain(0.03f);
+        return Keep(c, "InkVR_CartoonForearm");
+    }
+
     /// <summary>Forearm skin (v from elbow to wrist), with a few drawn hairs.</summary>
     public static Texture2D Forearm(float inkLevel, int seed)
     {

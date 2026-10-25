@@ -35,7 +35,9 @@ public static class ControllerBindings
         var dom = Dom;
         var off = Off;
         VirtualGamepad.Ensure();
-        Turn(dom.Stick.x);
+        // the weapon wheel takes the right stick while it's open
+        if (!UI.WeaponWheel.IsOpen) Turn(dom.Stick.x);
+        else VRRig.SmoothTurnInput = 0;
 
         // While the laser points at a menu, the dominant trigger is a mouse click, not the weapon.
         var uiHasPointer = LaserPointer.IsOverInteractive;
@@ -49,7 +51,7 @@ public static class ControllerBindings
             A = dom.Primary,
             B = dom.Secondary,
             X = off.Primary || (!uiHasPointer && (domGrip || offGrip)),
-            Y = off.Secondary,
+            Y = UI.InventoryButton.FilterY(off.Secondary),
             LeftTrigger = off.Trigger,
             RightTrigger = uiHasPointer ? 0f : dom.Trigger,
             LeftStickButton = off.StickClick,

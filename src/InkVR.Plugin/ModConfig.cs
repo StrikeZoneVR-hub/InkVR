@@ -23,6 +23,10 @@ public static class ModConfig
     public static ConfigEntry<bool> AimGunsWithHand;
     public static ConfigEntry<bool> PhysicalInteractions;
     public static ConfigEntry<bool> PhysicalDoors;
+    public static ConfigEntry<bool> SeatedMode;
+    public static ConfigEntry<bool> GravityPull;
+    public static ConfigEntry<bool> WeaponWheel;
+    public static ConfigEntry<bool> InventoryButton;
     public static ConfigEntry<bool> PhysicalThrow;
     public static ConfigEntry<bool> TwoHandedGuns;
     public static ConfigEntry<bool> Holster;
@@ -85,6 +89,7 @@ public static class ModConfig
         MeasuredEyeHeight = cfg.Bind("VR", "MeasuredEyeHeight", 0f, "Your standing eye height in metres, last measured by AutoWorldScale (0 = not yet).");
         HeightOffset = cfg.Bind("VR", "HeightOffset", 0f, "Metres added to your tracked head height (seated play / height calibration).");
 
+        SeatedMode = cfg.Bind("Comfort", "SeatedMode", false, "Play sitting down: your view is lifted to standing height (measured as you sit), the world keeps its size, and gravity pull brings things out of reach to your hand.");
         SnapTurn = cfg.Bind("Comfort", "SnapTurn", true, "Turn in steps with the right stick (off = smooth turning).");
         SnapTurnAngle = cfg.Bind("Comfort", "SnapTurnAngle", 45f, "Degrees per snap turn.");
         SmoothTurnSpeed = cfg.Bind("Comfort", "SmoothTurnSpeed", 120f, "Degrees per second for smooth turning.");
@@ -97,6 +102,9 @@ public static class ModConfig
         PhysicalThrow = cfg.Bind("Controls", "PhysicalThrow", true, "Throwables (Ch4's soup cans): hold the trigger, swing, let go to throw with your arm (off = the trigger throws straight away).");
         TwoHandedGuns = cfg.Bind("Controls", "TwoHandedGuns", true, "Grip the front of a gun with your other hand to aim it with both hands.");
         Holster = cfg.Bind("Controls", "Holster", true, "Reach over your shoulder and grip to put your weapon away; do it again to draw it.");
+        GravityPull = cfg.Bind("Controls", "GravityPull", true, "Point a hand at an item, grip, then flick your hand back (or keep holding the grip) and it flies into your hand, trailing ink.");
+        WeaponWheel = cfg.Bind("Controls", "WeaponWheel", true, "Hold the right stick down for a wheel at your hand: draw your weapon, put it away, or use the Seeing Tool.");
+        InventoryButton = cfg.Bind("Controls", "InventoryButton", true, "Y shows your current objective and what you've collected, on a card by your hand.");
         ReduceFlashes = cfg.Bind("Comfort", "ReduceFlashes", false, "Calm the theatre's projector flicker and film scratches.");
 
         BodyMode = cfg.Bind("Body", "Mode", "Full", new ConfigDescription(

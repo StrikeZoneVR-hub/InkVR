@@ -277,25 +277,35 @@ public static class WeaponHandling
         _domWasGripping = gripping;
         if (!ModConfig.Holster.Value || !pressed || !AtShoulder(dom)) return;
 
-        var p = GameManager.Instance?.Player;
-        if (p == null) return;
+        if (GameManager.Instance?.Player == null) return;
+        if (!PutAway("over the shoulder")) Draw();
+    }
+
+    /// <summary>The weapon you have, in your hand or put away (null if none).</summary>
+    public static string WeaponName => Held()?.name ?? (Holstered && _holstered != null ? _holstered.name : null);
+
+    /// <summary>Put the weapon away (the holster, the wheel): it leaves your hand (the game's own unequip only lowers it out of a flat view).</summary>
+    public static bool PutAway(string how = "")
+    {
         var held = Held();
-        if (held != null)
-        {
-            // Put away: the weapon leaves your hand (the game's own unequip only lowers it out of a flat view).
-            _holstered = held.gameObject;
-            _holstered.SetActive(false);
-            Holstered = true;
-            XrInput.Haptic(dom, 0.45f, 0.08f);
-            Plugin.L.LogInfo($"Holster: {_holstered.name} put away over the shoulder");
-        }
-        else if (Holstered && _holstered != null)
-        {
-            _holstered.SetActive(true);
-            Holstered = false;
-            XrInput.Haptic(dom, 0.45f, 0.08f);
-            Plugin.L.LogInfo($"Holster: {_holstered.name} drawn");
-        }
+        if (held == null) return false;
+        _holstered = held.gameObject;
+        _holstered.SetActive(false);
+        Holstered = true;
+        XrInput.Haptic(ControllerBindings.Dominant, 0.45f, 0.08f);
+        Plugin.L.LogInfo($"Holster: {_holstered.name} put away {how}".TrimEnd());
+        return true;
+    }
+
+    /// <summary>Draw the weapon that was put away.</summary>
+    public static bool Draw()
+    {
+        if (!Holstered || _holstered == null) return false;
+        _holstered.SetActive(true);
+        Holstered = false;
+        XrInput.Haptic(ControllerBindings.Dominant, 0.45f, 0.08f);
+        Plugin.L.LogInfo($"Holster: {_holstered.name} drawn");
+        return true;
     }
 
     private static GameObject _holstered;

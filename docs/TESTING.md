@@ -1,6 +1,77 @@
 # Testing InkVR
 
-## Current build: 0.7.2 (0.7.1 plus weapon hits that always count)
+## Current build: 0.8.0 (seated play, gravity pull, weapon wheel, inventory card, cartoon Toon body)
+
+All of these are options, and all are on by default except SEATED play. They're in the VR SETTINGS page (in the game's Options) and the launcher's OPTIONS page.
+
+### New in 0.8.0: seated play
+- **COMFORT > PLAY: SEATED.** Sitting down, your view is lifted to standing height. The game sees a standing Henry, and the world isn't shrunk to your seated height.
+- It measures you for 2 s once you switch it on: sit as you'll play. After that it follows you slowly (30 cm a second), so sitting up or slouching never jolts the view, and leaning down to the floor doesn't count.
+- **Your standing height:** it uses the one InkVR measured standing, if there is one; if not, 1.62 m.
+- **Checked:** sitting at 1.15 m lifted the view 0.50 m. Switched on while standing and then sitting at 1.10 m, the lift eased to 0.52 m.
+
+### New in 0.8.0: gravity pull (like Half-Life: Alyx, in ink)
+- **To pull something,** point your open hand at an item out of reach (up to 5 m), then grip. A thread of ink beads ties it to your hand, and the item twitches. Flick your hand back towards you and it flies into your hand along an arc, dripping ink. You can also just keep holding the grip for ¾ s.
+- **What it can pull:** anything the game lets you take: pickups, Bacon Soup, and weapons lying about.
+- **When it pulls:**
+  - Only items you can see. It won't pull through a wall, but an item sitting on a shelf or in a box still counts.
+  - Not into the hand already holding a weapon: use your other hand, or put the weapon away first.
+- **Seated players:** this is how you take things off the floor without bending down.
+- **Checked:** the axe from 4.3 m and a Bacon Soup from 2.6 m.
+
+### New in 0.8.0: weapon wheel
+- **To open it,** hold the right thumbstick down (about ⅕ s). An ink splat opens by your hand.
+- **To choose,** tilt the stick (or move your hand) towards one choice and let go. The choices:
+  - your weapon (draw it);
+  - HANDS (put it away);
+  - SEEING TOOL (once the game gives it to Henry);
+  - INVENTORY.
+- Turning pauses while the wheel is open.
+- **Checked:** putting the axe away and drawing it again.
+
+### New in 0.8.0: inventory card
+- **To see it,** hold Y. A scrap of the studio's paper comes up in your other hand. It shows:
+  - the current objective, in the game's own words and lettering;
+  - the items it asks for (the ones you've found inked in, the rest faint), with the count.
+- Let go of Y and it's put away. A short tap of Y still does what it did before.
+- **Checked:** Chapter 1's objective on the card, in the game's lettering.
+
+### New in 0.8.0: the Toon body as a cartoon
+- **Hands:** white rubber-hose cartoon gloves:
+  - three fat fingers and a thumb, a ball at each joint;
+  - three stitch lines on the back;
+  - a flared cuff.
+- **Clothes and shoes:**
+  - flat two-tone (cel-shaded) clothes with a few bold folds;
+  - glossy black cartoon shoes with a white shine;
+  - bolder ink outlines (about 1¾ times as thick).
+- Ink still splashes on, and still stays black.
+
+### Changed in 0.8.0
+- **The VR SETTINGS page is in two columns now** (COMFORT and HENRY | CONTROLS and GRAPHICS), with bigger lettering, so it no longer runs into the credit line. The stick goes down the first column, then the second.
+- **The launcher's CONTROLS page** shows the wheel (hold the right stick), the inventory (hold Y), gravity pull and seated play.
+
+### What to try
+1. **Seated:**
+   - Sit, switch on PLAY: SEATED and check you're at standing height.
+   - Pull items from the floor and from shelves.
+   - Play through a stretch of Chapter 1 sitting.
+2. **Pull:**
+   - Pull a Bacon Soup and drink it. Pull the axe in Chapter 2.
+   - Try pulling through a wall: it shouldn't.
+3. **Wheel:**
+   - Put the axe away and draw it.
+   - Pick INVENTORY.
+   - Check the stick doesn't turn you while the wheel is open.
+4. **Inventory:**
+   - Hold Y in each chapter. Check the objective matches.
+   - Check a short tap of Y still works as before.
+5. **Toon:**
+   - Switch HENRY > STYLE to TOON.
+   - Look at your gloves and shoes; get ink on them.
+   - Check Lifelike looks as it did.
+
+## Previous build: 0.7.2 (0.7.1 plus weapon hits that always count)
 
 ### Fixed in 0.7.2: swings that sometimes didn't hit
 Swinging the axe, pipe or plunger sometimes didn't register. Real swings could lose their hit four ways, and each is fixed:
@@ -37,7 +108,7 @@ A test session loaded CH1–CH5 and the Archives in turn. In each one it stood u
   - One 17 ms ink "dip" stall in CH3.
 - **Found and fixed:** the 7° doors above.
 
-## Previous build: 0.7.1, the release (fixes from your 0.7.0 recording)
+## Earlier build: 0.7.1 (fixes from your 0.7.0 recording)
 
 Everything is installed in your game folder. Start it as before: Virtual Desktop Streamer → `InkVR Launcher.exe` → PLAY IN VR. Your HEIGHT ADJUST is on NONE now, which is what's recommended.
 

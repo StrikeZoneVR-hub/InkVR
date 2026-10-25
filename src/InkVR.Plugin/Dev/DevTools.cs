@@ -627,6 +627,39 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"goto {PathOf(t)} at {t.position}, standing at {stand}");
                 break;
             }
+            case "wheel":
+            {
+                // wheel open | wheel <x> <y> (tilt the stick while it's open) | wheel close (let go: pick) | wheel off
+                var wa = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (wa.Length > 0 && wa[0] == "open") InkVR.UI.WeaponWheel.DevClick = true;
+                else if (wa.Length > 0 && wa[0] == "close") InkVR.UI.WeaponWheel.DevClick = false;
+                else if (wa.Length > 0 && wa[0] == "off") { InkVR.UI.WeaponWheel.DevClick = null; InkVR.UI.WeaponWheel.DevStick = null; }
+                else if (wa.Length > 1) InkVR.UI.WeaponWheel.DevStick = new Vector2(float.Parse(wa[0], System.Globalization.CultureInfo.InvariantCulture), float.Parse(wa[1], System.Globalization.CultureInfo.InvariantCulture));
+                Plugin.L.LogInfo($"WHEEL open={InkVR.UI.WeaponWheel.IsOpen} weapon={InkVR.Body.WeaponHandling.WeaponName} holstered={InkVR.Body.WeaponHandling.Holstered}");
+                break;
+            }
+            case "holster":
+                if (!InkVR.Body.WeaponHandling.PutAway("(dev)")) InkVR.Body.WeaponHandling.Draw();
+                break;
+            case "inventory":
+                InkVR.UI.InventoryButton.Show();
+                break;
+            case "pull":
+            {
+                // pull <path>: point the right hand at it, grip and hold (gravity pull) | pull state
+                if (arg == "state")
+                {
+                    Plugin.L.LogInfo($"PULL {InkVR.Input.GravityPull.Targets} last=[{InkVR.Input.GravityPull.LastPull}]");
+                    break;
+                }
+
+                var pt = Resolve(arg);
+                if (pt == null) { Plugin.L.LogWarning("pull: not found"); break; }
+                var pr = pt.GetComponentInChildren<Renderer>();
+                InkVR.Input.GravityPull.DevPull(pr != null ? pr.bounds.center : pt.position);
+                Plugin.L.LogInfo($"PULL pointing at {PathOf(pt)}");
+                break;
+            }
             case "inkburst":
                 InkVR.Body.InkWorld.Splatter(arg.Length > 0 ? int.Parse(arg) : 14);
                 break;
