@@ -1027,7 +1027,16 @@ public class DevTools : MonoBehaviour
             }
             case "swing":
             {
-                // swing <path>: stand within reach of an object and swing the held melee weapon down through it
+                // swing [x<n>] <path>: stand within reach of an object and swing the held melee weapon down through it
+                // (x3: chop-chop three times, straight back up between, no pause)
+                var chops = 1;
+                if (arg.Length > 3 && arg[0] == 'x' && char.IsDigit(arg[1]))
+                {
+                    var sp = arg.IndexOf(' ');
+                    chops = int.Parse(arg[1..sp]);
+                    arg = arg[(sp + 1)..];
+                }
+
                 var t = Resolve(arg);
                 var col = t.GetComponentsInChildren<Collider>().FirstOrDefault(c => !c.isTrigger);
                 var target = col != null ? col.bounds.center : t.position;
@@ -1043,7 +1052,7 @@ public class DevTools : MonoBehaviour
                 cc.enabled = true;
                 InkVR.Body.Hands.DevRight = null;
                 InkVR.Input.XrInput.DevRightAim ??= (new Vector3(0.25f, 1.2f, 0.3f), Quaternion.identity);
-                InkVR.Body.MeleeSwing.DevSwing(target);
+                InkVR.Body.MeleeSwing.DevSwing(target, chops);
                 Plugin.L.LogInfo($"swing: {PathOf(t)} ({(col != null ? col.name : "no collider")}) at {target}, standing {reach:F2} m away");
                 break;
             }

@@ -14,7 +14,7 @@ public class Plugin : BasePlugin
 {
     public const string Guid = "com.strikezonevr.inkvr";
     public const string Name = "InkVR";
-    public const string Version = "0.7.1";
+    public const string Version = "0.7.2";
 
     internal static ManualLogSource L;
     internal static string DataDir;

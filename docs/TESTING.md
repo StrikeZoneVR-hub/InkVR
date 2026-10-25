@@ -1,6 +1,43 @@
 # Testing InkVR
 
-## Current build: 0.7.1, the release (fixes from your 0.7.0 recording)
+## Current build: 0.7.2 (0.7.1 plus weapon hits that always count)
+
+### Fixed in 0.7.2: swings that sometimes didn't hit
+Swinging the axe, pipe or plunger sometimes didn't register. Real swings could lose their hit four ways, and each is fixed:
+- **A wind-up that scrapes a wall, the floor or the ceiling** used up the swing's one hit on that surface, so the real blow did nothing. Now a wall still thuds (once, with a lighter buzz) but doesn't use the swing up. If a plank or an enemy is in the same sweep as the wall, the plank or enemy wins.
+- **Quick chop-chop** counted as one long swing unless you paused between chops, so the second chop couldn't hit. Now each chop is its own swing as soon as the weapon turns back.
+- **A fast swing that lost tracking for a moment** cancelled the swing. Now it carries on.
+- **Enemies or objects with trigger hit-boxes** weren't hit at all. Now hittable triggers count.
+- **Lighter starting threshold:** a swing now starts at 1.8 m/s at the weapon head (it was 2.2 m/s), so short close-range chops count too.
+
+### Fixed in 0.7.2: doors that barely opened
+Some doors only swung about 7° before stopping, for example Chapter 3's tiled-wall doors. The check for walls in the door's path counted the door's own frame and the game's invisible doorway blocker as walls.
+- Now anything the closed door already touches is ignored, and only real walls stop it.
+- Chapter 3's `Tile_Wall_Door_Unlocked (2)` swings −100..100° again, and one push takes it to about 36°.
+- Doors without a box collider are now measured from their other colliders too.
+
+### Checked in 0.7.2: every chapter
+A test session loaded CH1–CH5 and the Archives in turn. In each one it stood up, looked around while timing frames, pushed the nearest door, splashed ink and checked the weapon and hurt-ink state (`tools/dev-walkthrough.sh`).
+- **No errors from InkVR in any chapter.** Unity's log had only the game's own null-reference errors from loading chapters directly.
+- **Frame rates on the test runtime:**
+
+| Chapter | fps |
+|---|---|
+| CH1 | 92–120 |
+| CH2 | ~105 |
+| CH3 | ~80 |
+| CH4 | ~79 |
+| CH5 | 92–105 |
+| Archives | ~84 |
+
+- **Ink:** 0.5–0.9 ms a frame. CH3 and CH4 are heavy scenes, which the later performance pass is for.
+- **Stalls:**
+  - Chapter loads stall for 1–4 s behind the loading fade.
+  - About 140 ms the moment Henry's body first appears.
+  - One 17 ms ink "dip" stall in CH3.
+- **Found and fixed:** the 7° doors above.
+
+## Previous build: 0.7.1, the release (fixes from your 0.7.0 recording)
 
 Everything is installed in your game folder. Start it as before: Virtual Desktop Streamer → `InkVR Launcher.exe` → PLAY IN VR. Your HEIGHT ADJUST is on NONE now, which is what's recommended.
 

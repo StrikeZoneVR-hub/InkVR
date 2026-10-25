@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DG.Tweening;
 using Il2CppInterop.Runtime;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using InkVR.Body;
 using InkVR.Core;
 using UnityEngine;
@@ -39,6 +40,7 @@ public static class PhysicalDoors
         public bool Ready, Measured;
         public float Alpha, Width, Thick, Y0, Y1; // the leaf in the hinge's own space (angle, metres of world)
         public float Min = -100f, Max = 100f;
+        public string StoppedBy = ""; // what stops it each way (log)
         public float Theta, Omega;
         public Quaternion LastSet;
         public bool Driving, GameOpen;
@@ -142,15 +144,37 @@ public static class PhysicalDoors
         var hinge = d.Hinge;
         var any = false;
         Vector3 min = default, max = default;
-        foreach (var col in hinge.GetComponentsInChildren<BoxCollider>(true))
+        foreach (var col in hinge.GetComponentsInChildren<Collider>(true))
         {
             if (col.isTrigger) continue;
-            var c = col.center;
-            var e = col.size * 0.5f;
+            // the collider's own box, in its own space: a box collider's, a mesh's bounds, or failing those its world box
+            Vector3 c, e;
+            var t = col.transform;
+            var box = col.TryCast<BoxCollider>();
+            var mesh = box == null ? col.TryCast<MeshCollider>() : null;
+            if (box != null)
+            {
+                c = box.center;
+                e = box.size * 0.5f;
+            }
+            else if (mesh != null && mesh.sharedMesh != null)
+            {
+                var mb = mesh.sharedMesh.bounds;
+                c = mb.center;
+                e = mb.extents;
+            }
+            else
+            {
+                var wb = col.bounds;
+                c = t.InverseTransformPoint(wb.center);
+                e = t.InverseTransformVector(wb.extents);
+                e = new Vector3(Mathf.Abs(e.x), Mathf.Abs(e.y), Mathf.Abs(e.z));
+            }
+
             for (var i = 0; i < 8; i++)
             {
                 var corner = c + new Vector3((i & 1) == 0 ? -e.x : e.x, (i & 2) == 0 ? -e.y : e.y, (i & 4) == 0 ? -e.z : e.z);
-                var p = hinge.InverseTransformPoint(col.transform.TransformPoint(corner));
+                var p = hinge.InverseTransformPoint(t.TransformPoint(corner));
                 if (!any)
                 {
                     min = max = p;
@@ -185,34 +209,49 @@ public static class PhysicalDoors
 
         FindStops(d);
         d.Ready = true;
-        Plugin.L.LogInfo($"Door {d.Root.name}: leaf {d.Width / VRRig.ActiveScale:F2} m wide, {d.Thick / VRRig.ActiveScale * 100:F0} cm thick, swings {d.Min:F0}..{d.Max:F0}°");
+        Plugin.L.LogInfo($"Door {d.Root.name}: leaf {d.Width / VRRig.ActiveScale:F2} m wide, {d.Thick / VRRig.ActiveScale * 100:F0} cm thick, swings {d.Min:F0}..{d.Max:F0}°{(d.StoppedBy.Length > 0 ? " (walls at" + d.StoppedBy + ")" : "")}");
     }
 
-    /// <summary>Sweeps the leaf each way (a slimmed box, so the frame it hangs in doesn't count) to find walls it would hit.</summary>
+    /// <summary>
+    /// Sweeps the leaf each way (a slimmed box, so the frame it hangs in doesn't count) to find walls it would hit.
+    /// Whatever the leaf already touches when (nearly) shut, its frame, trim or the game's invisible doorway blocker,
+    /// isn't a wall to stop against.
+    /// </summary>
     private static void FindStops(Door d)
     {
         var mask = Physics.DefaultRaycastLayers & ~(1 << GameManager.Instance.Player.gameObject.layer);
         var parentRot = (d.Hinge.parent != null ? d.Hinge.parent.rotation : Quaternion.identity) * d.Closed;
+        var half = new Vector3(d.Thick * 0.3f, (d.Y1 - d.Y0) * 0.4f, d.Width * 0.3f);
+        Il2CppReferenceArray<Collider> Overlaps(float a)
+        {
+            var rot = parentRot * Quaternion.Euler(0, d.Alpha + a, 0);
+            var mid = d.Hinge.position + rot * Vector3.forward * (d.Width * 0.6f) + parentRot * Vector3.up * ((d.Y0 + d.Y1) * 0.5f);
+            return Physics.OverlapBox(mid, half, rot, mask, QueryTriggerInteraction.Ignore);
+        }
+
+        var shut = new HashSet<System.IntPtr>();
+        foreach (var a in new[] { -6f, 0f, 6f })
+            foreach (var hit in Overlaps(a))
+                shut.Add(hit.Pointer);
+
+        d.StoppedBy = "";
         for (var dir = -1; dir <= 1; dir += 2)
         {
             for (var a = 15f; a <= 155f; a += 10f)
             {
-                var ang = d.Alpha + a * dir;
-                var rot = parentRot * Quaternion.Euler(0, ang, 0);
-                var mid = d.Hinge.position + rot * Vector3.forward * (d.Width * 0.6f) + parentRot * Vector3.up * ((d.Y0 + d.Y1) * 0.5f);
-                var half = new Vector3(d.Thick * 0.3f, (d.Y1 - d.Y0) * 0.4f, d.Width * 0.3f);
-                var blocked = false;
-                foreach (var hit in Physics.OverlapBox(mid, half, rot, mask, QueryTriggerInteraction.Ignore))
+                Collider wall = null;
+                foreach (var hit in Overlaps(a * dir))
                 {
-                    if (hit.transform.IsChildOf(d.Root)) continue;
-                    blocked = true;
+                    if (hit.transform.IsChildOf(d.Root) || shut.Contains(hit.Pointer)) continue;
+                    wall = hit;
                     break;
                 }
 
-                if (!blocked) continue;
+                if (wall == null) continue;
                 var stop = (a - 8f) * dir;
                 if (dir < 0) d.Min = Mathf.Max(d.Min, stop);
                 else d.Max = Mathf.Min(d.Max, stop);
+                d.StoppedBy += $" {(dir < 0 ? "-" : "+")}{a:F0}°: {wall.name}";
                 break;
             }
         }

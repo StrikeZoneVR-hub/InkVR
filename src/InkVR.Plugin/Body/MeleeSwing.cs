@@ -9,26 +9,29 @@ namespace InkVR.Body;
 
 /// <summary>
 /// Swing your arm to hit. The held melee weapon's head (its far end from your hand) is swept through the
-/// world every frame; when it moves fast enough and passes through something solid, the game's own hit
-/// runs on that spot (BaseWeapon.OnRaycastHit: the same damage, breaking, sounds and effects as a button
-/// swing). One hit per swing; a swing ends when the weapon slows down. Speed is measured in your play
-/// space, so walking and turning never count as swinging. The attack button still plays the game's swing.
+/// world every frame; when it moves fast enough and passes through something, the game's own hit runs on
+/// that spot (BaseWeapon.OnRaycastHit: the same damage, breaking, sounds and effects as a button swing).
+/// One hit on something hittable per swing; knocking a wall or the floor on the way (a wind-up that scrapes
+/// the ceiling) still thuds but doesn't use the swing up. A swing ends when the weapon slows down or turns
+/// back, so each chop of a quick chop-chop is its own swing. Speed is measured in your play space, so
+/// walking and turning never count as swinging. The attack button still plays the game's swing.
 /// </summary>
 [HarmonyPatch(typeof(BaseWeapon))]
 public static class MeleeSwing
 {
-    private const float StartSpeed = 2.2f; // m/s at the weapon head: a deliberate swing, not a wave
-    private const float EndSpeed = 1.1f;
-    private const float Cooldown = 0.35f;  // s between hits (the game's own swing takes about 0.6 s)
+    private const float StartSpeed = 1.8f; // m/s at the weapon head: a deliberate swing, not a wave
+    private const float EndSpeed = 1.0f;
+    private const float Cooldown = 0.3f;   // s between hits (the game's own swing takes about 0.6 s)
     private const float HeadRadius = 0.07f; // m
     private const float MaxSpeed = 25f;     // faster than any arm: a tracking glitch
 
     private static BaseWeapon _weapon;
     private static Transform _model;
     private static Vector3 _headLocal, _neckLocal; // the far end of the weapon, and a little way back from it
-    private static Vector3 _prevHead, _prevNeck, _prevHeadTracking;
+    private static Vector3 _prevHead, _prevNeck, _prevHeadTracking, _swingDir;
     private static bool _havePrev, _swinging, _hitThisSwing;
-    private static float _lastHit = -10f, _slowFor, _gameSwingUntil;
+    private static float _lastHit = -10f, _slowFor, _gameSwingUntil, _lastThudAt = -10f;
+    private static System.IntPtr _lastThud;
     private static AudioSource _audio;
     private static Il2CppStructArray<RaycastHit> _hits;
     private static Il2CppReferenceArray<Collider> _overlap;
@@ -67,12 +70,20 @@ public static class MeleeSwing
             return;
         }
 
-        Speed = (headTracking - _prevHeadTracking).magnitude / dt;
-        if (Speed > MaxSpeed || !c.PoseValid)
+        var vel = (headTracking - _prevHeadTracking) / dt;
+        Speed = vel.magnitude;
+        if (Speed > MaxSpeed)
         {
             // Tracking jumped (lost and found again, or a recentre): not a swing.
             Speed = 0;
             _swinging = false;
+            Remember(head, neck, headTracking);
+            return;
+        }
+
+        if (!c.PoseValid)
+        {
+            // A fast swing can lose tracking for a frame: carry on with the swing, just don't sweep this frame.
             Remember(head, neck, headTracking);
             return;
         }
@@ -86,32 +97,51 @@ public static class MeleeSwing
             return;
         }
 
+        if (_swinging)
+        {
+            // Slowing right down, or turning back (the top of a chop), ends this swing.
+            PeakSpeed = Mathf.Max(PeakSpeed, Speed);
+            _slowFor = Speed < EndSpeed ? _slowFor + dt : 0;
+            var turnedBack = Speed > EndSpeed && Vector3.Dot(vel / Speed, _swingDir) < -0.25f;
+            if (_slowFor > 0.05f || turnedBack) _swinging = false;
+            else if (Speed > EndSpeed) _swingDir = (_swingDir + vel / Speed * 0.3f).normalized; // follows the arc
+        }
+
         if (!_swinging && Speed >= StartSpeed)
         {
             _swinging = true;
             _hitThisSwing = false;
             _slowFor = 0;
+            _swingDir = vel / Speed;
             PeakSpeed = Speed;
             Swings++;
             Whoosh(head);
             XrInput.Haptic(ControllerBindings.Dominant, 0.12f, 0.03f);
         }
-        else if (_swinging)
-        {
-            PeakSpeed = Mathf.Max(PeakSpeed, Speed);
-            _slowFor = Speed < EndSpeed ? _slowFor + dt : 0;
-            if (_slowFor > 0.12f) _swinging = false;
-        }
 
-        if (_swinging && !_hitThisSwing && now - _lastHit > Cooldown && Sweep(head, neck, out var hit))
+        if (_swinging && !_hitThisSwing && now - _lastHit > Cooldown && Sweep(head, neck, out var hit, out var hittable))
         {
-            _hitThisSwing = true;
-            _lastHit = now;
-            Hits++;
-            LastHit = $"{Dev.DevTools.PathOf(hit.collider.transform)} at {hit.point} speed {PeakSpeed:F1} m/s";
-            Plugin.L.LogInfo($"Swing hit {LastHit}");
-            XrInput.Haptic(ControllerBindings.Dominant, 0.9f, 0.12f);
-            _weapon.OnRaycastHit(hit);
+            // A wall or the floor thuds once (not again while you scrape along it) and doesn't use the swing up.
+            var thudAgain = !hittable && hit.collider.Pointer == _lastThud && now - _lastThudAt < 0.6f;
+            if (!thudAgain)
+            {
+                if (hittable)
+                {
+                    _hitThisSwing = true;
+                    _lastHit = now;
+                    Hits++;
+                }
+                else
+                {
+                    _lastThud = hit.collider.Pointer;
+                    _lastThudAt = now;
+                }
+
+                LastHit = $"{Dev.DevTools.PathOf(hit.collider.transform)} at {hit.point} speed {PeakSpeed:F1} m/s {(hittable ? "(hittable)" : "(solid)")}";
+                Plugin.L.LogInfo($"Swing hit {LastHit}");
+                XrInput.Haptic(ControllerBindings.Dominant, hittable ? 0.9f : 0.5f, hittable ? 0.12f : 0.06f);
+                _weapon.OnRaycastHit(hit);
+            }
         }
 
         Remember(head, neck, headTracking);
@@ -166,17 +196,24 @@ public static class MeleeSwing
         return container != null && container.childCount > 0 ? container.GetChild(0).position : weapon.transform.position;
     }
 
-    /// <summary>Sweep the head (and a point behind it) from last frame to now; the nearest solid hit wins.</summary>
-    private static bool Sweep(Vector3 head, Vector3 neck, out RaycastHit best)
+    private static bool IsHittable(Collider c) => c.GetComponent<IHittable>() != null || c.GetComponentInParent<IHittable>() != null;
+
+    /// <summary>
+    /// Sweep the head (and a point behind it) from last frame to now. Something hittable (a plank, a Searcher) wins
+    /// over a wall or the floor in the same sweep, nearest first; hittable trigger volumes count too.
+    /// </summary>
+    private static bool Sweep(Vector3 head, Vector3 neck, out RaycastHit best, out bool hittable)
     {
         best = default;
+        hittable = false;
         var scale = VRRig.ActiveScale;
         var radius = HeadRadius * scale;
         var mask = ~_weapon.m_IgnoreLayers.value & ~(1 << VRLayers.UI);
         var player = GameManager.Instance.Player.transform;
-        _hits ??= new Il2CppStructArray<RaycastHit>(16);
+        _hits ??= new Il2CppStructArray<RaycastHit>(24);
         var found = false;
-        var bestDistance = float.MaxValue;
+        var bestSolid = float.MaxValue;
+        var bestHittable = float.MaxValue;
 
         foreach (var (from, to) in new[] { (_prevHead, head), (_prevNeck, neck) })
         {
@@ -185,15 +222,28 @@ public static class MeleeSwing
             if (length < 1e-5f) continue;
             var dir = move / length;
             var start = from - dir * radius; // starting a little behind: a cast can't see what it starts inside
-            var n = Physics.SphereCastNonAlloc(start, radius, dir, _hits, length + radius, mask, QueryTriggerInteraction.Ignore);
+            var n = Physics.SphereCastNonAlloc(start, radius, dir, _hits, length + radius, mask, QueryTriggerInteraction.Collide);
             for (var i = 0; i < n; i++)
             {
                 var h = _hits[i];
-                if (h.collider == null || h.distance <= 0f || h.collider.transform.IsChildOf(player)) continue;
-                if (h.distance >= bestDistance) continue;
-                bestDistance = h.distance;
-                best = h;
-                found = true;
+                var col = h.collider;
+                if (col == null || h.distance <= 0f || col.transform.IsChildOf(player)) continue;
+                var canHit = IsHittable(col);
+                if (col.isTrigger && !canHit) continue;
+                if (canHit)
+                {
+                    if (h.distance >= bestHittable) continue;
+                    bestHittable = h.distance;
+                    best = h;
+                    hittable = true;
+                    found = true;
+                }
+                else if (!hittable && h.distance < bestSolid)
+                {
+                    bestSolid = h.distance;
+                    best = h;
+                    found = true;
+                }
             }
         }
 
@@ -210,6 +260,7 @@ public static class MeleeSwing
             var from = head - back * (radius * 4f + 0.3f * scale);
             if (!col.Raycast(new Ray(from, (col.ClosestPoint(head) - from).normalized), out var h, 2f * scale)) continue;
             best = h;
+            hittable = IsHittable(col);
             return true;
         }
 
@@ -263,12 +314,17 @@ public static class MeleeSwing
 
     private static Vector3? _devTarget;
     private static float _devStart;
+    private static int _devChops = 1;
+    private static int _devHitsAtStart;
 
-    /// <summary>Dev: swing the right hand (dominant) down through a world point, once.</summary>
-    public static void DevSwing(Vector3 target)
+    /// <summary>Dev: swing the right hand (dominant) down through a world point; with chops > 1, chop-chop (down,
+    /// straight back up, down again) with no pause between.</summary>
+    public static void DevSwing(Vector3 target, int chops = 1)
     {
         _devTarget = target;
+        _devChops = Mathf.Max(1, chops);
         _devStart = Time.unscaledTime + 0.6f;
+        _devHitsAtStart = Hits;
     }
 
     /// <summary>Runs before the hands are posed: drives the right controller through the scripted swing.</summary>
@@ -281,16 +337,20 @@ public static class MeleeSwing
         var flat = Vector3.ProjectOnPlane(target - eye, Vector3.up);
         var rot = Quaternion.LookRotation(flat.sqrMagnitude > 1e-4f ? flat.normalized : Vector3.forward);
         var right = rot * Vector3.right;
-        var t = Mathf.Clamp01((Time.unscaledTime - _devStart) / 0.25f); // ~4 m/s at the head
+        // ~4 m/s at the head; a chop-chop goes down, straight back up and down again, 0.25 s each way
+        var since = Time.unscaledTime - _devStart;
+        var leg = Mathf.Clamp(since / 0.25f, 0f, _devChops * 2 - 1);
+        var k = Mathf.FloorToInt(Mathf.Min(leg, _devChops * 2 - 1.0001f));
+        var f = leg - k;
+        var t = k % 2 == 0 ? f : 1f - f;
         var path = Vector3.Lerp(target + Vector3.up * 0.45f + right * 0.15f, target - Vector3.up * 0.45f - right * 0.15f, t);
         XrInput.DevRightAim = (path - rot * HeadInAim.Value, rot);
         XrInput.ApplyDev();
-        var since = Time.unscaledTime - _devStart;
-        if (since > -0.05f && since < 0.35f)
+        if (_devChops == 1 && since > -0.05f && since < 0.35f)
             Plugin.L.LogInfo($"SWINGF t={since:F3} speed={Speed:F2} swinging={_swinging} head={(_model != null ? _model.TransformPoint(_headLocal) : Vector3.zero)} aim={XrInput.Get(Hand.Right).AimPosition} valid={XrInput.Get(Hand.Right).PoseValid} dom={ControllerBindings.Dominant} melee={ModConfig.PhysicalMelee.Value} locked={GameManager.Instance?.Player?.isMoveLocked} gameSwing={Time.unscaledTime < _gameSwingUntil} gameSwings={GameSwings}");
-        if (Time.unscaledTime > _devStart + 0.6f)
+        if (since > (_devChops * 2 - 1) * 0.25f + 0.35f)
         {
-            Plugin.L.LogInfo($"SWING done: swings={Swings} hits={Hits} peak={PeakSpeed:F1} m/s last=[{LastHit}]");
+            Plugin.L.LogInfo($"SWING done: chops={_devChops} swings={Swings} hits={Hits} (this test {Hits - _devHitsAtStart}) peak={PeakSpeed:F1} m/s last=[{LastHit}]");
             _devTarget = null;
         }
     }
