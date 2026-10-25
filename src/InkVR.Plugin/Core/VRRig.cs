@@ -192,12 +192,15 @@ public static partial class VRRig
         UI.WeaponWheel.Update();
         UI.InventoryCard.Update();
         Input.PhysicalInteract.Update();
+        Input.PropGrab.Update();
+        Input.MinigameThrow.Update();
         Input.GravityPull.Update();
         Input.PhysicalDoors.Update();
         Input.PhysicalTouch.Update();
         InkWorld.Update();
         Footprints.Update();
         LaserPointer.Update();
+        Input.MeshCopy.Draw(); // after everything carried has moved
         if (InGame && !_cinemaActive) ScaleStereo();
         if (DevLookAt.HasValue && InGame && !_cinemaActive)
         {

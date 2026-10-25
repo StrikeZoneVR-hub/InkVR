@@ -55,7 +55,8 @@ public static class ControllerBindings
             Y = UI.InventoryButton.FilterY(off.Secondary),
             LeftTrigger = off.Trigger,
             // (the trigger picks from the weapon wheel while it's open, rather than swinging)
-            RightTrigger = uiHasPointer || UI.WeaponWheel.IsOpen ? 0f : Body.MeleeSwing.FilterAttack(dom.Trigger),
+            // (and in a throwing game it's the throw, made by your arm: see MinigameThrow)
+            RightTrigger = uiHasPointer || UI.WeaponWheel.IsOpen || MinigameThrow.Owns ? 0f : Body.MeleeSwing.FilterAttack(dom.Trigger),
             LeftStickButton = off.StickClick,
             // Quest has a menu button on the left controller only (the right one's is Meta's, reserved).
             Menu = XrInput.Get(Hand.Left).Menu || XrInput.Get(Hand.Right).Menu

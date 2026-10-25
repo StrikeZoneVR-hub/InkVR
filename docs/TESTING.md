@@ -1,6 +1,52 @@
 # Testing InkVR
 
-## Current build: 0.8.4 (hits keep you in Henry, your body in every scene, solid ink, a steady theatre)
+## Current build: 0.9.0 (fully manual: soup, valves, levers, darts, chairs, two hands on the axe)
+
+From a tester's report ("everything should be manual") and your own notes ("soup cans disappear in hand when grabbing it", "holding axe with two hands would be amazing").
+
+### Fixed in 0.9.0: Bacon Soup vanishing from your hand
+- **Cause:** when the game was built, most small props were merged into one big mesh per level, the cans on the shelves included. A can you took had no mesh of its own to copy into your hand, so the copy drew some other part of the level somewhere else, and your hand looked empty.
+- **Fix:** a merged prop is now drawn from its own part of the level's mesh, wherever your hand carries it. The same fix covers items flying to you on the ink thread and the chairs below.
+- **Checked:** a can taken from the shelf shows in your hand, label and all.
+
+### Changed in 0.9.0: soup by hand, start to finish
+- Grip a can to pick it up (no X). It's sealed: grip the lid with your other hand and pull it away, and it comes off and falls. Then tip the can to your mouth to eat.
+- A sealed can held at your mouth buzzes, and opens by itself after a couple of seconds, so you can still eat with one hand.
+
+### Changed in 0.9.0: valves and wheels turn in your hand
+- Grip a valve or wheel and wind it round (or twist your wrist on a wheel held across its face). It turns with your hand and clicks every 15°. About a third of a turn opens it. Let go part way and it stays where you left it, ready to carry on.
+- **Checked:** Chapter 1's basement valve: five winds of 25° round its middle opened it, the wheel visibly turning.
+
+### Changed in 0.9.0: levers you pull yourself
+- Grip a lever's handle and pull: the handle swings with your hand, and a firm pull (about 45°) throws it. Let go early and it springs back. This includes Chapter 1's power lever once the items are on their pedestals (no more X).
+- **Fixed on the way:** that lever's handle didn't move at all, because its base is merged into the level's mesh and InkVR took hold of the base. It now takes the handle.
+- Holding any valve or lever still for 4 seconds still finishes it, so nothing can get stuck.
+
+### New in 0.9.0: darts and the ball toss by hand
+- Start the darts in Chapter 1's break room (or the ball toss in Chapter 4) as usual. The dart is now in your hand. Hold the trigger, throw, and let go: it flies the way your hand was moving, as hard as you threw it. A gentle release lobs it where your hand points.
+- **Checked:** a hard throw stuck in the board; a gentle lob landed short in the wall below; the next dart appears in your hand each time.
+
+### New in 0.9.0: pick up chairs and props, and throw them
+- Grip a chair (or another loose prop: a box, a bucket) to pick it up. Let go to drop it, or throw it: it flies the way your hand moved and tumbles where it lands, and stays there.
+- Never picked up: anything that's part of a puzzle, a door, a weapon, something you can break (planks, barrels, cutouts), and the building itself.
+- **Checked:** the break room's chairs: picked up, shown in the hand, thrown across the room.
+- **Turn it off:** PICK UP PROPS in the launcher's options (in the game it's part of MOTION CONTROLS).
+
+### New in 0.9.0: two hands on the axe
+- With the axe in your hand, grip its handle with your other hand: both hands hold it, and the axe lies along the line between them, so you can swing it two-handed like a real axe. Let go with either hand to go back to one.
+- **Checked:** in Chapter 2, the handle followed the second hand to within a few degrees.
+
+### Fixed in 0.9.0: a wall knock using up your swing
+- 0.7.2 meant scraping a wall on the wind-up to only thud, and still let the swing hit. It didn't work: the game marks its whole level as "hittable" (so any wall makes a sound when struck), and InkVR took every wall, floor and invisible trigger box for something to hit.
+- InkVR now counts only real targets: enemies, planks, barrels and cutouts.
+
+### What to try (0.9.0)
+1. Chapter 1: take a can of Bacon Soup from a shelf, pull the lid off with your other hand, and tip it to your mouth.
+2. Turn the basement valves by winding them round; pull the power lever yourself once the items are placed.
+3. Play darts in the break room, throwing for real, then pick up a chair and throw it.
+4. Chapter 2 onwards: take the axe, grip the handle with your other hand too, and swing at a plank.
+
+## Previous build: 0.8.4 (hits keep you in Henry, your body in every scene, solid ink, a steady theatre)
 
 ### Fixed in 0.8.4: "going out of full body and into the floor or ceiling when getting hit"
 - **Cause:** when an enemy hits Henry, the game shakes its camera. The shake puts the camera down by Henry's feet, about 3 units below his eyes. 0.8.1 to 0.8.3 treated any camera move by the game as a cutscene. So every hit sent your view to the floor and hid the body.

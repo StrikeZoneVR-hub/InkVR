@@ -28,6 +28,7 @@ public static class ModConfig
     public static ConfigEntry<bool> WeaponWheel;
     public static ConfigEntry<bool> InventoryButton;
     public static ConfigEntry<bool> PhysicalThrow;
+    public static ConfigEntry<bool> GrabProps;
     public static ConfigEntry<bool> TwoHandedGuns;
     public static ConfigEntry<bool> Holster;
     public static ConfigEntry<bool> ReduceFlashes;
@@ -98,9 +99,10 @@ public static class ModConfig
         PhysicalMelee = cfg.Bind("Controls", "PhysicalMelee", true, "Swing your arm to hit with melee weapons (the axe, the pipe...). The attack button still swings too.");
         AimGunsWithHand = cfg.Bind("Controls", "AimGunsWithHand", true, "Guns fire where your hand points (off = where you look, like the flat game).");
         PhysicalDoors = cfg.Bind("Controls", "PhysicalDoors", true, "Doors swing by hand: push them, grip and pull them, fling them shut; locked doors rattle (off = they open as the game opens them).");
-        PhysicalInteractions = cfg.Bind("Controls", "PhysicalInteractions", true, "By hand: grip a valve and turn it, a lever and pull it, a lid or drawer and lift or pull it, Bacon Soup and bring it to your mouth; grip an item to take it; press buttons, tape recorders and keys with a fingertip (off = grip just presses them). X always presses.");
-        PhysicalThrow = cfg.Bind("Controls", "PhysicalThrow", true, "Throwables (Ch4's soup cans): hold the trigger, swing, let go to throw with your arm (off = the trigger throws straight away).");
-        TwoHandedGuns = cfg.Bind("Controls", "TwoHandedGuns", true, "Grip the front of a gun with your other hand to aim it with both hands.");
+        PhysicalInteractions = cfg.Bind("Controls", "PhysicalInteractions", true, "By hand: grip a valve and turn it (it turns with your hand), a lever and pull it (it swings), a lid or drawer and lift or pull it; take Bacon Soup, pull its lid off with your other hand and tip it to your mouth; grip an item to take it; press buttons, tape recorders and keys with a fingertip (off = grip just presses them). X always presses.");
+        PhysicalThrow = cfg.Bind("Controls", "PhysicalThrow", true, "Throwing by arm: Ch4's soup cans, Ch1's darts and Ch4's ball toss. Hold the trigger, swing, let go (off = the trigger throws straight away).");
+        GrabProps = cfg.Bind("Controls", "GrabProps", true, "Grip a loose prop (a chair, a box, a bucket) to pick it up; let go mid-swing to throw it.");
+        TwoHandedGuns = cfg.Bind("Controls", "TwoHandedGuns", true, "Two hands: grip the front of a gun to aim it with both hands, or the axe's handle to swing it with both.");
         Holster = cfg.Bind("Controls", "Holster", true, "Reach over your shoulder and grip to put your weapon away; do it again to draw it.");
         GravityPull = cfg.Bind("Controls", "GravityPull", true, "Point a hand at an item, grip, then flick your hand back (or keep holding the grip) and it flies into your hand, trailing ink.");
         WeaponWheel = cfg.Bind("Controls", "WeaponWheel", true, "Click the right stick for a wheel at your hand: draw your weapon, put it away, use the Seeing Tool or see your inventory. Flick the stick to a choice (or point and pull the trigger); B closes it.");

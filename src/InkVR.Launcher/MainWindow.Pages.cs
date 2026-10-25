@@ -302,9 +302,10 @@ namespace InkVR.Launcher
             {
                 "LOOK AROUND WITH YOUR HEAD. TURNING AND WORLD SIZE ARE IN OPTIONS.",
                 "MENUS: THUMBSTICK MOVES, A SELECTS, B GOES BACK (OR TURN ON THE LASER POINTER).",
-                "SWING THE AXE TO HIT. HOLD THE TRIGGER, SWING AND LET GO TO THROW. GUNS FIRE WHERE YOUR HAND POINTS (GRIP THE FRONT TOO FOR TWO HANDS).",
-                "GRIP A VALVE AND TURN IT, A LEVER AND PULL IT, SOUP AND BRING IT TO YOUR MOUTH. REACH OVER YOUR SHOULDER AND GRIP TO HOLSTER.",
-                "PUSH DOORS OPEN WITH YOUR HAND, OR GRIP AND PULL THEM. PRESS BUTTONS, TAPE RECORDERS AND KEYS WITH A FINGER. GRIP ITEMS TO PICK THEM UP.",
+                "SWING THE AXE TO HIT. GUNS FIRE WHERE YOUR HAND POINTS. GRIP EITHER WITH YOUR OTHER HAND TOO FOR TWO HANDS.",
+                "HOLD THE TRIGGER, SWING AND LET GO TO THROW. GRIP A CHAIR, BOX OR BUCKET TO PICK IT UP AND THROW IT.",
+                "TURN VALVES AND PULL LEVERS BY HAND. TAKE SOUP, PULL ITS LID OFF WITH YOUR OTHER HAND AND TIP IT TO YOUR MOUTH.",
+                "PUSH DOORS OPEN OR GRIP AND PULL THEM. PRESS BUTTONS AND KEYS WITH A FINGER. REACH OVER YOUR SHOULDER AND GRIP TO HOLSTER.",
                 (pull ? "OUT OF REACH? POINT, GRIP AND FLICK BACK TO PULL IT TO YOU. " : "") + "SITTING DOWN? PLAY: SEATED IN OPTIONS.",
             });
             var memo = Look.MemoText(notes, 26, Paint.Ink, 1180, 0.9);
@@ -575,7 +576,8 @@ namespace InkVR.Launcher
             Row("DOORS", new[] { "PUSH & PULL", "PRESS" }, has && !cfg.GetBool("Controls", "PhysicalDoors", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalDoors", i == 0), has);
             Row("GRAB, TURN, PRESS", new[] { "BY HAND", "BUTTON" }, has && !cfg.GetBool("Controls", "PhysicalInteractions", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalInteractions", i == 0), has);
             Row("THROWING", new[] { "SWING & LET GO", "BUTTON" }, has && !cfg.GetBool("Controls", "PhysicalThrow", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalThrow", i == 0), has);
-            Row("TWO-HANDED GUNS", new[] { "ON", "OFF" }, has && !cfg.GetBool("Controls", "TwoHandedGuns", true) ? 1 : 0, i => cfg.Set("Controls", "TwoHandedGuns", i == 0), has);
+            Row("PICK UP PROPS", new[] { "GRAB & THROW", "OFF" }, has && !cfg.GetBool("Controls", "GrabProps", true) ? 1 : 0, i => cfg.Set("Controls", "GrabProps", i == 0), has);
+            Row("TWO-HANDED", new[] { "GUNS & AXE", "OFF" }, has && !cfg.GetBool("Controls", "TwoHandedGuns", true) ? 1 : 0, i => cfg.Set("Controls", "TwoHandedGuns", i == 0), has);
             Row("HOLSTER", new[] { "OVER THE SHOULDER", "OFF" }, has && !cfg.GetBool("Controls", "Holster", true) ? 1 : 0, i => cfg.Set("Controls", "Holster", i == 0), has);
 
             var memo = Look.MemoText(has

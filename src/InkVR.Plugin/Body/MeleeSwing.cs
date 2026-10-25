@@ -264,8 +264,22 @@ public static class MeleeSwing
         var hand = _model.InverseTransformPoint(weapon.transform.parent != null ? HandPoint(weapon) : weapon.transform.position);
         var far = (a - hand).sqrMagnitude > (z - hand).sqrMagnitude ? a : z;
         var near = far == a ? z : a;
+        _nearLocal = near;
+        _farLocal = far;
         for (var i = 0; i < Along.Length; i++) PointsLocal[i] = Vector3.Lerp(near, far, Along[i]);
         Plugin.L.LogInfo($"Melee weapon: {weapon.name}, swing to hit (head at {PointsLocal[0]} of {b.size} in {_model.name})");
+    }
+
+    private static Vector3 _nearLocal, _farLocal;
+
+    /// <summary>The held melee weapon's length in the world: its hand end and its far end (the axe head).</summary>
+    public static bool HandleLine(out Vector3 near, out Vector3 far)
+    {
+        near = far = default;
+        if (_model == null || _weapon == null || !_weapon.gameObject.activeInHierarchy) return false;
+        near = _model.TransformPoint(_nearLocal);
+        far = _model.TransformPoint(_farLocal);
+        return true;
     }
 
     /// <summary>Where the hand holds the weapon: the game's HandContainer/Hand mount.</summary>
@@ -275,7 +289,7 @@ public static class MeleeSwing
         return container != null && container.childCount > 0 ? container.GetChild(0).position : weapon.transform.position;
     }
 
-    private static bool IsHittable(Collider c) => c.GetComponent<IHittable>() != null || c.GetComponentInParent<IHittable>() != null;
+    private static bool IsHittable(Collider c) => Hittable.Is(c);
 
     /// <summary>
     /// Sweep the head (and a point behind it) from last frame to now. Something hittable (a plank, a Searcher) wins

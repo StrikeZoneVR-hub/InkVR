@@ -304,21 +304,7 @@ public static class GravityPull
         var root = new GameObject("InkVR_Pulled_" + item.name).transform;
         f.From = Centre(item);
         root.position = f.From;
-        foreach (var r in item.GetComponentsInChildren<MeshRenderer>())
-        {
-            if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
-            var mf = r.GetComponent<MeshFilter>();
-            if (mf == null || mf.sharedMesh == null) continue;
-            var go = new GameObject(r.name);
-            go.transform.SetParent(root, false);
-            go.transform.SetPositionAndRotation(r.transform.position, r.transform.rotation);
-            go.transform.localScale = r.transform.lossyScale;
-            go.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
-            var copy = go.AddComponent<MeshRenderer>();
-            copy.sharedMaterials = r.sharedMaterials;
-            r.enabled = false;
-            f.Hidden.Add(r);
-        }
+        MeshCopy.AddAll(item.transform, root, false, out _, f.Hidden);
 
         f.Copy = root;
         var dist = (HandPos(hand) - f.From).magnitude / VRRig.ActiveScale;
@@ -378,7 +364,7 @@ public static class GravityPull
         var taken = false;
         if (caught && f.Item != null)
         {
-            taken = PhysicalInteract.CaughtFromPull(f.Kind, f.Hand, f.Item);
+            taken = PhysicalInteract.CaughtFromPull(f.Kind, f.Hand, f.Item, f.Hidden);
             XrInput.Haptic(f.Hand, 0.6f, 0.08f);
             var at = HandPos(f.Hand);
             InkPool.InkSound(at, 0.6f);

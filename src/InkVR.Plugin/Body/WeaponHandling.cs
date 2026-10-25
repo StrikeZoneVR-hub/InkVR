@@ -11,7 +11,8 @@ namespace InkVR.Body;
 ///             swing your arm and let go of the trigger, and the can flies the way your hand was moving, as
 ///             hard as you threw it (a gentle release lobs it where your hand points).
 ///   TWO HANDS: hold a gun and grip just in front of it with your other hand: the gun aims along both hands
-///             (steadier), and you feel the recoil in both.
+///             (steadier), and you feel the recoil in both. Hold the axe (or any melee weapon) and grip its handle
+///             with your other hand: it lies along both hands and swings with both arms.
 ///   HOLSTER:  reach over your shoulder with what you're holding and grip: it goes away (the game's own
 ///             unequip). Reach back there with an empty hand and grip to draw it again.
 /// </summary>
@@ -128,8 +129,9 @@ public static class WeaponHandling
     }
 
     [HarmonyPrefix, HarmonyPatch(typeof(ThrowableObject), nameof(ThrowableObject.Initialize))]
-    private static void Initialize(ref Vector3 force)
+    private static void Initialize(ThrowableObject __instance, ref Vector3 force)
     {
+        if (Input.MinigameThrow.TakeThrow(__instance, ref force)) return; // a dart or a ball thrown by hand
         if (!_releasing) return;
         force = _throwDir * force.magnitude * _throwGain;
     }
@@ -198,12 +200,13 @@ public static class WeaponHandling
         return true;
     }
 
-    /// <summary>Is this grip closing on the gun's front, or reaching for the holster? (Then it isn't an interact.)</summary>
+    /// <summary>Is this grip closing on the gun's front or the axe's handle, or reaching for the holster? (Then it isn't an interact.)</summary>
     public static bool WantsGrip(Hand hand)
     {
         if (!VRRig.InGame) return false;
         var held = Held();
         if (ModConfig.Holster.Value && hand == ControllerBindings.Dominant && AtShoulder(hand) && (held != null || Holstered)) return true;
+        if (ModConfig.TwoHandedGuns.Value && hand == ControllerBindings.OffHand && held?.TryCast<MeleeWeapon>() != null && OnHandle(hand, out _)) return true;
         if (!ModConfig.TwoHandedGuns.Value || hand != ControllerBindings.OffHand || held?.TryCast<GunWeapon>() == null) return false;
         var dom = Aim(ControllerBindings.Dominant);
         var front = dom.pos + dom.rot * Vector3.forward * (0.24f * VRRig.ActiveScale);
@@ -217,6 +220,7 @@ public static class WeaponHandling
         var gun = Held()?.TryCast<GunWeapon>();
         var off = ControllerBindings.OffHand;
         var gripping = GripValue(off) > 0.6f;
+        UpdateTwoHandMelee(off, gripping);
         if (gun == null || !ModConfig.TwoHandedGuns.Value || !gripping)
         {
             if (OffHandOnGun) XrInput.Haptic(off, 0.1f, 0.02f);
@@ -238,6 +242,66 @@ public static class WeaponHandling
         }
 
         _offWasGripping = gripping;
+    }
+
+    // ---------------- two hands on the axe ----------------
+
+    /// <summary>The off hand is holding the handle of the melee weapon in the dominant hand.</summary>
+    public static bool OffHandOnMelee { get; private set; }
+
+    private static bool _headBeyondOff, _offWasOnHandle;
+
+    /// <summary>Is this hand on the held melee weapon's handle? (And is the head beyond it, rather than beyond the dominant hand?)</summary>
+    private static bool OnHandle(Hand hand, out bool headBeyond)
+    {
+        headBeyond = false;
+        if (!MeleeSwing.HandleLine(out var near, out var far)) return false;
+        var p = Grip(hand).pos;
+        var line = far - near;
+        var len2 = line.sqrMagnitude;
+        if (len2 < 1e-8f) return false;
+        // the whole handle, and a little below the dominant hand (the knob end)
+        var t = Mathf.Clamp(Vector3.Dot(p - near, line) / len2, -0.6f, 0.95f);
+        var closest = near + line * t;
+        if ((p - closest).magnitude > 0.14f * VRRig.ActiveScale) return false;
+        headBeyond = t > 0.12f;
+        return true;
+    }
+
+    private static void UpdateTwoHandMelee(Hand off, bool gripping)
+    {
+        var melee = Held()?.TryCast<MeleeWeapon>();
+        if (melee == null || !ModConfig.TwoHandedGuns.Value || !gripping)
+        {
+            if (OffHandOnMelee) XrInput.Haptic(off, 0.1f, 0.02f);
+            OffHandOnMelee = false;
+            _offWasOnHandle = gripping;
+            return;
+        }
+
+        // taking hold: the grip has to close on the handle
+        if (!OffHandOnMelee && !_offWasOnHandle && OnHandle(off, out var beyond))
+        {
+            OffHandOnMelee = true;
+            _headBeyondOff = beyond;
+            XrInput.Haptic(off, 0.3f, 0.05f);
+            Plugin.L.LogInfo($"Two hands on the {melee.name} (the head beyond the {(beyond ? "off" : "dominant")} hand)");
+        }
+
+        _offWasOnHandle = gripping;
+    }
+
+    /// <summary>With two hands on the axe: which way its handle should run (from the knob end towards the head).</summary>
+    public static bool TwoHandMelee(out Vector3 direction)
+    {
+        direction = default;
+        if (!OffHandOnMelee) return false;
+        var dom = Grip(ControllerBindings.Dominant).pos;
+        var off = Grip(ControllerBindings.OffHand).pos;
+        var d = _headBeyondOff ? off - dom : dom - off;
+        if (d.magnitude < 0.08f * VRRig.ActiveScale) return false;
+        direction = d.normalized;
+        return true;
     }
 
     [HarmonyPostfix, HarmonyPatch(typeof(GunWeapon), nameof(GunWeapon.OnAttack))]

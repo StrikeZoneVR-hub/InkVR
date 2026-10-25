@@ -412,5 +412,14 @@ public static class Hands
         var rot = aimWorld * Quaternion.Euler(ModConfig.HeldItemPitch.Value, 0, 0) * Quaternion.Inverse(_handRestRot);
         _handContainer.rotation = rot;
         _handContainer.position = gripWorld - rot * Vector3.Scale(_handRestPos, _handContainer.lossyScale);
+
+        // Two hands on the axe: its handle lies along both hands, still held at the dominant one.
+        if (WeaponHandling.TwoHandMelee(out var along) && MeleeSwing.HandleLine(out var near, out var far))
+        {
+            var fix = Quaternion.FromToRotation((far - near).normalized, along);
+            rot = fix * rot;
+            _handContainer.rotation = rot;
+            _handContainer.position = gripWorld - rot * Vector3.Scale(_handRestPos, _handContainer.lossyScale);
+        }
     }
 }

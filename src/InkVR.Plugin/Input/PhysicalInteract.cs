@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using HarmonyLib;
 using InkVR.Body;
 using InkVR.Core;
+using InkVR.Rendering;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -9,13 +9,15 @@ namespace InkVR.Input;
 
 /// <summary>
 /// Physical interactions (motion controls part 2). Grip something and the game's interaction waits for your
-/// hand to do the real thing:
-///   valves and wheels: turn them (rotate your wrist, or wind your hand round the wheel) about a third of a turn
-///   levers: pull them (a decisive pull of 12 cm or so, any direction)
-///   Bacon Soup: pick the can up and bring it to your mouth to eat it; let go anywhere else and it goes back
-/// Then the game's own interaction runs (its animation, sounds, puzzle logic). Anything else interacts on
-/// grip as before, and X always does the classic instant interaction. Holding still with the grip for 2.5 s
-/// also completes it, so nothing can get stuck.
+/// hand to do the real thing, and the thing moves with your hand while you do it:
+///   valves and wheels: they turn in your hand as you wind them round (or twist your wrist), with a ratchet in the
+///                      controller; let go part way and they stay where you left them, so you can turn hand over hand
+///   levers and switches: the handle swings with your pull until it's thrown (let go early and it springs back);
+///                      lids lift and drawers slide with a decisive pull
+///   Bacon Soup: pick the can up, pull the lid off with your other hand, then tip it to your mouth to eat it
+/// Then the game's own interaction runs (its animation, sounds, puzzle logic). Grip a loose prop (a chair, a box)
+/// and it comes with you (see <see cref="PropGrab"/>). X always does the classic instant interaction, and holding
+/// a gesture still for 4 s completes it, so nothing can get stuck.
 /// </summary>
 public static class PhysicalInteract
 {
@@ -45,6 +47,24 @@ public static class PhysicalInteract
         public CH1Pedestal Pedestal;
         public Quaternion HoldRot;
         public Vector3 HoldOffset;
+
+        // the part that moves with your hand (a valve's wheel, a lever's handle), as it was when you took hold
+        public Transform Moving;
+        public Vector3 MovingPos;
+        public Quaternion MovingRot;
+        public float Spun;
+
+        // a lever: its hinge, and the axis it swings about (found from your first pull)
+        public Vector3 Pivot, HingeAxis;
+        public bool Swings, HaveAxis;
+        public float Swung;
+
+        // a can of soup: its lid, the soup under it, and the other hand pulling the lid
+        public GameObject Lid, Soup;
+        public bool Open;
+        public Hand? LidHand;
+        public Vector3 LidRest, CanUp, CanCentre;
+        public float AtMouthSince = -1f, NextNudge;
     }
 
     /// <summary>A thing you took, still in your hand after the game has it (it goes into your pocket when you let go).</summary>
@@ -55,10 +75,23 @@ public static class PhysicalInteract
         public Quaternion Rot;
         public Vector3 Offset;
         public Interactable Original;
+        public Vector3 Scale;
         public float CheckAt, ShrinkFrom = -1f;
     }
 
+    /// <summary>A lid pulled off a can, falling where it was flung.</summary>
+    private sealed class FlyingLid
+    {
+        public GameObject Lid;
+        public Vector3 Velocity, Spin;
+        public float Until;
+    }
+
     private static readonly List<Trophy> Trophies = new();
+    private static readonly List<FlyingLid> Lids = new();
+
+    /// <summary>How far each valve has been turned so far (you can let go and carry on).</summary>
+    private static readonly Dictionary<System.IntPtr, float> ValveProgress = new();
 
     private static Gesture _g;
 
@@ -67,9 +100,17 @@ public static class PhysicalInteract
 
     public static Kind Active => _g?.Kind ?? Kind.None;
 
+    /// <summary>Dev: where the held can's lid is (world), if there is one.</summary>
+    public static Vector3? DevLid => _g?.Lid != null ? _g.Lid.transform.position : null;
+
+    /// <summary>Dev: the valve being turned, its pivot and axis, and how far it's turned.</summary>
+    public static (Vector3 centre, Vector3 axis, float turned)? DevValve => _g != null && _g.Kind == Kind.Valve ? (_g.Centre, _g.Axis, _g.Turned) : null;
+
     private static readonly bool[] Claimed = new bool[2];
     private static readonly bool[] WasGripping = new bool[2];
     private static int _claimFrame = -1;
+
+    private const float HoldToComplete = 4f;
 
     /// <summary>
     /// Called where the controllers become the game's buttons, before a grip can press "interact": a grip that
@@ -105,8 +146,20 @@ public static class PhysicalInteract
     private static bool Claim(Hand hand)
     {
         if (!XrManager.IsRunning || !VRRig.InGame || VRRig.CinemaActive) return false;
-        if (WeaponHandling.WantsGrip(hand)) return true; // the gun's front, or the holster
-        if (_g != null) return _g.Hand == hand;
+        if (WeaponHandling.WantsGrip(hand)) return true; // the gun's front, the axe's handle, or the holster
+        if (_g != null)
+        {
+            // your other hand taking the lid of the can you're holding
+            if (_g.Kind == Kind.Soup && hand != _g.Hand && !_g.Open && NearLid(_g, hand))
+            {
+                _g.LidHand = hand;
+                XrInput.Haptic(hand, 0.3f, 0.04f);
+                return true;
+            }
+
+            return _g.Hand == hand;
+        }
+
         if (ModConfig.PhysicalInteractions.Value)
         {
             var item = InteractionAim.Hovered;
@@ -118,14 +171,15 @@ public static class PhysicalInteract
             }
         }
 
+        // a chair, a box, a bucket under your hand: pick it up
+        if (PropGrab.TryGrab(hand)) return true;
+
         // pointing at something further off: take hold of its ink thread (gravity pull)
         if (GravityPull.TryLock(hand)) return true;
 
         // a door: take hold of it and swing it yourself
         return PhysicalDoors.TryGrab(hand);
     }
-
-    private static bool DevGrip(Hand hand) => (hand == Hand.Right ? XrInput.DevRightGrip : XrInput.DevLeftGrip) is > 0.6f;
 
     private static float Grip(Hand hand)
     {
@@ -168,12 +222,22 @@ public static class PhysicalInteract
 
         var name = item.name.ToLowerInvariant();
         var parent = item.transform.parent != null ? item.transform.parent.name.ToLowerInvariant() : "";
-        if (Word(name, "valve") || Word(name, "wheel") || Word(parent, "valve")) return Kind.Valve;
-        if (Word(name, "lever") || Word(parent, "lever")) return Kind.Lever;
+        if (Word(name, "valve") || Word(name, "wheel") || Word(parent, "valve") || Word(parent, "wheel") || Word(name, "crank")) return Kind.Valve;
+        if (Word(name, "lever") || Word(parent, "lever") || Word(name, "switch") || Word(parent, "switch")) return Kind.Lever;
         return Kind.None;
     }
 
     private static bool Word(string s, string w) => s.Contains(w) && !s.Contains("door") && !s.Contains("panel");
+
+    /// <summary>A lever's handle swings with your hand (a trunk's lid or a drawer just opens once you've pulled).</summary>
+    private static bool Swings(Interactable item)
+    {
+        if (item.TryCast<InteractableTrunk>() != null || item.TryCast<InteractableDrawer>() != null) return false;
+        if (item.TryCast<InteractablePowerLever>() != null || item.GetComponentInParent<CH3LeverLight>() != null) return true;
+        var name = item.name.ToLowerInvariant();
+        var parent = item.transform.parent != null ? item.transform.parent.name.ToLowerInvariant() : "";
+        return name.Contains("lever") || parent.Contains("lever") || name.Contains("handle");
+    }
 
     /// <summary>A small thing the game collects in one go (it disappears into your inventory): you take it in your hand.</summary>
     private static bool Takeable(Interactable item)
@@ -208,7 +272,7 @@ public static class PhysicalInteract
             Kind = kind, Hand = hand, Item = item, Ctrl = ctrl, Centre = b.center, StartHand = grip.pos, LastRot = grip.rot,
             Started = Time.unscaledTime, StillSince = Time.unscaledTime, StillAt = grip.pos, StillRot = grip.rot,
         };
-        g.Axis = WheelAxis(r, item.transform);
+        g.Axis = WheelAxis(kind == Kind.Valve ? MovingPart(item, r) : r, item.transform);
         // Cranks and wheels turn about their own pivot (the object's origin), when it's on the object.
         var pivot = item.transform.position;
         var reach = b;
@@ -217,7 +281,29 @@ public static class PhysicalInteract
         g.LastVec = grip.pos - g.Centre;
         _g = g;
         XrInput.Haptic(hand, 0.3f, 0.04f);
-        if (kind == Kind.Soup) PickUp(g);
+
+        if (kind == Kind.Valve)
+        {
+            ValveProgress.TryGetValue(item.Pointer, out g.Turned);
+            g.NextTick = Mathf.Floor(g.Turned / 15f) * 15f + 15f;
+            TakeHoldOfMoving(g, MovingPart(item, r));
+        }
+
+        if (kind == Kind.Lever && Swings(item))
+        {
+            var handle = MovingPart(item, r);
+            TakeHoldOfMoving(g, handle);
+            if (g.Moving != null)
+            {
+                // The handle hinges at its own origin (where its model is pivoted), if that's on it.
+                var mb = handle.bounds;
+                mb.Expand(0.25f * VRRig.ActiveScale);
+                g.Pivot = mb.Contains(g.Moving.position) ? g.Moving.position : item.transform.position;
+                g.Swings = true;
+            }
+        }
+
+        if (kind == Kind.Soup) PickUp(g, grip.pos, grip.rot, hiddenToo);
         if (kind == Kind.Place)
         {
             g.Pedestal = item.GetComponentInParent<CH1Pedestal>();
@@ -231,25 +317,60 @@ public static class PhysicalInteract
             CopyIntoHand(g, item.transform, hiddenToo, grip.pos, grip.rot);
             var copy = g.Held;
             g.Held = null;
-            Trophies.Add(new Trophy { Copy = copy, Hand = hand, Rot = g.HoldRot, Offset = g.HoldOffset, Original = item, CheckAt = Time.unscaledTime + 0.35f });
+            Trophies.Add(new Trophy { Copy = copy, Hand = hand, Rot = g.HoldRot, Offset = g.HoldOffset, Original = item, Scale = copy.transform.localScale, CheckAt = Time.unscaledTime + 0.35f });
             _g = g;
             Complete("taken");
             return;
         }
+
         LastResult = $"{kind} {item.name}: started";
-        Plugin.L.LogInfo($"Physical interaction: {kind} '{item.name}' with the {hand} hand");
+        Plugin.L.LogInfo($"Physical interaction: {kind} '{item.name}' with the {hand} hand{(g.Moving != null ? $" (moving '{g.Moving.name}')" : "")}");
+    }
+
+    /// <summary>
+    /// The part of a lever or valve that moves: the handle, wheel or crank, not the base it's mounted on. The base is
+    /// usually merged into the scene's static mesh (the Chapter 1 power lever's housing), the moving part never is.
+    /// </summary>
+    private static Renderer MovingPart(Interactable item, Renderer first)
+    {
+        Renderer any = null;
+        foreach (var r in item.GetComponentsInChildren<Renderer>())
+        {
+            if (r.isPartOfStaticBatch || !r.enabled) continue;
+            var n = r.name.ToLowerInvariant();
+            if (n.Contains("lever") || n.Contains("handle") || n.Contains("crank") || n.Contains("wheel") || n.Contains("valve")) return r;
+            any ??= r;
+        }
+
+        return any ?? first;
+    }
+
+    /// <summary>The part your hand moves: the gripped model, unless the game merged it into the scene's static mesh (then it can't move).</summary>
+    private static void TakeHoldOfMoving(Gesture g, Renderer r)
+    {
+        if (r == null || r.isPartOfStaticBatch) return;
+        g.Moving = r.transform;
+        g.MovingPos = r.transform.position;
+        g.MovingRot = r.transform.rotation;
     }
 
     /// <summary>
     /// Gravity pull: an item has flown into your hand. It's taken just as if you'd gripped it there (a weapon is
     /// equipped, a can of soup is in your hand to eat). Its own renderers may still be hidden from the flight.
     /// </summary>
-    internal static bool CaughtFromPull(Kind kind, Hand hand, Interactable item)
+    /// <param name="flightHidden">The item's renderers the flight hid: a can of soup keeps them hidden while it's in your hand.</param>
+    internal static bool CaughtFromPull(Kind kind, Hand hand, Interactable item, List<Renderer> flightHidden)
     {
         if (_g != null || item == null) return false;
         if (kind == Kind.Take || kind == Kind.Soup)
         {
             Begin(kind, hand, item, GameManager.Instance?.Player?.m_Interaction, hiddenToo: true);
+            if (kind == Kind.Soup && _g != null && _g.Kind == Kind.Soup)
+            {
+                _g.Hidden.AddRange(flightHidden);
+                flightHidden.Clear();
+            }
+
             return true;
         }
 
@@ -264,7 +385,7 @@ public static class PhysicalInteract
     private static Vector3 WheelAxis(Renderer r, Transform t)
     {
         var mf = r != null ? r.GetComponent<MeshFilter>() : null;
-        if (mf == null || mf.sharedMesh == null) return t.forward;
+        if (mf == null || mf.sharedMesh == null || (r != null && r.isPartOfStaticBatch)) return t.forward;
         var e = mf.sharedMesh.bounds.extents;
         var local = e.x <= e.y && e.x <= e.z ? Vector3.right : e.y <= e.z ? Vector3.up : Vector3.forward;
         return r.transform.TransformDirection(local).normalized;
@@ -278,10 +399,14 @@ public static class PhysicalInteract
         return (p, r);
     }
 
+    private static Vector3 Palm(Hand hand, Vector3 grip, Quaternion rot) =>
+        grip + rot * new Vector3(hand == Hand.Right ? -0.03f : 0.03f, -0.01f, 0.04f) * VRRig.ActiveScale;
+
     public static void Update()
     {
         if (!XrInput.Ready) ClaimGrips(); // dev grips on the mock runtime (no controller sampling there)
         UpdateTrophies();
+        UpdateLids();
         var g = _g;
         if (g == null) return;
         if (g.Item == null || !VRRig.InGame || VRRig.CinemaActive)
@@ -308,47 +433,80 @@ public static class PhysicalInteract
             {
                 if (!held)
                 {
+                    ValveProgress[g.Item.Pointer] = g.Turned; // it stays turned this far
                     Cancel("let go");
                     return;
                 }
 
                 // Winding the hand round the pivot (a crank, a wheel's rim), or twisting the wrist (a wheel held
-                // across its face): whichever turned more. Any axis: cranks and wheels sit every which way.
-                var v = pos - g.Centre;
-                var wind = v.magnitude > 0.03f * scale && g.LastVec.magnitude > 0.03f * scale ? Vector3.Angle(g.LastVec, v) : 0f;
-                (rot * Quaternion.Inverse(g.LastRot)).ToAngleAxis(out var twist, out _);
-                if (twist > 180f) twist = 360f - twist;
-                if (twist < 1f) twist = 0f; // tracking jitter
-                g.LastVec = v;
+                // across its face): whichever turned more, either way round. The wheel turns with it.
+                var v = Vector3.ProjectOnPlane(pos - g.Centre, g.Axis);
+                var last = Vector3.ProjectOnPlane(g.LastVec, g.Axis);
+                var wind = v.magnitude > 0.03f * scale && last.magnitude > 0.03f * scale ? Vector3.SignedAngle(last, v, g.Axis) : 0f;
+                (rot * Quaternion.Inverse(g.LastRot)).ToAngleAxis(out var angle, out var axis);
+                if (angle > 180f)
+                {
+                    angle = 360f - angle;
+                    axis = -axis;
+                }
+
+                var twist = angle * Vector3.Dot(axis, g.Axis);
+                if (Mathf.Abs(twist) < 1f) twist = 0f; // tracking jitter
+                g.LastVec = pos - g.Centre;
                 g.LastRot = rot;
-                g.Turned += Mathf.Max(wind, twist);
+                var step = Mathf.Abs(wind) >= Mathf.Abs(twist) ? wind : twist;
+                g.Spun += step;
+                g.Turned += Mathf.Abs(step);
+                if (g.Moving != null)
+                {
+                    var q = Quaternion.AngleAxis(g.Spun, g.Axis);
+                    g.Moving.SetPositionAndRotation(g.Centre + q * (g.MovingPos - g.Centre), q * g.MovingRot);
+                }
+
                 if (g.Turned >= g.NextTick)
                 {
                     g.NextTick += 15f;
                     XrInput.Haptic(g.Hand, 0.25f, 0.02f); // the ratchet of the valve
                 }
 
-                if (g.Turned >= 100f) Complete("turned");
-                else if (Time.unscaledTime - g.StillSince > 2.5f) Complete("held");
+                if (g.Turned >= 110f)
+                {
+                    ValveProgress.Remove(g.Item.Pointer);
+                    Complete("turned");
+                }
+                else if (Time.unscaledTime - g.StillSince > HoldToComplete) Complete("held");
+
                 break;
             }
             case Kind.Lever:
             {
                 if (!held)
                 {
+                    SpringBack(g);
                     Cancel("let go");
                     return;
                 }
 
                 var pulled = (pos - g.StartHand).magnitude / scale;
-                if (pulled > g.NextTick / 100f)
+                if (g.Swings) Swing(g, pos);
+                var progress = g.Swings ? g.Swung / 45f : pulled / 0.12f;
+                if (progress * 100f > g.NextTick)
                 {
-                    g.NextTick += 3f;
-                    XrInput.Haptic(g.Hand, 0.15f + pulled, 0.02f);
+                    g.NextTick += 12f;
+                    XrInput.Haptic(g.Hand, 0.15f + 0.4f * Mathf.Clamp01(progress), 0.02f);
                 }
 
-                if (pulled >= 0.12f) Complete("pulled");
-                else if (Time.unscaledTime - g.StillSince > 2.5f) Complete("held");
+                if (progress >= 1f)
+                {
+                    SpringBack(g); // the game's own animation throws it from where it started
+                    Complete("pulled");
+                }
+                else if (Time.unscaledTime - g.StillSince > HoldToComplete)
+                {
+                    SpringBack(g);
+                    Complete("held");
+                }
+
                 break;
             }
             case Kind.Place:
@@ -368,7 +526,7 @@ public static class PhysicalInteract
                     DropHeld(g);
                     Complete("placed");
                 }
-                else if (Time.unscaledTime - g.StillSince > 2.5f)
+                else if (Time.unscaledTime - g.StillSince > HoldToComplete)
                 {
                     DropHeld(g);
                     Complete("held");
@@ -377,29 +535,39 @@ public static class PhysicalInteract
                 break;
             }
             case Kind.Soup:
-            {
-                Carry(g, pos, rot);
-                if (!held)
-                {
-                    PutBack(g);
-                    Cancel("put back");
-                    return;
-                }
-
-                var head = VRRig.Head;
-                if (head == null) break;
-                var mouth = head.position + head.rotation * new Vector3(0, -0.085f, 0.07f) * scale;
-                var can = g.Held != null ? g.Held.transform.position : pos;
-                if ((can - mouth).magnitude < 0.13f * scale)
-                {
-                    XrInput.Haptic(g.Hand, 0.5f, 0.15f);
-                    DropHeld(g);
-                    Complete("eaten");
-                }
-
+                Soup(g, pos, rot, held);
                 break;
-            }
         }
+    }
+
+    /// <summary>A lever's handle follows your pull about its hinge (the hinge's axis is set by which way you first pull).</summary>
+    private static void Swing(Gesture g, Vector3 hand)
+    {
+        var scale = VRRig.ActiveScale;
+        var from = g.StartHand - g.Pivot;
+        var to = hand - g.Pivot;
+        if (!g.HaveAxis)
+        {
+            var move = hand - g.StartHand;
+            if (move.magnitude < 0.025f * scale) return;
+            var axis = Vector3.Cross(from, move);
+            if (axis.sqrMagnitude < 1e-8f) return;
+            g.HingeAxis = axis.normalized;
+            g.HaveAxis = true;
+        }
+
+        var a = Vector3.ProjectOnPlane(from, g.HingeAxis);
+        var b = Vector3.ProjectOnPlane(to, g.HingeAxis);
+        if (a.sqrMagnitude < 1e-8f || b.sqrMagnitude < 1e-8f) return;
+        g.Swung = Mathf.Clamp(Vector3.SignedAngle(a, b, g.HingeAxis), 0f, 70f);
+        var q = Quaternion.AngleAxis(g.Swung, g.HingeAxis);
+        g.Moving.SetPositionAndRotation(g.Pivot + q * (g.MovingPos - g.Pivot), q * g.MovingRot);
+    }
+
+    private static void SpringBack(Gesture g)
+    {
+        if (!g.Swings || g.Moving == null) return;
+        g.Moving.SetPositionAndRotation(g.MovingPos, g.MovingRot);
     }
 
     /// <summary>Things taken: they stay in your hand while you hold the grip (if the game really took them), and shrink into your pocket when you let go.</summary>
@@ -437,7 +605,7 @@ public static class PhysicalInteract
 
             var k = 1f - Mathf.Clamp01((now - t.ShrinkFrom) / 0.25f);
             t.Copy.transform.position = Vector3.Lerp(t.Copy.transform.position, pos, 0.3f);
-            t.Copy.transform.localScale = Vector3.one * k;
+            t.Copy.transform.localScale = t.Scale * Mathf.Max(k, 1e-4f);
             if (k <= 0)
             {
                 Object.Destroy(t.Copy);
@@ -460,30 +628,11 @@ public static class PhysicalInteract
         var root = new GameObject("InkVR_Held");
         Object.DontDestroyOnLoad(root);
         root.transform.SetPositionAndRotation(src.position, src.rotation);
-        Bounds b = default;
-        var any = false;
-        foreach (var r in src.GetComponentsInChildren<MeshRenderer>(includeHidden))
-        {
-            if (!includeHidden && !r.enabled) continue;
-            var mf = r.GetComponent<MeshFilter>();
-            if (mf == null || mf.sharedMesh == null) continue;
-            var copy = new GameObject(r.name);
-            copy.transform.SetParent(root.transform, false);
-            copy.transform.SetPositionAndRotation(r.transform.position, r.transform.rotation);
-            copy.transform.localScale = Vector3.Scale(r.transform.lossyScale, new Vector3(1f / src.lossyScale.x, 1f / src.lossyScale.y, 1f / src.lossyScale.z));
-            copy.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
-            copy.AddComponent<MeshRenderer>().sharedMaterials = r.sharedMaterials;
-            var wb = new Bounds(r.transform.TransformPoint(mf.sharedMesh.bounds.center), Vector3.zero);
-            if (!any) b = wb;
-            else b.Encapsulate(wb);
-            any = true;
-        }
-
         root.transform.localScale = src.lossyScale;
+        var any = MeshCopy.AddAll(src, root.transform, includeHidden, out var b);
         g.Held = root;
         // Held as it was gripped; a placed item (from its pedestal, out of sight) sits at the palm.
-        var scale = VRRig.ActiveScale;
-        var palm = gripPos + gripRot * new Vector3(g.Hand == Hand.Right ? -0.03f : 0.03f, -0.02f, 0.05f) * scale;
+        var palm = Palm(g.Hand, gripPos, gripRot);
         var centre = any ? b.center : src.position;
         if (includeHidden) root.transform.position += palm - centre;
         g.HoldRot = Quaternion.Inverse(gripRot) * root.transform.rotation;
@@ -520,44 +669,177 @@ public static class PhysicalInteract
         LastResult = $"{g.Kind} {(g.Item != null ? g.Item.name : "?")}: {why}";
     }
 
-    // ---------------- soup in the hand ----------------
+    // ---------------- soup: take it, open it, drink it ----------------
 
-    /// <summary>The can leaves its shelf (hidden) and a copy of it sits in your hand.</summary>
-    private static void PickUp(Gesture g)
+    /// <summary>The can leaves its shelf (hidden) and a copy of it is in your hand, as you took it, with its lid on.</summary>
+    private static void PickUp(Gesture g, Vector3 grip, Quaternion gripRot, bool fromPull)
     {
+        var itemT = g.Item.transform;
         var root = new GameObject("InkVR_HeldSoup");
         Object.DontDestroyOnLoad(root);
-        var itemT = g.Item.transform;
-        foreach (var r in g.Item.GetComponentsInChildren<MeshRenderer>())
-        {
-            if (!r.enabled) continue;
-            var mf = r.GetComponent<MeshFilter>();
-            if (mf == null || mf.sharedMesh == null) continue;
-            var copy = new GameObject(r.name);
-            copy.transform.SetParent(root.transform, false);
-            copy.transform.localPosition = Quaternion.Inverse(itemT.rotation) * (r.transform.position - itemT.position);
-            copy.transform.localRotation = Quaternion.Inverse(itemT.rotation) * r.transform.rotation;
-            copy.transform.localScale = r.transform.lossyScale;
-            copy.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
-            var cr = copy.AddComponent<MeshRenderer>();
-            cr.sharedMaterials = r.sharedMaterials;
-            r.enabled = false;
-            g.Hidden.Add(r);
-        }
-
+        root.transform.SetPositionAndRotation(itemT.position, itemT.rotation);
+        // (pulled to you, the can's own renderers are already hidden by the flight)
+        if (!MeshCopy.AddAll(itemT, root.transform, fromPull, out var b, fromPull ? null : g.Hidden)) b = new Bounds(itemT.position, Vector3.one * 0.1f * VRRig.ActiveScale);
         g.Held = root;
-        // Keep the can upright in the hand, as it stood on the shelf (its tilt relative to upright).
-        g.LastRot = Quaternion.Inverse(Quaternion.Euler(0, itemT.eulerAngles.y, 0)) * itemT.rotation;
+
+        // Held as you took it: the can's centre at your palm, turned as it was against your hand.
+        var palm = Palm(g.Hand, grip, gripRot);
+        root.transform.position += palm - b.center;
+        g.HoldRot = Quaternion.Inverse(gripRot) * root.transform.rotation;
+        g.HoldOffset = Quaternion.Inverse(gripRot) * (root.transform.position - grip);
+
+        // Its lid (and the soup under it), on top of the can as it stood on the shelf.
+        var up = Quaternion.Inverse(root.transform.rotation) * Vector3.up;
+        var centre = root.transform.InverseTransformPoint(palm);
+        var radius = Mathf.Min(b.extents.x, b.extents.z) * 0.86f;
+        var top = centre + up * (b.extents.y + 0.002f * VRRig.ActiveScale);
+        g.CanUp = up;
+        g.CanCentre = centre;
+        g.LidRest = top;
+        g.Soup = Disc(root.transform, top - up * (0.0015f * VRRig.ActiveScale), up, radius * 0.94f, 0.0008f, SoupMaterial, "InkVR_SoupInside");
+        g.Lid = Disc(root.transform, top, up, radius, 0.0035f, LidMaterial, "InkVR_SoupLid");
     }
 
-    private static void Carry(Gesture g, Vector3 grip, Quaternion rot)
+    private static GameObject Disc(Transform parent, Vector3 localCentre, Vector3 localUp, float radius, float thickness, Material mat, string name)
     {
-        if (g.Held == null) return;
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = localCentre;
+        go.transform.localRotation = Quaternion.FromToRotation(Vector3.up, localUp);
+        var mb = new MeshBuilder();
+        mb.Ellipsoid(Vector3.zero, new Vector3(radius, thickness * VRRig.ActiveScale, radius), Quaternion.identity, 24, 6);
+        go.AddComponent<MeshFilter>().sharedMesh = mb.ToMesh(name);
+        go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+        return go;
+    }
+
+    private static Material _lidMat, _soupMat;
+
+    private static Material LidMaterial => _lidMat ??= InkMaterials.GameSurface(LidTexture(), "InkVR_SoupLid");
+    private static Material SoupMaterial => _soupMat ??= InkMaterials.GameSurface(HenryTextures.Flat(new Color(0.42f, 0.25f, 0.13f), "InkVR_SoupInside"), "InkVR_SoupInside");
+
+    /// <summary>A tin lid: grey metal, a pressed ring, a ring-pull tab, an ink outline.</summary>
+    private static Texture2D LidTexture()
+    {
+        var c = new UI.InkCanvas(64, 64, new Color(0.7f, 0.68f, 0.62f), 41);
+        for (var a = 0f; a < 6.3f; a += 0.03f)
+        {
+            c.Dot(32 + Mathf.Cos(a) * 30, 32 + Mathf.Sin(a) * 30, 1.6f, HenryTextures.Ink, 0.9f);
+            c.Dot(32 + Mathf.Cos(a) * 22, 32 + Mathf.Sin(a) * 22, 0.9f, HenryTextures.Ink, 0.4f);
+        }
+
+        c.Stroke(32, 32, 32, 46, 5f, new Color(0.55f, 0.53f, 0.48f));
+        for (var a = 0f; a < 6.3f; a += 0.1f) c.Dot(32 + Mathf.Cos(a) * 6, 46 + Mathf.Sin(a) * 5, 1f, HenryTextures.Ink, 0.8f);
+        c.Grain(0.12f);
+        return c.ToTexture("InkVR_SoupLid", false);
+    }
+
+    private static bool NearLid(Gesture g, Hand hand)
+    {
+        if (g.Lid == null) return false;
+        var (pos, rot) = HandGrip(hand);
+        return (Palm(hand, pos, rot) - g.Lid.transform.position).magnitude < 0.11f * VRRig.ActiveScale;
+    }
+
+    private static void Soup(Gesture g, Vector3 pos, Quaternion rot, bool held)
+    {
         var scale = VRRig.ActiveScale;
-        var palm = grip + rot * new Vector3(g.Hand == Hand.Right ? -0.03f : 0.03f, -0.01f, 0.04f) * scale;
-        // The can stays upright in your hand, turning with it.
-        g.Held.transform.SetPositionAndRotation(palm, Quaternion.Euler(0, rot.eulerAngles.y, 0) * g.LastRot);
-        g.Held.transform.localScale = Vector3.one;
+        if (g.Held != null) g.Held.transform.SetPositionAndRotation(pos + rot * g.HoldOffset, rot * g.HoldRot);
+        if (!held)
+        {
+            PutBack(g);
+            Cancel("put back");
+            return;
+        }
+
+        // The other hand pulling the lid: it comes with that hand once it's pulled clear, and you can fling it away.
+        if (!g.Open && g.LidHand.HasValue && g.Lid != null)
+        {
+            var lh = g.LidHand.Value;
+            var (lp, lr) = HandGrip(lh);
+            var lidPalm = Palm(lh, lp, lr);
+            var rest = g.Held.transform.TransformPoint(g.LidRest);
+            if (Grip(lh) < 0.35f)
+            {
+                g.LidHand = null; // let go of it before it came off: still on
+            }
+            else if ((lidPalm - rest).magnitude > 0.07f * scale)
+            {
+                OpenCan(g, lh);
+            }
+        }
+
+        var head = VRRig.Head;
+        if (head == null) return;
+        var mouth = head.position + head.rotation * new Vector3(0, -0.085f, 0.07f) * scale;
+        var can = g.Held != null ? g.Held.transform.TransformPoint(g.CanCentre) : pos;
+        var atMouth = (can - mouth).magnitude < 0.14f * scale;
+        if (!atMouth)
+        {
+            g.AtMouthSince = -1f;
+            return;
+        }
+
+        var now = Time.unscaledTime;
+        if (g.AtMouthSince < 0) g.AtMouthSince = now;
+        if (!g.Open)
+        {
+            // Still sealed: a nudge in the hand. (After a few seconds at your mouth it pops open for you anyway.)
+            if (now >= g.NextNudge)
+            {
+                g.NextNudge = now + 0.5f;
+                XrInput.Haptic(g.Hand, 0.25f, 0.03f);
+            }
+
+            if (now - g.AtMouthSince > 2.5f) OpenCan(g, g.Hand);
+            return;
+        }
+
+        // Tipped up to your mouth (or held there a moment): down it goes.
+        var tilt = Vector3.Angle(g.Held.transform.TransformDirection(g.CanUp), Vector3.up);
+        if (tilt > 30f || now - g.AtMouthSince > 0.8f)
+        {
+            XrInput.Haptic(g.Hand, 0.5f, 0.15f);
+            DropHeld(g);
+            Complete("eaten");
+        }
+    }
+
+    private static void OpenCan(Gesture g, Hand by)
+    {
+        g.Open = true;
+        g.LidHand = null;
+        XrInput.Haptic(g.Hand, 0.45f, 0.05f);
+        if (by != g.Hand) XrInput.Haptic(by, 0.45f, 0.05f);
+        if (g.Lid == null) return;
+        // the lid flies off the way the hand pulled it
+        var lid = g.Lid;
+        g.Lid = null;
+        lid.transform.SetParent(null, true);
+        Object.DontDestroyOnLoad(lid);
+        var v = WeaponHandling.Velocity(by);
+        if (v.magnitude < 0.6f * VRRig.ActiveScale) v = (lid.transform.up + Random.insideUnitSphere * 0.4f) * (1.2f * VRRig.ActiveScale);
+        Lids.Add(new FlyingLid { Lid = lid, Velocity = v, Spin = Random.onUnitSphere * 720f, Until = Time.unscaledTime + 1.6f });
+        Plugin.L.LogInfo($"Soup: the lid is off ({(by == g.Hand ? "popped" : "pulled with the other hand")})");
+    }
+
+    private static void UpdateLids()
+    {
+        var dt = Time.unscaledDeltaTime;
+        for (var i = Lids.Count - 1; i >= 0; i--)
+        {
+            var l = Lids[i];
+            if (l.Lid == null || Time.unscaledTime > l.Until)
+            {
+                if (l.Lid != null) Object.Destroy(l.Lid);
+                Lids.RemoveAt(i);
+                continue;
+            }
+
+            l.Velocity += Physics.gravity * dt;
+            l.Lid.transform.position += l.Velocity * dt;
+            l.Lid.transform.rotation = Quaternion.Euler(l.Spin * dt) * l.Lid.transform.rotation;
+        }
     }
 
     private static void PutBack(Gesture g)
@@ -572,5 +854,7 @@ public static class PhysicalInteract
     {
         if (g.Held != null) Object.Destroy(g.Held);
         g.Held = null;
+        g.Lid = null;
+        g.Soup = null;
     }
 }

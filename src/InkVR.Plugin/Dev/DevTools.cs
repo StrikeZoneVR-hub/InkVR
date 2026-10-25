@@ -155,6 +155,24 @@ public class DevTools : MonoBehaviour
             case "shot": Screenshot(arg); break;
             case "find": Find(arg); break;
             case "inspect": Inspect(arg); break;
+            case "rinfo":
+            {
+                // rinfo <path>: every renderer under it (static batching, mesh, readability, materials)
+                var root = Resolve(arg);
+                if (root == null) break;
+                foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+                {
+                    var mf = r.GetComponent<MeshFilter>();
+                    var mesh = mf != null ? mf.sharedMesh : null;
+                    var mr = r.TryCast<MeshRenderer>();
+                    var mats = string.Join(",", r.sharedMaterials.Select(m => m != null ? m.name + "/" + m.shader.name : "-"));
+                    Plugin.L.LogInfo($"RINFO {PathOf(r.transform)} {r.GetIl2CppType().Name} on={r.enabled}/{r.gameObject.activeInHierarchy} static={r.isPartOfStaticBatch} " +
+                                     $"mesh={(mesh != null ? mesh.name + " v" + mesh.vertexCount + " sub" + mesh.subMeshCount + " read=" + mesh.isReadable : "-")} " +
+                                     $"start={(mr != null ? mr.subMeshStartIndex : -1)} size={r.bounds.size} mats={mats}");
+                }
+
+                break;
+            }
             case "active": SetActive(arg); break;
             case "click": Click(arg); break;
             case "findc": FindComponent(arg); break;
@@ -828,6 +846,83 @@ public class DevTools : MonoBehaviour
                 InkVR.Body.Hands.DevRight = (d.pos, d.rot * Quaternion.AngleAxis(float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture), Vector3.forward));
                 break;
             }
+            case "hittest":
+            {
+                // hittest <path>: the old interface lookup against the type-system check, for each collider under it
+                var root = Resolve(arg);
+                if (root == null) break;
+                foreach (var c in root.GetComponentsInChildren<Collider>(true))
+                {
+                    var old = c.GetComponent<IHittable>();
+                    Plugin.L.LogInfo($"HITTEST {PathOf(c.transform)}: GetComponent<IHittable>={(old != null ? "yes" : "no")} parent={(c.GetComponentInParent<IHittable>() != null ? "yes" : "no")} real={InkVR.Body.Hittable.Is(c)} trigger={c.isTrigger}");
+                }
+
+                break;
+            }
+            case "lhandhandle":
+            {
+                // lhandhandle <t>: the dev left hand on the held axe's handle (0 the dominant hand's end, 1 the head)
+                var origin = InkVR.Core.VRRig.ActiveOrigin;
+                if (origin == null || !InkVR.Body.MeleeSwing.HandleLine(out var near, out var far) || !InkVR.Body.Hands.DevRight.HasValue) { Plugin.L.LogInfo("LHANDHANDLE no handle"); break; }
+                var at = Vector3.Lerp(near, far, float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture));
+                InkVR.Body.Hands.DevLeft = (origin.InverseTransformPoint(at), InkVR.Body.Hands.DevRight.Value.rot);
+                Plugin.L.LogInfo($"LHANDHANDLE at {at} (handle {near} -> {far})");
+                break;
+            }
+            case "propprobe":
+                Plugin.L.LogInfo("PROPPROBE " + Input.PropGrab.DevProbe(arg.Length > 0 ? float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture) : 0.3f));
+                break;
+            case "valvewind":
+            {
+                // valvewind deg: wind the dev right hand round the valve being turned, about its axis
+                var v = Input.PhysicalInteract.DevValve;
+                var origin = InkVR.Core.VRRig.ActiveOrigin;
+                if (!v.HasValue || origin == null || !InkVR.Body.Hands.DevRight.HasValue) { Plugin.L.LogInfo("VALVEWIND no valve"); break; }
+                var d = InkVR.Body.Hands.DevRight.Value;
+                var q = Quaternion.AngleAxis(float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture), v.Value.axis);
+                var world = origin.TransformPoint(d.pos);
+                var to = v.Value.centre + q * (world - v.Value.centre);
+                var lq = Quaternion.Inverse(origin.rotation) * q * origin.rotation;
+                InkVR.Body.Hands.DevRight = (origin.InverseTransformPoint(to), lq * d.rot);
+                Plugin.L.LogInfo($"VALVEWIND turned {v.Value.turned:F0}");
+                break;
+            }
+            case "lhand":
+            {
+                // lhand dx dy dz: the dev left hand where the right hand is, plus an offset (real metres, world axes)
+                if (!InkVR.Body.Hands.DevRight.HasValue) break;
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                var d = InkVR.Body.Hands.DevRight.Value;
+                var origin = InkVR.Core.VRRig.ActiveOrigin;
+                var delta = origin != null ? origin.InverseTransformVector(new Vector3(a[0], a[1], a[2]) * InkVR.Core.VRRig.ActiveScale) : Vector3.zero;
+                InkVR.Body.Hands.DevLeft = (d.pos + delta, d.rot);
+                break;
+            }
+            case "lhandlid":
+            {
+                // the dev left hand's palm on the held can's lid
+                var lid = Input.PhysicalInteract.DevLid;
+                var origin = InkVR.Core.VRRig.ActiveOrigin;
+                if (!lid.HasValue || origin == null || !InkVR.Body.Hands.DevRight.HasValue) { Plugin.L.LogInfo("LHANDLID no lid"); break; }
+                var rot = InkVR.Body.Hands.DevRight.Value.rot;
+                var worldRot = origin.rotation * rot;
+                var grip = lid.Value - worldRot * new Vector3(0.03f, -0.01f, 0.04f) * InkVR.Core.VRRig.ActiveScale;
+                InkVR.Body.Hands.DevLeft = (origin.InverseTransformPoint(grip) - Vector3.up * ModConfig.HeightOffset.Value, rot);
+                break;
+            }
+            case "lhandmove":
+            {
+                if (!InkVR.Body.Hands.DevLeft.HasValue) break;
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                var d = InkVR.Body.Hands.DevLeft.Value;
+                var origin = InkVR.Core.VRRig.ActiveOrigin;
+                var delta = origin != null ? origin.InverseTransformVector(new Vector3(a[0], a[1], a[2]) * InkVR.Core.VRRig.ActiveScale) : Vector3.zero;
+                InkVR.Body.Hands.DevLeft = (d.pos + delta, d.rot);
+                break;
+            }
+            case "manual":
+                Plugin.L.LogInfo($"MANUAL gesture={Input.PhysicalInteract.Active} last='{Input.PhysicalInteract.LastResult}' prop='{Input.PropGrab.Last}' darts={Input.MinigameThrow.Owns} '{Input.MinigameThrow.Last}' twoHandAxe={Body.WeaponHandling.OffHandOnMelee}");
+                break;
             case "handmove":
             {
                 // handmove dx dy dz (real metres, world axes)
