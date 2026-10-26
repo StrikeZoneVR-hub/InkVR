@@ -5,6 +5,7 @@
 cd "$(dirname "$0")/.."
 CH=${1:-CH2}
 RIGHT=$(( ${CH#CH} - 1 ))
+[ -f "$(dirname "$0")/local.sh" ] && . "$(dirname "$0")/local.sh"  # untracked: export INKVR_GAME_DIR=... for a game installed elsewhere
 GAME="${INKVR_GAME_DIR:-C:/Program Files (x86)/Steam/steamapps/common/Bendy and the Ink Machine}"
 LOG="$GAME/BepInEx/LogOutput.log"
 M="[UI MANAGER]/[UI Layer] - VIEW/TitleScreen(Clone)/Visuals"

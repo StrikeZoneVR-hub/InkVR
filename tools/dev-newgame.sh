@@ -4,6 +4,7 @@
 # player's real slots are never overwritten).
 cd "$(dirname "$0")/.."
 M="[UI MANAGER]/[UI Layer] - VIEW/TitleScreen(Clone)/Visuals"
+[ -f "$(dirname "$0")/local.sh" ] && . "$(dirname "$0")/local.sh"  # untracked: export INKVR_GAME_DIR=... for a game installed elsewhere
 LOG="${INKVR_GAME_DIR:-C:/Program Files (x86)/Steam/steamapps/common/Bendy and the Ink Machine}/BepInEx/LogOutput.log"
 tools/game.sh wait "Scenes: Empty" 120 >/dev/null || exit 1
 sleep 6

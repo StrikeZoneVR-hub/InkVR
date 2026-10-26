@@ -1,6 +1,7 @@
 #!/bin/bash
 # Dev: from a fresh test session (tools/vr-start.sh + tools/dev-newgame.sh), load Chapter 2 and pick up the axe by hand.
 cd "$(dirname "$0")/.."
+[ -f "$(dirname "$0")/local.sh" ] && . "$(dirname "$0")/local.sh"  # untracked: export INKVR_GAME_DIR=... for a game installed elsewhere
 GAME="${INKVR_GAME_DIR:-C:/Program Files (x86)/Steam/steamapps/common/Bendy and the Ink Machine}"
 LOG="$GAME/BepInEx/LogOutput.log"
 tools/game.sh cmd "chapter CH2"

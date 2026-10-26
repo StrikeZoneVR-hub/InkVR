@@ -6,6 +6,7 @@
 #   tools/game.sh cmd "<command>"  send a DevTools command (see src/InkVR.Plugin/Dev/DevTools.cs)
 #   tools/game.sh log [n]          tail the BepInEx log
 #   tools/game.sh wait "<regex>" [timeout_s]  wait until the log matches
+[ -f "$(dirname "$0")/local.sh" ] && . "$(dirname "$0")/local.sh"  # untracked: export INKVR_GAME_DIR=... for a game installed elsewhere
 GAME="${INKVR_GAME_DIR:-C:/Program Files (x86)/Steam/steamapps/common/Bendy and the Ink Machine}"
 LOG="$GAME/BepInEx/LogOutput.log"
 DATA="$GAME/BepInEx/InkVR"

@@ -50,7 +50,7 @@ Each test build goes to your headset before the next one starts, and your feedba
 
 | Item | Finding | Why it matters |
 |---|---|---|
-| Game install | `C:\Program Files (x86)\Steam\steamapps\common\Bendy and the Ink Machine` (3.0 GB) | Inside OneDrive. Sync can lock or duplicate mod files (see Risks) |
+| Game install | A Steam library inside OneDrive (3.0 GB) | Inside OneDrive. Sync can lock or duplicate mod files (see Risks) |
 | Engine | **Unity 2022.3.62f2** | No built-in "enable VR" switch. We have to inject an XR runtime ourselves |
 | Scripting backend | **IL2CPP** (`GameAssembly.dll`, metadata in `il2cpp_data`) | Needs an IL2CPP mod loader. Game code is native, so we use generated interop assemblies, not direct DLL patching |
 | Render pipeline | **Built-in** (no URP/HDRP or PostProcessing v2 assemblies) | Post effects are custom. Game shaders were built without stereo variants, so expect **multi-pass** stereo |
@@ -437,7 +437,7 @@ Every milestone ends with a **"Done when"** checklist that you run in the headse
 3. **Body:** InkVR's own Henry hands and arms for now. Full-body IK is M7, in the 1.0 full release (see 9).
 4. **Release:** open source on GitHub. Licence to pick before release (GPL-3.0 if any UnityVRMod code is borrowed).
 5. **Order & scope:** M0 → M1 → M2 → M3 launcher → M4 motion controls → M5 VR settings → M6 cutscenes. Authorized through M6.
-6. **Name:** InkVR, by StrikeZoneVR. Project folder: `InkVR`.
+6. **Name:** InkVR, by StrikeZoneVR.
 7. **Hands & arms:** made in the game's style and true to the lore (they're Henry's), not just the flat game's viewmodel.
 8. **Test gate:** your first headset test comes once the launcher, settings, hands/arms, Quest button controls, theatre menu and pause, and the in-game VR settings (with the StrikeZoneVR credit) are all done. Motion controls (M4) follow that test.
 9. **Full body (2026-10-22, moved up 2026-10-23):** two models, both selectable in options: one in the hands' style (TOON), one more realistic but still in the game's style (LIFELIKE, which also gets real-looking hands). Plus BODY options for arms & hands and for hands only. Built in 0.5.0 instead of waiting for the full release.

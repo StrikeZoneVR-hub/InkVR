@@ -626,7 +626,7 @@ namespace InkVR.Launcher
 
             var x = 700.0;
             sheet.Children.Add(Look.Text("INKVR  ·  VR MOD MADE BY STRIKEZONEVR", 50, Paint.Ink).At(x, 180));
-            sheet.Children.Add(Look.Text("VERSION " + Version + "  ·  TEST BUILD", 34, Paint.StampRed).At(x, 246));
+            sheet.Children.Add(Look.Text("VERSION " + Version, 34, Paint.StampRed).At(x, 246));
             var text = string.Join("\n\n", new[]
             {
                 "A fan-made VR mod for Bendy and the Ink Machine: play every chapter in a Quest 3 (or any OpenXR headset) with Henry's own hands, and watch the menus on the big screen of a 1930s picture palace.",

@@ -4,6 +4,7 @@
 # press the nearest pressable thing, splash some ink, check the weapon and the hurt ink; then gather errors and
 # measurements. Writes analysis/walkthrough.txt. Usage: tools/dev-walkthrough.sh [CH1 CH2 ... Archives]
 cd "$(dirname "$0")/.."
+[ -f "$(dirname "$0")/local.sh" ] && . "$(dirname "$0")/local.sh"  # untracked: export INKVR_GAME_DIR=... for a game installed elsewhere
 GAME="${INKVR_GAME_DIR:-C:/Program Files (x86)/Steam/steamapps/common/Bendy and the Ink Machine}"
 LOG="$GAME/BepInEx/LogOutput.log"
 PLOG="analysis/player.log"

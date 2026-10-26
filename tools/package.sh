@@ -5,6 +5,7 @@ set -e
 cd "$(dirname "$0")/.."
 VERSION=$(grep -oP '(?<=<Version>)[^<]+' src/InkVR.Launcher/InkVR.Launcher.csproj)
 OUT="dist/InkVR-v$VERSION"
+[ -f "$(dirname "$0")/local.sh" ] && . "$(dirname "$0")/local.sh"  # untracked: export INKVR_GAME_DIR=... for a game installed elsewhere
 GAME="${INKVR_GAME_DIR:-C:/Program Files (x86)/Steam/steamapps/common/Bendy and the Ink Machine}"
 
 tools/build.sh

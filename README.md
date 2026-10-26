@@ -1,8 +1,6 @@
-<!-- HERO IMAGE: docs/images/hero.jpg goes here when StrikeZoneVR sends the screenshots:
 <p align="center">
-  <img src="docs/images/hero.jpg" alt="InkVR" width="100%">
+  <img src="docs/images/hero.jpg" alt="InkVR: the Bendy and the Ink Machine title screen on the big screen of the VR theatre, Henry's cartoon glove reaching for it" width="100%">
 </p>
--->
 
 <h1 align="center">InkVR</h1>
 
@@ -33,19 +31,22 @@
 
 ## What it does
 
-<!-- SCREENSHOTS: each row below gets a picture above its text, two per row, like this:
-| <img src="docs/images/hands.jpg" width="100%"> | <img src="docs/images/doors.jpg" width="100%"> |
--->
-
 | | |
 |---|---|
-| **Your hands, your body.** Look down and see Henry: cartoon gloves, braces and big shoes in the game's own style (or a Lifelike style), with a real wristwatch. Your arms are his arms. | **Doors by hand.** Push, pull or fling a door open; locked ones rattle. Turn valves and pump wheels, pull levers and flip switches yourself. |
-| **Touch everything.** Press buttons, DOOR RELEASE and tape recorders with a fingertip, lift lids, open drawers and chests, pull the lid off a can of Bacon Soup and tip it to your mouth, play the organ and the piano, boop Bendy on the nose. | **Fight like you mean it.** Swing the axe with one hand or both: a hit counts anywhere on an enemy, and planks break where you strike. Guns aim where your hand points, with a two-handed grip. Throw darts and soup cans for real. |
-| **Real-time ink.** Every drop lands on your hands, arms and clothes, runs and drips. Wade in and the ink ripples and splashes round you, and inky shoes leave footprints. | **Cutscenes in VR.** Scripted scenes play around you while you keep Henry's body. Your head does the looking, and the world never tilts or spins. |
-| **Reach without walking.** Point at an item, grip and flick: it flies to your hand on an ink thread. Seated play lifts a seated view to Henry's height. | **A picture palace.** The menus play on the big screen of a 1930s theatre built in the game's style, and VR SETTINGS sits inside the game's own Options. |
+| <img src="docs/images/hands.jpg" alt="A Lifelike hand with Henry's wristwatch in the theatre" width="100%"> | <img src="docs/images/doors.jpg" alt="Henry's hand pushing a door open" width="100%"> |
+| **Your hands, your body.** Look down and see Henry: cartoon gloves, braces and big shoes in the game's own style (or a Lifelike style), with a real wristwatch. Your arms are his arms. | **Doors by hand.** Push, pull or fling a door open; locked ones rattle and stop you. |
+| <img src="docs/images/valve.jpg" alt="A gloved hand gripping a valve wheel" width="100%"> | <img src="docs/images/touch.jpg" alt="A finger booping a Bendy cut-out on the nose" width="100%"> |
+| **Turn it yourself.** Valves and wheels turn in your hand as you wind them round; levers swing as you pull them; switches flip under your fingers. | **Touch everything.** Press buttons, DOOR RELEASE and tape recorders with a fingertip, lift lids, open drawers and chests, play the organ and the piano, boop Bendy on the nose. |
+| <img src="docs/images/soup.jpg" alt="A can of Bacon Soup in Henry's gloved hand" width="100%"> | <img src="docs/images/darts.jpg" alt="A dart in Henry's hand, the dartboard across the room" width="100%"> |
+| **Bacon Soup by hand.** Pick up a can, pull the lid off with your other hand, and tip it to your mouth. | **Throw for real.** Darts, soup cans and balls fly the way your hand moved, as hard as you threw them. |
+| <img src="docs/images/fight.jpg" alt="The axe bursting a Searcher into ink" width="100%"> | <img src="docs/images/ink.jpg" alt="Ink stains on Henry's sleeve and glove" width="100%"> |
+| **Fight like you mean it.** Swing the axe with one hand or both: a hit counts anywhere on an enemy, and planks break where you strike. Guns aim where your hand points, with a two-handed grip. | **Real-time ink.** Every drop lands on your hands, arms and clothes, runs and drips. Wade in and the ink ripples and splashes round you, and inky shoes leave footprints. |
+| <img src="docs/images/scenes.jpg" alt="A scripted scene playing around you in VR" width="100%"> | <img src="docs/images/theatre.jpg" alt="The 1930s theatre the menus play in, Henry's glove raised" width="100%"> |
+| **Cutscenes in VR.** Scripted scenes play around you while you keep Henry's body. Your head does the looking, and the world never tilts, spins or shakes. | **A picture palace.** The menus play on the big screen of a 1930s theatre built in the game's style, and VR SETTINGS sits inside the game's own Options. |
 
 Also included:
 - Every chapter playable from start to finish, and the Archives.
+- Reach without walking: point at an item, grip and flick, and it flies to your hand on an ink thread.
 - A weapon wheel (click the right stick) and an inventory card in your hand (hold Y), or the game's own buttons.
 - Snap or smooth turning; seated or standing play.
 - World size: AUTO makes Henry's eyes your eyes, or set it yourself.

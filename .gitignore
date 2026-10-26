@@ -6,3 +6,5 @@ vendor/
 .vs/
 teasers/
 dist/
+Directory.Build.local.props
+tools/local.sh

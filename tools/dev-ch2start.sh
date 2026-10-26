@@ -2,6 +2,7 @@
 # Dev: from the title screen of a test session, start Chapter 2 through the game's own chapter select
 # (so its opening sequence runs, unlike tools/dev-chapter.sh). Saving is blocked in test sessions.
 cd "$(dirname "$0")/.."
+[ -f "$(dirname "$0")/local.sh" ] && . "$(dirname "$0")/local.sh"  # untracked: export INKVR_GAME_DIR=... for a game installed elsewhere
 GAME="${INKVR_GAME_DIR:-C:/Program Files (x86)/Steam/steamapps/common/Bendy and the Ink Machine}"
 LOG="$GAME/BepInEx/LogOutput.log"
 M="[UI MANAGER]/[UI Layer] - VIEW/TitleScreen(Clone)/Visuals"
