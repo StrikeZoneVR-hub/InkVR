@@ -49,6 +49,7 @@ public static class ModConfig
     public static bool Lifelike => BodyStyle.Value != "Toon";
     public static ConfigEntry<float> HeldItemPitch;
     public static ConfigEntry<bool> InkOnHands;
+    public static ConfigEntry<bool> PlayerShadows;
     public static ConfigEntry<float> InkFadeMinutes;
 
     // Graphics
@@ -115,6 +116,7 @@ public static class ModConfig
             new AcceptableValueList<string>("Lifelike", "Toon")));
         HeldItemPitch = cfg.Bind("Body", "HeldItemPitch", 0f, "Extra pitch (degrees) applied to held weapons and items.");
         InkOnHands = cfg.Bind("Body", "InkOnHands", true, "Ink from spills, splats, pools, pours, drips and ink bursts gets onto Henry (hands, sleeves, and with the full body his clothes and shoes), and inky shoes leave footprints.");
+        PlayerShadows = cfg.Bind("Body", "PlayerShadows", true, "Henry casts a real-time shadow that moves with you: his body, arms and hands, and his head (which you never see).");
         InkFadeMinutes = cfg.Bind("Body", "InkFadeMinutes", 3f, "How long fresh ink takes to dry and fade back to the chapter's usual stains.");
 
         VRDisableMotionBlur = cfg.Bind("Graphics", "DisableMotionBlurInVR", true, "Motion blur smears the whole view when you turn your head.");

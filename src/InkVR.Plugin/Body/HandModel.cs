@@ -404,7 +404,7 @@ public class HandModel
         go.AddComponent<MeshFilter>().sharedMesh = mb.ToMesh(name);
         var r = go.AddComponent<MeshRenderer>();
         r.sharedMaterial = material;
-        r.shadowCastingMode = ShadowCastingMode.Off;
+        r.shadowCastingMode = ModConfig.PlayerShadows.Value ? ShadowCastingMode.On : ShadowCastingMode.Off; // your hands' shadow
         _renderers.Add(r);
         if (stain)
         {

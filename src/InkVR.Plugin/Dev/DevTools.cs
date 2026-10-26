@@ -1341,6 +1341,26 @@ public class DevTools : MonoBehaviour
                 ShootFrom(a[0], t.position + t.up * d, t.position, t.right, InkVR.Core.VRRig.CinemaActive || !InkVR.Core.VRRig.InGame, 30f);
                 break;
             }
+            case "devlight":
+            {
+                // devlight on|off: a shadow-casting spotlight 2.5 m over the player, pointing down (to see Henry's shadow)
+                var existing = GameObject.Find("InkVR_DevLight");
+                if (existing != null) Object.Destroy(existing);
+                if (arg == "off") break;
+                var player = GameManager.Instance?.Player;
+                if (player == null) break;
+                var k = InkVR.Core.VRRig.ActiveScale;
+                var go = new GameObject("InkVR_DevLight");
+                go.transform.SetPositionAndRotation(player.transform.position + Vector3.up * 2.5f * k + player.transform.forward * 0.6f * k, Quaternion.LookRotation(Vector3.down, player.transform.forward));
+                var l = go.AddComponent<Light>();
+                l.type = LightType.Spot;
+                l.spotAngle = 80f;
+                l.range = 6f * k;
+                l.intensity = 4f;
+                l.shadows = LightShadows.Soft;
+                Plugin.L.LogInfo("DEVLIGHT on");
+                break;
+            }
             case "bodyshot":
                 BodyShot(arg);
                 break;

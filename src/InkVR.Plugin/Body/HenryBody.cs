@@ -267,7 +267,22 @@ public sealed class HenryBody
         }
 
         if (outline != null) _renderers.Add(outline);
+
+        // Your shadow: the clothes cast it (the ink outline doesn't, it would only thicken it), and a head the size of
+        // Henry's casts it above the collar, drawn only into the shadow (you look out of it).
+        if (!ModConfig.PlayerShadows.Value) return;
+        foreach (var piece in pieces) piece.Renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+        var head = new GameObject("InkVR_HenryHeadShadow");
+        head.transform.SetParent(_root, false);
+        head.AddComponent<MeshFilter>().sharedMesh = Blob(new Vector3(0, 0.03f, -0.08f), new Vector3(0.085f, 0.115f, 0.105f), 14, 8).ToMesh("InkVR_HenryHeadShadow");
+        var hr = head.AddComponent<MeshRenderer>();
+        hr.sharedMaterial = pieces.Count > 0 ? pieces[0].Renderer.sharedMaterial : null;
+        hr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+        hr.receiveShadows = false;
+        _headShadow = head.transform;
     }
+
+    private Transform _headShadow;
 
     private static InkRegion? RegionOf(string material) => material switch
     {
@@ -332,6 +347,7 @@ public sealed class HenryBody
     public void Pose(Vector3 eye, Quaternion headRot, float k, Vector3? handLeft, Vector3? handRight, Func<Vector3, float> groundAt, float dt)
     {
         _root.localScale = Vector3.one * k;
+        if (_headShadow != null) _headShadow.SetPositionAndRotation(eye, headRot);
 
         // --- facing: follow the head, a little towards where the hands are working ---
         var headFwd = headRot * Vector3.forward;

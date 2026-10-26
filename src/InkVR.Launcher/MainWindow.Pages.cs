@@ -570,6 +570,7 @@ namespace InkVR.Launcher
             Row("BODY", new[] { "FULL BODY", "ARMS & HANDS", "HANDS ONLY", "NONE" }, Math.Max(0, Array.IndexOf(bodies, cfg?.Get("Body", "Mode") ?? "Full")), i => cfg.Set("Body", "Mode", bodies[i]), has);
             var styles = new[] { "Lifelike", "Toon" };
             Row("STYLE", new[] { "LIFELIKE", "TOON" }, Math.Max(0, Array.IndexOf(styles, cfg?.Get("Body", "Style") ?? "Lifelike")), i => cfg.Set("Body", "Style", styles[i]), has);
+            Row("YOUR SHADOW", new[] { "ON", "OFF" }, has && !cfg.GetBool("Body", "PlayerShadows", true) ? 1 : 0, i => cfg.Set("Body", "PlayerShadows", i == 0), has);
             Row("MELEE", new[] { "SWING YOUR ARM", "BUTTON ONLY" }, has && !cfg.GetBool("Controls", "PhysicalMelee", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalMelee", i == 0), has);
             Row("GUN AIM", new[] { "HAND", "HEAD" }, has && !cfg.GetBool("Controls", "AimGunsWithHand", true) ? 1 : 0, i => cfg.Set("Controls", "AimGunsWithHand", i == 0), has);
             Row("INK ON HENRY", new[] { "ON", "OFF" }, has && !cfg.GetBool("Body", "InkOnHands", true) ? 1 : 0, i => cfg.Set("Body", "InkOnHands", i == 0), has);

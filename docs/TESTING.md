@@ -1,6 +1,13 @@
 # Testing InkVR
 
-## Current build: 0.9.1 (steady camera shakes: the Chapter 1 finale works again; no more prop pick-up)
+## Current build: 0.9.2 (your own shadow)
+
+### New in 0.9.2: Henry casts your shadow
+- As you asked: Henry's body, arms and hands cast a real-time shadow that moves with you, wherever the game has a light that casts shadows. His head casts one too, though you never see it: a head-sized shape that's drawn only into the shadow, so nothing blocks your view.
+- **Checked:** under a test light, the shadow on the floor ahead is Henry's: body, arm, hands and head, moving with you. With no shadow-casting light nearby (most of the studio's light is baked), there's no shadow, just as for everything else there.
+- YOUR SHADOW in the launcher's options turns it off.
+
+## Previous build: 0.9.1 (steady camera shakes: the Chapter 1 finale works again; no more prop pick-up)
 
 From your 25 Oct showcase recording ("cutscenes broke").
 
