@@ -120,12 +120,11 @@ public static class VRSettingsMenu
 
     /// <summary>
     /// The hand-motion extras in one row (the page has room for one more): valves, levers and soup by hand,
-    /// throwing with your arm, picking up props, two hands on guns and the axe, the shoulder holster. The launcher
-    /// has each on its own.
+    /// throwing with your arm, two hands on guns and the axe, the shoulder holster. The launcher has each on its own.
     /// </summary>
     private static Row MotionControls()
     {
-        var entries = new[] { ModConfig.PhysicalDoors, ModConfig.PhysicalInteractions, ModConfig.PhysicalThrow, ModConfig.GrabProps, ModConfig.TwoHandedGuns, ModConfig.Holster };
+        var entries = new[] { ModConfig.PhysicalDoors, ModConfig.PhysicalInteractions, ModConfig.PhysicalThrow, ModConfig.TwoHandedGuns, ModConfig.Holster };
         return new Row
         {
             Label = "MOTION CONTROLS",

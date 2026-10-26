@@ -869,9 +869,6 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"LHANDHANDLE at {at} (handle {near} -> {far})");
                 break;
             }
-            case "propprobe":
-                Plugin.L.LogInfo("PROPPROBE " + Input.PropGrab.DevProbe(arg.Length > 0 ? float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture) : 0.3f));
-                break;
             case "valvewind":
             {
                 // valvewind deg: wind the dev right hand round the valve being turned, about its axis
@@ -921,7 +918,7 @@ public class DevTools : MonoBehaviour
                 break;
             }
             case "manual":
-                Plugin.L.LogInfo($"MANUAL gesture={Input.PhysicalInteract.Active} last='{Input.PhysicalInteract.LastResult}' prop='{Input.PropGrab.Last}' darts={Input.MinigameThrow.Owns} '{Input.MinigameThrow.Last}' twoHandAxe={Body.WeaponHandling.OffHandOnMelee}");
+                Plugin.L.LogInfo($"MANUAL gesture={Input.PhysicalInteract.Active} last='{Input.PhysicalInteract.LastResult}' darts={Input.MinigameThrow.Owns} '{Input.MinigameThrow.Last}' twoHandAxe={Body.WeaponHandling.OffHandOnMelee}");
                 break;
             case "handmove":
             {

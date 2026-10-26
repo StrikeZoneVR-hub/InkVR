@@ -15,9 +15,8 @@ namespace InkVR.Input;
 ///   levers and switches: the handle swings with your pull until it's thrown (let go early and it springs back);
 ///                      lids lift and drawers slide with a decisive pull
 ///   Bacon Soup: pick the can up, pull the lid off with your other hand, then tip it to your mouth to eat it
-/// Then the game's own interaction runs (its animation, sounds, puzzle logic). Grip a loose prop (a chair, a box)
-/// and it comes with you (see <see cref="PropGrab"/>). X always does the classic instant interaction, and holding
-/// a gesture still for 4 s completes it, so nothing can get stuck.
+/// Then the game's own interaction runs (its animation, sounds, puzzle logic). X always does the classic instant
+/// interaction, and holding a gesture still for 4 s completes it, so nothing can get stuck.
 /// </summary>
 public static class PhysicalInteract
 {
@@ -170,9 +169,6 @@ public static class PhysicalInteract
                 return true;
             }
         }
-
-        // a chair, a box, a bucket under your hand: pick it up
-        if (PropGrab.TryGrab(hand)) return true;
 
         // pointing at something further off: take hold of its ink thread (gravity pull)
         if (GravityPull.TryLock(hand)) return true;

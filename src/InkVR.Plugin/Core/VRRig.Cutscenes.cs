@@ -13,6 +13,8 @@ namespace InkVR.Core;
 /// level). A short blink of black hides the jump in and out and any cuts. Henry's body stays yours throughout: it
 /// stands under your view and your arms move it; only walking is held until the scene is over.
 /// Being hit or killed isn't a scene: the game's camera shake and death fall are ignored, and you stay in Henry.
+/// Nor is any other camera shake (the Chapter 1 finale's ink flood, Brute Boris's footsteps, the Beast's charge):
+/// in VR your view stays steady.
 /// </summary>
 public static partial class VRRig
 {
@@ -22,6 +24,7 @@ public static partial class VRRig
     private const float BlinkIn = 0.35f;     // s from black back to the scene
     private const float HitShake = 1.5f;     // s after a hit when the game's camera shake is ignored
     private const float DeathFall = 8f;      // s after dying when the game's death camera is ignored
+    private const float ShakeRadius = 0.8f;  // m: a camera nudged less than this, still facing the same way, is a shake
 
     /// <summary>The game has the camera (a cutscene or scripted moment): the headset is following it.</summary>
     public static bool CutsceneActive { get; private set; }
@@ -38,6 +41,7 @@ public static partial class VRRig
     private static Vector3 _cutHead;                    // your tracked head (metres) when the scene was lined up
     private static float _homeFor, _blink;
     private static float _hurtUntil;                    // a hit's shake or a death's fall is playing until then
+    private static float _shakeUntil;                   // the game is shaking its camera until then
 
     // the camera pose the game last set itself (it never does outside scripted scenes)
     private static Vector3 _appliedPos, _writtenPos;
@@ -69,9 +73,10 @@ public static partial class VRRig
         var turned = Quaternion.Angle(lr, _appliedRot) > 12f;
         if (!moved && !turned) return;
         _appliedValid = false;
-        if (Hurting)
+        if (Hurting || Shaking)
         {
-            // the game shaking its camera for a hit, or dropping it for a death: not a scene, you stay in Henry
+            // the game shaking its camera (a hit, the Chapter 1 finale's ink flood) or dropping it for a death: not
+            // a scene, you stay in Henry
             _written = false;
             return;
         }
@@ -83,11 +88,18 @@ public static partial class VRRig
             return;
         }
 
-        if (lp.sqrMagnitude < 0.0025f && Quaternion.Angle(lr, Quaternion.identity) < 1f)
+        if (lp.sqrMagnitude < 0.0025f && (Quaternion.Angle(lr, Quaternion.identity) < 1f || Quaternion.Angle(lr, _appliedRot) < 3f))
         {
-            // the game putting its camera back to rest (zero, relative to the holder it thinks it's in): the scene is over
+            // the game putting its camera back to rest (zero, relative to the holder it thinks it's in), as a shake
+            // ends: not a scene's view (it's Henry's feet in VR), and any scene it set is over
             if (_written) Plugin.L.LogInfo("Cutscene: the game put its camera back to rest");
             _written = false;
+            return;
+        }
+
+        if (!_written && (lp - _appliedPos).sqrMagnitude < ShakeRadius * ShakeRadius && Quaternion.Angle(lr, _appliedRot) < 3f)
+        {
+            // jiggled round where your head put it, still facing the same way: a shake the game didn't announce
             return;
         }
 
@@ -134,6 +146,31 @@ public static partial class VRRig
 
     /// <summary>The game took Henry somewhere else (a respawn): any hit or death before it is over.</summary>
     private static void HurtOver() => _hurtUntil = 0f;
+
+    // ---------------- camera shakes ----------------
+
+    private static bool Shaking => Time.unscaledTime < _shakeUntil;
+
+    /// <summary>
+    /// The game started shaking its camera (for this long at most). Its shakes jiggle the camera round where it was
+    /// and then put it back to rest, which looked like a scene: in the Chapter 1 finale the view jumped about and
+    /// ended up in the floor, under the ink. While it shakes, nothing it does to the camera is followed.
+    /// </summary>
+    internal static void NoteShake(float seconds)
+    {
+        if (!Shaking) Plugin.L.LogInfo("The game is shaking its camera: keeping your view steady");
+        _shakeUntil = Mathf.Max(_shakeUntil, Time.unscaledTime + seconds);
+        _written = false;
+        if (CutsceneActive && _camOwner == null && !HolderAway() && _player != null)
+        {
+            // a scene started from the shake's first jiggles: it was never one
+            EndCutscene();
+            _blink = 0f;
+        }
+    }
+
+    /// <summary>The game stopped shaking its camera: its last moves (back to rest) are still ignored for a moment.</summary>
+    internal static void ShakeStopped() => _shakeUntil = Mathf.Min(_shakeUntil, Time.unscaledTime + 0.5f);
 
     /// <summary>The game has taken its camera holder off Henry's head, or is tilting the player it hangs from.</summary>
     private static bool HolderAway()
@@ -384,7 +421,7 @@ public static partial class VRRig
         CutsceneActive = false;
         _camOwner = null;
         _written = _appliedValid = false;
-        _homeFor = _hurtUntil = 0f;
+        _homeFor = _hurtUntil = _shakeUntil = 0f;
     }
 
     /// <summary>The blink of black over cuts, on top of the game's own fades.</summary>
@@ -403,4 +440,54 @@ internal static class HurtPatches
 
     [HarmonyPrefix, HarmonyPatch(typeof(PlayerController), nameof(PlayerController.Die))]
     private static void Died() => VRRig.NoteHurt(true);
+}
+
+/// <summary>
+/// The game's camera shakes, chapter by chapter. Patched one by one (not by attribute), so a method a game update
+/// renames costs only its own shake, never the rest of InkVR's patches.
+/// </summary>
+internal static class ShakePatches
+{
+    private const float Burst = 3f;  // s: a one-off shake (each call starts another)
+    private const float Long = 30f;  // s: a shake that runs until the game stops it
+
+    internal static void Apply(Harmony harmony)
+    {
+        Hook(harmony, typeof(CH1BendyFinaleController), "ShakeCamera", nameof(OnBurst));      // Ch1's ink flood
+        Hook(harmony, typeof(CH3ClosingSequenceController), "DoShake", nameof(OnLong));         // Ch3's ending
+        Hook(harmony, typeof(CH3ClosingSequenceController), "KillShake", nameof(OnStop));
+        Hook(harmony, typeof(BruteBorisAi), "ApplyShake", nameof(OnBurst));                     // Ch4's Brute Boris
+        Hook(harmony, typeof(BruteBorisAnimationEvents), "ShakeCamera", nameof(OnBurst));
+        Hook(harmony, typeof(BeastBendy_Ai), "ApplyShake", nameof(OnBurst));                    // Ch5's Beast
+        Hook(harmony, typeof(Ch5BeastBendyChargeController), "ApplyShake", nameof(OnBurst));
+        // Not S13Audio's evt_screen_shake_start/stop: they're empty, and the game's build shares one body between
+        // every empty method, so hooking them hooked all of those and froze the game at startup.
+    }
+
+    private static void Hook(Harmony harmony, System.Type type, string method, string prefix)
+    {
+        // dev: INKVR_SKIP_SHAKE="Type.Method,..." leaves those unhooked
+        var skip = System.Environment.GetEnvironmentVariable("INKVR_SKIP_SHAKE");
+        if (skip != null && (skip == "*" || skip.Contains($"{type.Name}.{method}"))) return;
+        try
+        {
+            var target = AccessTools.Method(type, method);
+            if (target == null)
+            {
+                Plugin.L.LogWarning($"Camera shake: {type.Name}.{method} not found (that shake won't be steadied)");
+                return;
+            }
+
+            harmony.Patch(target, prefix: new HarmonyMethod(AccessTools.Method(typeof(ShakePatches), prefix)));
+            Plugin.L.LogDebug($"Camera shake: hooked {type.Name}.{method}");
+        }
+        catch (System.Exception e)
+        {
+            Plugin.L.LogWarning($"Camera shake: couldn't hook {type.Name}.{method}: {e.Message}");
+        }
+    }
+
+    private static void OnBurst() => VRRig.NoteShake(Burst);
+    private static void OnLong() => VRRig.NoteShake(Long);
+    private static void OnStop() => VRRig.ShakeStopped();
 }

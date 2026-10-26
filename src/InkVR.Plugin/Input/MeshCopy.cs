@@ -4,10 +4,10 @@ using UnityEngine;
 namespace InkVR.Input;
 
 /// <summary>
-/// Copies of the game's objects that can be carried (in the hand, in flight, picked up and thrown).
+/// Copies of the game's objects that can be carried (in the hand, and in flight on the ink thread).
 ///
 /// Most are plain mesh copies. But the game merged many props into one big static mesh per scene when it was built
-/// (the Bacon Soup cans on the shelves, the chairs): those objects no longer have a mesh of their own, only a slice
+/// (the Bacon Soup cans on the shelves among them): those objects no longer have a mesh of their own, only a slice
 /// of the scene's batch, in world space. A plain copy drew some other slice of the level somewhere else, so a can
 /// vanished from your hand the moment you took it. Batched pieces are drawn from their own slice of the batch
 /// instead, every frame, wherever their carrier is.

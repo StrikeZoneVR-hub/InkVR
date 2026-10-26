@@ -14,7 +14,7 @@ public class Plugin : BasePlugin
 {
     public const string Guid = "com.strikezonevr.inkvr";
     public const string Name = "InkVR";
-    public const string Version = "0.9.0";
+    public const string Version = "0.9.1";
 
     internal static ManualLogSource L;
     internal static string DataDir;
@@ -33,7 +33,9 @@ public class Plugin : BasePlugin
         ModConfig.Bind(Config);
         AddComponent<VRRuntime>();
         AddComponent<DevTools>();
-        new Harmony(Guid).PatchAll(typeof(Plugin).Assembly);
+        var harmony = new Harmony(Guid);
+        harmony.PatchAll(typeof(Plugin).Assembly);
+        ShakePatches.Apply(harmony);
 
         L.LogInfo($"{Name} loaded.");
     }

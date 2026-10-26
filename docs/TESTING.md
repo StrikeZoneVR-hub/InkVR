@@ -1,6 +1,24 @@
 # Testing InkVR
 
-## Current build: 0.9.0 (fully manual: soup, valves, levers, darts, chairs, two hands on the axe)
+## Current build: 0.9.1 (steady camera shakes: the Chapter 1 finale works again; no more prop pick-up)
+
+From your 25 Oct showcase recording ("cutscenes broke").
+
+### Fixed in 0.9.1: the Chapter 1 finale throwing your view about and into the floor
+- **Seen in your recording at 22:05 to 22:32:** in the ink-flood chase at the end of Chapter 1, the view kept jumping and blinking, dropped to floor level, and ended under the ink.
+- **Cause:** the finale shakes the game's camera. InkVR took every shake for a cutscene and followed it. When a shake ended, the game put its camera back to its resting spot, which in VR is down at Henry's feet, and InkVR followed it there too. It wasn't the props: your log shows the shakes starting at the finale, long after the last chair.
+- **The same would have happened** with every other shake in the game: Chapter 3's ending, Brute Boris's footsteps (Chapter 4), the Beast's charge (Chapter 5).
+- **Fix:** InkVR now knows when the game starts shaking its camera, and keeps your view steady instead (a shake in VR only makes you sick). A small jiggle that doesn't turn the camera never starts a scene, and the camera going back to rest is never a scene's view.
+- **Checked:** the finale's own shake, called in a test: no scene started, and screenshots before, during and after it are identical. Real scenes still play: the darts game's camera, Chapter 2's opening, and Sammy's knockout (its blow is now steady; the camera move after it plays as a scene as before).
+
+### Removed in 0.9.1: picking up chairs and props
+- As you asked. Grabbing chairs, stools, bins and gear panels is gone, along with its PICK UP PROPS option. Soup, darts, items, valves, levers, doors and the two-handed axe are unchanged.
+
+### What to try (0.9.1)
+1. Play the end of Chapter 1 (power the ink machine, then run from the ink flood): your view should stay in Henry's head, steady, through the chase. The fall at the very end hasn't been tried yet: tell me how it looks.
+2. Anything from 0.9.0 below (soup, valves, levers, darts, the two-handed axe).
+
+## Previous build: 0.9.0 (fully manual: soup, valves, levers, darts, chairs, two hands on the axe)
 
 From a tester's report ("everything should be manual") and your own notes ("soup cans disappear in hand when grabbing it", "holding axe with two hands would be amazing").
 
@@ -26,7 +44,7 @@ From a tester's report ("everything should be manual") and your own notes ("soup
 - Start the darts in Chapter 1's break room (or the ball toss in Chapter 4) as usual. The dart is now in your hand. Hold the trigger, throw, and let go: it flies the way your hand was moving, as hard as you threw it. A gentle release lobs it where your hand points.
 - **Checked:** a hard throw stuck in the board; a gentle lob landed short in the wall below; the next dart appears in your hand each time.
 
-### New in 0.9.0: pick up chairs and props, and throw them
+### New in 0.9.0: pick up chairs and props, and throw them (removed in 0.9.1)
 - Grip a chair (or another loose prop: a box, a bucket) to pick it up. Let go to drop it, or throw it: it flies the way your hand moved and tumbles where it lands, and stays there.
 - Never picked up: anything that's part of a puzzle, a door, a weapon, something you can break (planks, barrels, cutouts), and the building itself.
 - **Checked:** the break room's chairs: picked up, shown in the hand, thrown across the room.

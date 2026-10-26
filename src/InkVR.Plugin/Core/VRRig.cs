@@ -192,7 +192,6 @@ public static partial class VRRig
         UI.WeaponWheel.Update();
         UI.InventoryCard.Update();
         Input.PhysicalInteract.Update();
-        Input.PropGrab.Update();
         Input.MinigameThrow.Update();
         Input.GravityPull.Update();
         Input.PhysicalDoors.Update();
