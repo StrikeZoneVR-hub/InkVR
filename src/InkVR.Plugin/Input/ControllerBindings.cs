@@ -48,7 +48,8 @@ public static class ControllerBindings
         VirtualGamepad.Current = new VirtualGamepad.State
         {
             // (a cutscene holds walking: you keep your body, arms and head, but the stick doesn't move Henry)
-            LeftStick = VRRig.MovementHeld ? Vector2.zero : Deadzone(off.Stick, 0.15f),
+            // (in the theatre, a push of the stick while you're not pointing at the screen walks you instead)
+            LeftStick = VRRig.MovementHeld || UI.TheatreWalk.WantsStick(off) ? Vector2.zero : Deadzone(off.Stick, 0.15f),
             A = dom.Primary,
             B = dom.Secondary,
             X = off.Primary || (!uiHasPointer && (domGrip || offGrip)),
@@ -57,7 +58,7 @@ public static class ControllerBindings
             // (the trigger picks from the weapon wheel while it's open, rather than swinging)
             // (and in a throwing game it's the throw, made by your arm: see MinigameThrow)
             RightTrigger = uiHasPointer || UI.WeaponWheel.IsOpen || MinigameThrow.Owns ? 0f : Body.MeleeSwing.FilterAttack(dom.Trigger),
-            LeftStickButton = off.StickClick,
+            LeftStickButton = off.StickClick && !VRRig.CinemaShowing, // (in the theatre it's walk / menu)
             // Quest has a menu button on the left controller only (the right one's is Meta's, reserved).
             Menu = XrInput.Get(Hand.Left).Menu || XrInput.Get(Hand.Right).Menu
         };

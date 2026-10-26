@@ -446,7 +446,7 @@ namespace InkVR.Launcher
         {
             var cfg = _cfg;
             var y = 180.0;
-            const double rowH = 44;
+            const double rowH = 38;
             var col = 0;
 
             void Header(string text, int c, double hy = 160)
@@ -540,6 +540,8 @@ namespace InkVR.Launcher
             Row("AUTO RESOLUTION", new[] { "ON", "OFF" }, has && !cfg.GetBool("Graphics", "DynamicResolution", true) ? 1 : 0, i => cfg.Set("Graphics", "DynamicResolution", i == 0), has);
             Row("LIGHT BEAMS", new[] { "ON", "OFF" }, has && !cfg.GetBool("Graphics", "VolumetricLightInVR", true) ? 1 : 0, i => cfg.Set("Graphics", "VolumetricLightInVR", i == 0), has);
             Row("LASER POINTER", new[] { "OFF", "ON" }, has && cfg.GetBool("Controls", "LaserPointer", false) ? 1 : 0, i => cfg.Set("Controls", "LaserPointer", i == 1), has);
+            Row("WALK THE THEATRE", new[] { "STICK CLICK", "OFF" }, has && !cfg.GetBool("Controls", "ExploreTheatre", true) ? 1 : 0, i => cfg.Set("Controls", "ExploreTheatre", i == 0), has);
+            Row("TAPE NOTES", new[] { "CLOSE UP", "IN THE HUD" }, has && !cfg.GetBool("Comfort", "CloseUpNotes", true) ? 1 : 0, i => cfg.Set("Comfort", "CloseUpNotes", i == 0), has);
             Row("REDUCE FLASHES", new[] { "OFF", "ON" }, _reduce ? 1 : 0, i =>
             {
                 cfg.Set("Comfort", "ReduceFlashes", i == 1);
@@ -564,8 +566,8 @@ namespace InkVR.Launcher
                 WindowState = i == 1 ? WindowState.Maximized : WindowState.Normal;
             });
 
-            Header("HENRY", 1, 372);
-            y = 434;
+            Header("HENRY", 1, 342);
+            y = 404;
             var bodies = new[] { "Full", "Arms", "Hands", "None" };
             Row("BODY", new[] { "FULL BODY", "ARMS & HANDS", "HANDS ONLY", "NONE" }, Math.Max(0, Array.IndexOf(bodies, cfg?.Get("Body", "Mode") ?? "Full")), i => cfg.Set("Body", "Mode", bodies[i]), has);
             var styles = new[] { "Lifelike", "Toon" };
@@ -579,11 +581,13 @@ namespace InkVR.Launcher
             Row("THROWING", new[] { "SWING & LET GO", "BUTTON" }, has && !cfg.GetBool("Controls", "PhysicalThrow", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalThrow", i == 0), has);
             Row("TWO-HANDED", new[] { "GUNS & AXE", "OFF" }, has && !cfg.GetBool("Controls", "TwoHandedGuns", true) ? 1 : 0, i => cfg.Set("Controls", "TwoHandedGuns", i == 0), has);
             Row("HOLSTER", new[] { "OVER THE SHOULDER", "OFF" }, has && !cfg.GetBool("Controls", "Holster", true) ? 1 : 0, i => cfg.Set("Controls", "Holster", i == 0), has);
+            Row("SATCHEL", new[] { "LEFT SHOULDER", "OFF" }, has && !cfg.GetBool("Controls", "Backpack", true) ? 1 : 0, i => cfg.Set("Controls", "Backpack", i == 0), has);
+            Row("GRIPS", new[] { "NATURAL", "AS THE GAME" }, has && !cfg.GetBool("Body", "NaturalGrips", true) ? 1 : 0, i => cfg.Set("Body", "NaturalGrips", i == 0), has);
 
             var memo = Look.MemoText(has
                 ? "The same settings as VR SETTINGS in the game. Changes here apply when the game next starts."
                 : "Find the game first (VR CHECK) to change the IN VR and HENRY settings.", 20, Paint.Ink, 640, 0.85);
-            sheet.Children.Add(memo.At(910, 930));
+            sheet.Children.Add(memo.At(910, 906));
 
             var x0 = 910.0;
             var locate = SmallButton("LOCATE GAME", LocateGame, 38);

@@ -383,4 +383,131 @@ public static class TheatreArt
         c.Dot(128, 128, 28, Ink, 0.9f);
         return c.ToTexture("InkVR_Theatre_Sunburst", false);
     }
+
+    // ---------------- the lobby's props ----------------
+
+    /// <summary>Brush lettering for a few words (capitals A-Z, digits, a few marks), in a cell height h with its baseline at y.</summary>
+    public static void InkText(InkCanvas c, string text, float x, float y, float h, float stroke, Color ink, float alpha = 1f)
+    {
+        var w = h * 0.62f;
+        foreach (var ch in text)
+        {
+            if (Glyphs.TryGetValue(char.ToUpperInvariant(ch), out var lines))
+                foreach (var line in lines)
+                    for (var i = 0; i < line.Length - 2; i += 2)
+                        c.Stroke(x + line[i] * w, y + line[i + 1] * h, x + line[i + 2] * w, y + line[i + 3] * h, stroke, ink, 0.25f, alpha);
+            x += w + h * 0.22f;
+        }
+    }
+
+    /// <summary>How wide <see cref="InkText"/> sets a string.</summary>
+    public static float InkTextWidth(string text, float h) => text.Length * (h * 0.62f + h * 0.22f) - h * 0.22f;
+
+    // polylines in a 1 x 1 cell (x right, y up)
+    private static readonly System.Collections.Generic.Dictionary<char, float[][]> Glyphs = new()
+    {
+        ['A'] = new[] { new[] { 0f, 0f, 0.5f, 1f, 1f, 0f }, new[] { 0.2f, 0.4f, 0.8f, 0.4f } },
+        ['B'] = new[] { new[] { 0f, 0f, 0f, 1f, 0.7f, 1f, 0.9f, 0.86f, 0.9f, 0.64f, 0.7f, 0.52f, 0f, 0.52f }, new[] { 0.7f, 0.52f, 1f, 0.38f, 1f, 0.14f, 0.75f, 0f, 0f, 0f } },
+        ['C'] = new[] { new[] { 1f, 0.84f, 0.75f, 1f, 0.25f, 1f, 0f, 0.78f, 0f, 0.22f, 0.25f, 0f, 0.75f, 0f, 1f, 0.16f } },
+        ['D'] = new[] { new[] { 0f, 0f, 0f, 1f, 0.6f, 1f, 1f, 0.72f, 1f, 0.28f, 0.6f, 0f, 0f, 0f } },
+        ['E'] = new[] { new[] { 1f, 1f, 0f, 1f, 0f, 0f, 1f, 0f }, new[] { 0f, 0.52f, 0.75f, 0.52f } },
+        ['F'] = new[] { new[] { 1f, 1f, 0f, 1f, 0f, 0f }, new[] { 0f, 0.52f, 0.75f, 0.52f } },
+        ['G'] = new[] { new[] { 1f, 0.84f, 0.75f, 1f, 0.25f, 1f, 0f, 0.78f, 0f, 0.22f, 0.25f, 0f, 0.75f, 0f, 1f, 0.2f, 1f, 0.45f, 0.55f, 0.45f } },
+        ['H'] = new[] { new[] { 0f, 0f, 0f, 1f }, new[] { 1f, 0f, 1f, 1f }, new[] { 0f, 0.52f, 1f, 0.52f } },
+        ['I'] = new[] { new[] { 0.5f, 0f, 0.5f, 1f }, new[] { 0.2f, 1f, 0.8f, 1f }, new[] { 0.2f, 0f, 0.8f, 0f } },
+        ['J'] = new[] { new[] { 1f, 1f, 1f, 0.2f, 0.75f, 0f, 0.25f, 0f, 0f, 0.2f } },
+        ['K'] = new[] { new[] { 0f, 0f, 0f, 1f }, new[] { 1f, 1f, 0f, 0.45f }, new[] { 0.3f, 0.6f, 1f, 0f } },
+        ['L'] = new[] { new[] { 0f, 1f, 0f, 0f, 1f, 0f } },
+        ['M'] = new[] { new[] { 0f, 0f, 0f, 1f, 0.5f, 0.45f, 1f, 1f, 1f, 0f } },
+        ['N'] = new[] { new[] { 0f, 0f, 0f, 1f, 1f, 0f, 1f, 1f } },
+        ['O'] = new[] { new[] { 0.25f, 0f, 0f, 0.22f, 0f, 0.78f, 0.25f, 1f, 0.75f, 1f, 1f, 0.78f, 1f, 0.22f, 0.75f, 0f, 0.25f, 0f } },
+        ['P'] = new[] { new[] { 0f, 0f, 0f, 1f, 0.75f, 1f, 1f, 0.84f, 1f, 0.62f, 0.75f, 0.48f, 0f, 0.48f } },
+        ['R'] = new[] { new[] { 0f, 0f, 0f, 1f, 0.75f, 1f, 1f, 0.84f, 1f, 0.62f, 0.75f, 0.48f, 0f, 0.48f }, new[] { 0.45f, 0.48f, 1f, 0f } },
+        ['S'] = new[] { new[] { 1f, 0.84f, 0.75f, 1f, 0.25f, 1f, 0f, 0.84f, 0f, 0.64f, 0.25f, 0.52f, 0.75f, 0.48f, 1f, 0.36f, 1f, 0.16f, 0.75f, 0f, 0.25f, 0f, 0f, 0.16f } },
+        ['T'] = new[] { new[] { 0f, 1f, 1f, 1f }, new[] { 0.5f, 1f, 0.5f, 0f } },
+        ['U'] = new[] { new[] { 0f, 1f, 0f, 0.22f, 0.25f, 0f, 0.75f, 0f, 1f, 0.22f, 1f, 1f } },
+        ['V'] = new[] { new[] { 0f, 1f, 0.5f, 0f, 1f, 1f } },
+        ['W'] = new[] { new[] { 0f, 1f, 0.22f, 0f, 0.5f, 0.6f, 0.78f, 0f, 1f, 1f } },
+        ['Y'] = new[] { new[] { 0f, 1f, 0.5f, 0.5f, 1f, 1f }, new[] { 0.5f, 0.5f, 0.5f, 0f } },
+        ['5'] = new[] { new[] { 1f, 1f, 0.1f, 1f, 0f, 0.55f, 0.7f, 0.6f, 1f, 0.4f, 1f, 0.18f, 0.7f, 0f, 0f, 0.05f } },
+        ['6'] = new[] { new[] { 0.9f, 1f, 0.35f, 0.9f, 0f, 0.45f, 0.1f, 0.1f, 0.5f, 0f, 0.95f, 0.15f, 0.95f, 0.4f, 0.5f, 0.55f, 0.05f, 0.4f } },
+        ['.'] = new[] { new[] { 0.45f, 0f, 0.55f, 0.05f } },
+        ['-'] = new[] { new[] { 0.15f, 0.5f, 0.85f, 0.5f } },
+        [' '] = new float[0][],
+    };
+
+    /// <summary>A soup can's label (wraps once round the can): cream, with a deep band top and bottom and the name twice.</summary>
+    public static Texture2D CanLabel()
+    {
+        var c = new InkCanvas(512, 128, new Color(0.97f, 0.9f, 0.74f), 141);
+        var band = new Color(0.45f, 0.28f, 0.15f); // sepia, like the game's own cans
+        for (var y = 0; y < c.H; y++)
+        for (var x = 0; x < c.W; x++)
+            if (y < 22 || y > c.H - 23)
+                c.Px[y * c.W + x] = band;
+        for (var x = 0; x < c.W; x += 2)
+        {
+            c.Blend(x, 22, Ink, 0.9f);
+            c.Blend(x, c.H - 23, Ink, 0.9f);
+        }
+
+        foreach (var cx in new[] { 128f, 384f })
+        {
+            var w1 = InkTextWidth("BACON", 30);
+            var w2 = InkTextWidth("SOUP", 30);
+            InkText(c, "BACON", cx - w1 * 0.5f, 66, 30, 3.2f, Ink);
+            InkText(c, "SOUP", cx - w2 * 0.5f, 28, 30, 3.2f, Ink);
+        }
+
+        c.Grain(0.08f);
+        return c.ToTexture("InkVR_Theatre_CanLabel", true);
+    }
+
+    /// <summary>Tin: pale metal with a few pressed rings.</summary>
+    public static Texture2D Tin()
+    {
+        var c = new InkCanvas(64, 64, new Color(0.9f, 0.89f, 0.86f), 142);
+        Shade(c, 0.8f, 1.05f);
+        for (var y = 8; y < 64; y += 14) c.Stroke(0, y, 63, y, 0.8f, Ink, 0.1f, 0.25f);
+        c.Grain(0.06f);
+        return c.ToTexture("InkVR_Theatre_Tin", true);
+    }
+
+    /// <summary>Ink running down a wall from under some writing (see-through; white, tinted black).</summary>
+    public static Texture2D Drips()
+    {
+        var c = new InkCanvas(512, 256, new Color(1, 1, 1, 0), 143);
+        for (var i = 0; i < 26; i++)
+        {
+            var x = c.Rand(10, 502);
+            var len = c.Rand(30, 230);
+            var w = c.Rand(2.5f, 7f);
+            c.Stroke(x, 255, x + c.Rand(-2, 2), 255 - len, w, Color.white, 0.2f);
+            c.Dot(x, 255 - len, w * 0.75f, Color.white);
+        }
+
+        return c.ToTexture("InkVR_Theatre_Drips", false);
+    }
+
+    /// <summary>A page of sheet music.</summary>
+    public static Texture2D SheetMusic()
+    {
+        var c = new InkCanvas(128, 160, new Color(0.96f, 0.92f, 0.82f), 144);
+        for (var staff = 0; staff < 5; staff++)
+        {
+            var y0 = 130 - staff * 26;
+            for (var l = 0; l < 5; l++) c.Stroke(8, y0 - l * 3.4f, 120, y0 - l * 3.4f, 0.6f, Ink, 0.1f, 0.7f);
+            for (var n = 0; n < 9; n++)
+            {
+                var x = 18 + n * 11.5f + c.Rand(-2, 2);
+                var y = y0 - c.Rand(0, 14);
+                c.Dot(x, y, 2.1f, Ink);
+                c.Stroke(x + 2, y, x + 2, y + 10, 0.7f, Ink, 0.05f);
+            }
+        }
+
+        Frame(c, 2f, 1f, 0.3f);
+        c.Grain(0.08f);
+        return c.ToTexture("InkVR_Theatre_Sheet", false);
+    }
 }

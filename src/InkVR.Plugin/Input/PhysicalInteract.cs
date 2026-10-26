@@ -64,6 +64,11 @@ public static class PhysicalInteract
         public Hand? LidHand;
         public Vector3 LidRest, CanUp, CanCentre;
         public float AtMouthSince = -1f, NextNudge;
+
+        // settling into a natural hold
+        public Quaternion FromRot;
+        public Vector3 FromOffset;
+        public float SettleFrom = -1f;
     }
 
     /// <summary>A thing you took, still in your hand after the game has it (it goes into your pocket when you let go).</summary>
@@ -145,6 +150,8 @@ public static class PhysicalInteract
     private static bool Claim(Hand hand)
     {
         if (!XrManager.IsRunning || !VRRig.InGame || VRRig.CinemaActive) return false;
+        if (Backpack.WantsGrip(hand)) return true; // the satchel over your left shoulder, or something out of it
+        if (Backpack.Holding(hand)) return true;   // a hand already holding something doesn't press "interact"
         if (WeaponHandling.WantsGrip(hand)) return true; // the gun's front, the axe's handle, or the holster
         if (_g != null)
         {
@@ -235,22 +242,46 @@ public static class PhysicalInteract
         return name.Contains("lever") || parent.Contains("lever") || name.Contains("handle");
     }
 
+    // What the game's pickups are called (it collects them in one go): Chapter 1's dry cells, Chapter 2's keys and its
+    // missing valve wheel, Chapter 3's gears, hearts, power cores, thick ink and valve cranks, Chapter 4's nuts and reels...
+    private static readonly string[] PickupWords =
+    {
+        "collect", "gear", "key", "battery", "cell", "item", "pickup", "pick_up", "bone", "heart", "core", "thickink", "thick_ink", "ink_jar",
+        "inkjar", "valve", "crank", "wheel", "record", "reel", "nut", "fuse", "plug", "ticket", "token", "coin", "wrench", "spoon", "doll", "book", "film", "tool"
+    };
+
     /// <summary>A small thing the game collects in one go (it disappears into your inventory): you take it in your hand.</summary>
     private static bool Takeable(Interactable item)
     {
         if (!item.m_EnableSingleInteraction) return false;
         var name = item.name.ToLowerInvariant();
-        if (!(name.Contains("collect") || name.Contains("gear") || name.Contains("key") || name.Contains("battery") || name.Contains("item")
-              || name.Contains("pickup") || name.Contains("bone") || name.Contains("heart") || name.Contains("core") || name.Contains("thickink") || name.Contains("ink_jar")))
-            return false;
+        var named = false;
+        foreach (var w in PickupWords)
+            if (name.Contains(w))
+            {
+                named = true;
+                break;
+            }
+
+        if (!named || name.Contains("door") || name.Contains("panel") || name.Contains("lever") || name.Contains("switch") || name.Contains("button")) return false;
         if (item.GetComponentInParent<MeleeWeapon>() != null || item.GetComponentInParent<GunWeapon>() != null || item.GetComponentInParent<ThrowWeapon>() != null) return false;
+        // Things that stay where they are (you work them, they don't come with you): valves you turn, the lift's
+        // buttons, tape recorders, instruments, switches, lids and drawers.
+        if (item.GetComponentInParent<CH1PipeValve>() != null || item.GetComponentInParent<CH3InkPressurePuzzle>() != null || item.GetComponentInParent<CH3LiftButton>() != null
+            || item.GetComponentInParent<InteractableSwitchBox>() != null || item.TryCast<InteractablePowerLever>() != null || item.TryCast<InteractableTrunk>() != null
+            || item.TryCast<InteractableDrawer>() != null || item.TryCast<InteractableMusicalInstrument>() != null || item.TryCast<InteractableAudio>() != null
+            || item.GetComponentInParent<AudioLog>() != null || item.GetComponentInParent<CH3LeverLight>() != null || item.GetComponentInParent<BaseDoorController>() != null)
+            return false;
         var any = false;
         foreach (var r in item.GetComponentsInChildren<MeshRenderer>())
         {
             if (!r.enabled) continue;
             any = true;
+            // a valve or wheel you carry is a hand's size; one built into the pipes is bigger, or part of the level's mesh
+            if (r.isPartOfStaticBatch) return false;
             var size = r.bounds.size / VRRig.ActiveScale;
-            if (Mathf.Max(size.x, Mathf.Max(size.y, size.z)) > 0.7f) return false;
+            var max = Mathf.Max(size.x, Mathf.Max(size.y, size.z));
+            if (max > ((name.Contains("valve") || name.Contains("wheel") || name.Contains("crank")) ? 0.42f : 0.9f)) return false;
         }
 
         return any;
@@ -299,12 +330,21 @@ public static class PhysicalInteract
             }
         }
 
-        if (kind == Kind.Soup) PickUp(g, grip.pos, grip.rot, hiddenToo);
+        if (kind == Kind.Soup)
+        {
+            PickUp(g, grip.pos, grip.rot, hiddenToo);
+            Natural(g, grip.rot);
+        }
         if (kind == Kind.Place)
         {
             g.Pedestal = item.GetComponentInParent<CH1Pedestal>();
             var collected = g.Pedestal?.m_Collected;
-            if (collected != null) CopyIntoHand(g, collected.transform, true, grip.pos, grip.rot);
+            if (collected != null)
+            {
+                Backpack.TakeOutByName(collected.name);
+                CopyIntoHand(g, collected.transform, true, grip.pos, grip.rot);
+                Natural(g, grip.rot);
+            }
         }
 
         if (kind == Kind.Take)
@@ -313,7 +353,8 @@ public static class PhysicalInteract
             CopyIntoHand(g, item.transform, hiddenToo, grip.pos, grip.rot);
             var copy = g.Held;
             g.Held = null;
-            Trophies.Add(new Trophy { Copy = copy, Hand = hand, Rot = g.HoldRot, Offset = g.HoldOffset, Original = item, Scale = copy.transform.localScale, CheckAt = Time.unscaledTime + 0.35f });
+            if (Backpack.Enabled) Backpack.TakeIntoHand(copy, hand, item, grip.pos, grip.rot);
+            else Trophies.Add(new Trophy { Copy = copy, Hand = hand, Rot = g.HoldRot, Offset = g.HoldOffset, Original = item, Scale = copy.transform.localScale, CheckAt = Time.unscaledTime + 0.35f });
             _g = g;
             Complete("taken");
             return;
@@ -403,6 +444,7 @@ public static class PhysicalInteract
         if (!XrInput.Ready) ClaimGrips(); // dev grips on the mock runtime (no controller sampling there)
         UpdateTrophies();
         UpdateLids();
+        UpdateCans();
         var g = _g;
         if (g == null) return;
         if (g.Item == null || !VRRig.InGame || VRRig.CinemaActive)
@@ -508,7 +550,7 @@ public static class PhysicalInteract
             case Kind.Place:
             {
                 // carry it to the pedestal and set it down there
-                if (g.Held != null) g.Held.transform.SetPositionAndRotation(pos + rot * g.HoldOffset, rot * g.HoldRot);
+                PoseHeld(g, pos, rot);
                 if (!held)
                 {
                     Cancel("let go");
@@ -639,6 +681,7 @@ public static class PhysicalInteract
     {
         var g = _g;
         _g = null;
+        if (g != null) Grips.Holding(g.Hand, 0);
         if (g?.Item == null) return;
         XrInput.Haptic(g.Hand, 0.5f, 0.08f);
         // The game's own interaction, as if you had pressed the button on it.
@@ -654,6 +697,7 @@ public static class PhysicalInteract
         var g = _g;
         _g = null;
         if (g == null) return;
+        Grips.Holding(g.Hand, 0);
         if (g.Kind == Kind.Soup)
         {
             PutBack(g);
@@ -740,9 +784,18 @@ public static class PhysicalInteract
     private static void Soup(Gesture g, Vector3 pos, Quaternion rot, bool held)
     {
         var scale = VRRig.ActiveScale;
-        if (g.Held != null) g.Held.transform.SetPositionAndRotation(pos + rot * g.HoldOffset, rot * g.HoldRot);
+        PoseHeld(g, pos, rot);
         if (!held)
         {
+            // let go mid-swing: the can flies, and lands where it lands (it's still a can of soup there)
+            var v = WeaponHandling.Velocity(g.Hand);
+            if (ModConfig.PhysicalThrow.Value && v.magnitude / scale > 1.5f && g.Held != null && !g.Open)
+            {
+                ThrowCan(g, v);
+                Cancel("thrown");
+                return;
+            }
+
             PutBack(g);
             Cancel("put back");
             return;
@@ -835,6 +888,107 @@ public static class PhysicalInteract
             l.Velocity += Physics.gravity * dt;
             l.Lid.transform.position += l.Velocity * dt;
             l.Lid.transform.rotation = Quaternion.Euler(l.Spin * dt) * l.Lid.transform.rotation;
+        }
+    }
+
+    // ---------------- natural holds ----------------
+
+    /// <summary>From how you took it, it settles into a natural hold (Grips.CarryPose) over a moment; the fingers close on it.</summary>
+    private static void Natural(Gesture g, Quaternion gripRot)
+    {
+        if (g.Held == null || !ModConfig.NaturalGrips.Value) return;
+        g.FromRot = g.HoldRot;
+        g.FromOffset = g.HoldOffset;
+        var radius = Grips.CarryPose(g.Held.transform, gripRot, g.Hand == Hand.Left, out var rot, out var offset);
+        g.HoldRot = rot;
+        g.HoldOffset = offset;
+        g.SettleFrom = Time.unscaledTime;
+        Grips.Holding(g.Hand, radius);
+    }
+
+    private static void PoseHeld(Gesture g, Vector3 pos, Quaternion rot)
+    {
+        if (g.Held == null) return;
+        var s = g.SettleFrom < 0 ? 1f : Mathf.SmoothStep(0, 1, Mathf.Clamp01((Time.unscaledTime - g.SettleFrom) / 0.18f));
+        var hr = s >= 1f ? g.HoldRot : Quaternion.Slerp(g.FromRot, g.HoldRot, s);
+        var ho = s >= 1f ? g.HoldOffset : Vector3.Lerp(g.FromOffset, g.HoldOffset, s);
+        g.Held.transform.SetPositionAndRotation(pos + rot * ho, rot * hr);
+    }
+
+    // ---------------- a thrown can ----------------
+
+    private sealed class ThrownCan
+    {
+        public GameObject Copy;
+        public Interactable Can;
+        public List<Renderer> Hidden;
+        public Vector3 Velocity, Spin;
+        public float Radius, Started;
+    }
+
+    private static readonly List<ThrownCan> Cans = new();
+
+    private static void ThrowCan(Gesture g, Vector3 v)
+    {
+        var copy = g.Held;
+        g.Held = null;
+        g.Lid = null; // (still on: it flies with the can)
+        var r = copy.GetComponentInChildren<Renderer>();
+        var radius = r != null ? Mathf.Min(r.bounds.extents.x, r.bounds.extents.z) : 0.04f * VRRig.ActiveScale;
+        Cans.Add(new ThrownCan { Copy = copy, Can = g.Item, Hidden = new List<Renderer>(g.Hidden), Velocity = v * 1.15f, Spin = Random.onUnitSphere * 600f, Radius = radius, Started = Time.unscaledTime });
+        g.Hidden.Clear();
+        XrInput.Haptic(g.Hand, 0.35f, 0.05f);
+        Plugin.L.LogInfo($"Soup: thrown at {v.magnitude / VRRig.ActiveScale:F1} m/s");
+    }
+
+    /// <summary>Thrown cans fly, bounce, and come to rest; there the real can is put down (you can pick it up again).</summary>
+    private static void UpdateCans()
+    {
+        var dt = Time.unscaledDeltaTime;
+        var k = VRRig.ActiveScale;
+        for (var i = Cans.Count - 1; i >= 0; i--)
+        {
+            var c = Cans[i];
+            if (c.Copy == null)
+            {
+                Cans.RemoveAt(i);
+                continue;
+            }
+
+            var t = c.Copy.transform;
+            c.Velocity += Physics.gravity * dt;
+            var move = c.Velocity * dt;
+            var len = move.magnitude;
+            var player = GameManager.Instance?.Player;
+            var mask = Physics.DefaultRaycastLayers & ~UI.VRLayers.UIMask & (player != null ? ~(1 << player.gameObject.layer) : ~0);
+            var rest = Time.unscaledTime - c.Started > 6f;
+            if (len > 1e-6f && Physics.SphereCast(t.position, Mathf.Max(0.01f * k, c.Radius * 0.8f), move / len, out var hit, len, mask, QueryTriggerInteraction.Ignore))
+            {
+                t.position = hit.point + hit.normal * Mathf.Max(0.01f * k, c.Radius);
+                c.Velocity = Vector3.Reflect(c.Velocity, hit.normal) * 0.3f;
+                c.Spin *= 0.35f;
+                InkPool.InkSound(t.position, 0.12f);
+                if (Mathf.Abs(Vector3.Dot(c.Velocity, hit.normal)) < 0.7f * k) rest = true;
+            }
+            else t.position += move;
+
+            t.rotation = Quaternion.Euler(c.Spin * dt) * t.rotation;
+            if (!rest) continue;
+
+            // down it comes: upright on whatever it landed on, and the real can is there
+            var up = Vector3.up;
+            var fwd = Vector3.ProjectOnPlane(t.forward, up);
+            if (fwd.sqrMagnitude < 1e-4f) fwd = Vector3.ProjectOnPlane(t.up, up);
+            if (c.Can != null)
+            {
+                c.Can.transform.SetPositionAndRotation(t.position, Quaternion.LookRotation(fwd.normalized, up));
+                foreach (var rr in c.Hidden)
+                    if (rr != null)
+                        rr.enabled = true;
+            }
+
+            Object.Destroy(c.Copy);
+            Cans.RemoveAt(i);
         }
     }
 

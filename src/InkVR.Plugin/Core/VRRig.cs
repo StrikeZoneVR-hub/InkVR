@@ -179,19 +179,24 @@ public static partial class VRRig
             if (CutsceneActive) MotionSmoothing.Remove();
             else MotionSmoothing.Apply(_origin);
             PlaceGamePanel();
+            NoteReader.Update(_origin, _gameCam.transform, _cinemaActive ? null : _gamePanel);
             HurtVisor.Update(_uiCam);
             Rendering.VRGraphics.Update(_gameCam);
         }
 
+        if (_cinema != null && CinemaShowing) UI.TheatreWalk.Update(_cinema);
         _cinema?.Animate();
         UpdateFade();
         MeleeSwing.DevPreUpdate();
         Hands.Update();
+        if (_cinema != null && CinemaShowing) UI.TheatreToys.Update(_cinema);
+        else UI.TheatreToys.Idle();
         if (InGame && !_cinemaActive) MeleeSwing.Update();
         WeaponHandling.Update();
         UI.WeaponWheel.Update();
         UI.InventoryCard.Update();
         Input.PhysicalInteract.Update();
+        Input.Backpack.Update();
         Input.MinigameThrow.Update();
         Input.GravityPull.Update();
         Input.PhysicalDoors.Update();
@@ -459,9 +464,16 @@ public static partial class VRRig
     }
 
     /// <summary>Turn the theatre so its screen is straight ahead of where you are looking.</summary>
+    /// <summary>The theatre (built once the cinema is first needed).</summary>
+    public static Cinema Cinema => _cinema;
+
+    /// <summary>The theatre is up (the main menu, a loading screen, or paused).</summary>
+    public static bool CinemaShowing => _cinemaOrigin != null && _cinemaOrigin.gameObject.activeInHierarchy;
+
     public static void Recenter()
     {
         if (_cinemaOrigin == null) return;
+        UI.TheatreWalk.Reset();
         var local = HeadLocalPosition;
         var fwd = HeadLocalRotation * Vector3.forward;
         var yaw = Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
@@ -535,6 +547,7 @@ public static partial class VRRig
         _uiCam.farClipPlane = 20f * Scale;
         _uiCam.depth = 50;
 
+        NoteReader.Reset();
         _gamePanel = new VRPanel("InkVR_UIPanel", _origin, UICapture.Texture, Color.white, 0);
         _gamePanel.SetSize(GamePanelWidth, GamePanelWidth * UICapture.Height / UICapture.Width);
         _panelYaw = 0;
@@ -569,6 +582,12 @@ public static partial class VRRig
     /// <summary>Snap/smooth turning rotates the play space around your head.</summary>
     public static void Turn(float degrees)
     {
+        if (CinemaShowing)
+        {
+            UI.TheatreWalk.Turn(degrees); // walking round the theatre
+            return;
+        }
+
         if (!InGame || _cinemaActive || _player.isLocked || CutsceneActive) return;
         ReAnchor(false);
         _origin.RotateAround(_gameCam.transform.position, Vector3.up, degrees);

@@ -1,6 +1,54 @@
 # Testing InkVR
 
-## Current build: 0.9.2 (your own shadow)
+## Current build: 0.10.0 (walk the theatre, a satchel, natural grips, a quiet axe)
+
+From your tester's report (a backpack on the left shoulder, throwing, a more natural axe, a main menu to walk round and explore, seated gravity pull) and your own notes (hands in the shadow, natural grips for everything, blurry tape notes, the loud axe).
+
+### Fixed in 0.10.0: the axe making a loud sound at every small movement
+- **Cause:** the axe's head is 60 cm out from your hand, so even a turn of the wrist moves it fast, and every one counted as a swing and played the game's whoosh. Knocking a wall or the floor with it also played the game's loud hit.
+- **Fix:** the whoosh now plays only for a real swing of the arm (the head fast *and* your hand moving), once per swing, louder the harder you swing. Bumping a wall or the floor buzzes the controller but stays quiet unless you really swung. Hits on enemies and planks are unchanged.
+
+### New in 0.10.0: a satchel over your left shoulder
+- Pick something up and it stays in your hand. Let go of it behind your left shoulder and it goes in the satchel.
+- Reach over your left shoulder and grip: the satchel comes round, held by its strap, with what's in it floating in front for your other hand to take.
+- Hold a thing to what it's for (a gear to its machine, a battery to its slot) and let go to use it. Let go anywhere else and it goes back in the satchel.
+- A new objective empties the satchel, the way the game uses your items up.
+- SATCHEL in the launcher (Controls) turns it off.
+- **Checked on the test runtime:** Chapter 1's wrench taken by hand, put away at the shoulder, the satchel brought round with the wrench floating in front of it, taken out again. Not tried yet: using an item on its machine from your hand. Tell me how that goes.
+
+### New in 0.10.0: throw what you carry
+- Let go of anything you're carrying mid-swing and it flies, bounces and lands, then goes back in the satchel. Bacon Soup off a shelf flies too, and lands where it lands (still a can of soup you can pick up).
+- **Checked:** the wrench thrown, landed, and back in the satchel; a Chapter 1 soup can thrown at 4 m/s.
+
+### New in 0.10.0: natural grips
+- The axe sits in your fist by its handle, the knob at the bottom; your other hand snaps onto the handle when you hold it with both, and your arm follows it. The game's own bob of the weapon no longer moves it about in your hand.
+- Tools, items and soup cans settle into your hand by their longest side, fingers closed round them.
+- GRIPS in the launcher (Henry) puts them back the way the game holds them.
+- **Checked:** the axe's handle lies along your fist (within a centimetre), and the second hand lands exactly on the handle. Guns keep their aim as before; their two-handed grip hasn't been tried with the new grips yet.
+
+### New in 0.10.0: walk the theatre
+- In the main menu or the pause menu, **click the move stick** to walk around the theatre (click again to use the menu). The move stick walks where you look (the left trigger hurries), the turn stick turns. With the laser on, pushing the stick while you're not pointing at the screen walks too.
+- Fully mapped out: the aisles, three steps up onto the stage, through the auditorium doors at the back into a new lobby, and up either staircase to the balcony. Walls, seats and rails stop you, and the floor rises and falls with the rows and stairs.
+- Things to find: the auditorium doors swing open as you come; a ticket booth with a desk bell to ring; Bacon Soup on the concession counter to pick up and throw; an upright piano with all 88 keys to play (it may play itself when your back's turned); a cardboard Bendy that moves when you aren't looking; writing that seeps out of the wall when you look at it; locked doors that rattle (and something knocks back); a little Bendy doll on the balcony rail; a reserved seat in the front row; a coming-soon poster and a plaque.
+- Every time the theatre opens you're back in your seat, facing the screen, and everything's back where it was.
+- WALK THE THEATRE in VR SETTINGS or the launcher turns it off.
+- **Checked on the test runtime:** walking the hall, the stage steps, the lobby, both staircases and the balcony tiers, with the floor heights right everywhere; the bell, a piano key, a thrown can, the thrown doll (it lands in the aisle below the balcony), the doors, the writing and the cut-out moving.
+
+### New in 0.10.0: seated gravity pull
+- Seated, the pull reaches 8.5 m (5 m standing) and forgives a looser aim. More of the game's pickups can be pulled and taken by hand: Chapter 2's missing valve wheel, Chapter 3's valve cranks, records, reels, nuts and the like.
+
+### Fixed in 0.10.0: your shadow without hands (Lifelike), blurry tape notes
+- In Lifelike style the hands now cast their shadow too (fingers and all). YOUR SHADOW also switches straight away now, and has a row in VR SETTINGS.
+- A tape's note (who's speaking and what they say) comes up close in front of you as a sharp page to read, instead of small in the far HUD; the game's menus and HUD are drawn sharper too. TAPE NOTES in the launcher puts it back in the HUD.
+
+### What to try (0.10.0)
+1. Pick up the axe and move it about gently: no sound. Swing properly: one whoosh per swing. Hold it in both hands.
+2. Take a gear or a battery, put it over your left shoulder, take it back out, throw it.
+3. At the main menu, click the move stick and go exploring.
+4. Play seated and gravity-pull something across the room.
+5. Play a tape and read its note.
+
+## Previous build: 0.9.2 (your own shadow)
 
 ### New in 0.9.2: Henry casts your shadow
 - As you asked: Henry's body, arms and hands cast a real-time shadow that moves with you, wherever the game has a light that casts shadows. His head casts one too, though you never see it: a head-sized shape that's drawn only into the shadow, so nothing blocks your view.

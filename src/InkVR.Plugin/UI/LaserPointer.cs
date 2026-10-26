@@ -24,8 +24,12 @@ public static class LaserPointer
     /// <summary>The pointer is over the game's UI while a menu wants pointer input (blocks gameplay buttons).</summary>
     public static bool IsOverInteractive { get; private set; }
 
+    /// <summary>The laser is on the screen (so in the theatre the stick stays the menu's).</summary>
+    public static bool OnScreen { get; private set; }
+
     public static void Update()
     {
+        OnScreen = false;
         if (!ModConfig.LaserPointer.Value)
         {
             Release();
@@ -36,7 +40,8 @@ public static class LaserPointer
 
         var panel = VRRig.PointerPanel;
         var c = ControllerBindings.Dom;
-        if (!XrInput.Ready || panel == null || !panel.Visible || !c.PoseValid || EventSystem.current == null)
+        var theatre = VRRig.CinemaShowing;
+        if (!XrInput.Ready || panel == null || !panel.Visible || !c.PoseValid || EventSystem.current == null || (theatre && !TheatreWalk.ScreenVisible))
         {
             Release();
             Show(false);
@@ -48,7 +53,8 @@ public static class LaserPointer
         var scale = panel.Transform.lossyScale.x / Mathf.Max(panel.Transform.localScale.x, 1e-4f); // rig scale
         var plane = new Plane(panel.Transform.forward, panel.Transform.position);
         var ray = new Ray(origin, dir);
-        if (!plane.Raycast(ray, out var dist) || dist <= 0 || dist > MaxLength * scale)
+        // (in the theatre you can point at the screen from the back of the balcony)
+        if (!plane.Raycast(ray, out var dist) || dist <= 0 || dist > (theatre ? 30f : MaxLength) * scale)
         {
             Release();
             Show(false);
@@ -64,6 +70,7 @@ public static class LaserPointer
             return;
         }
 
+        OnScreen = true;
         Show(true);
         DrawLaser(origin, hit, panel, scale);
 

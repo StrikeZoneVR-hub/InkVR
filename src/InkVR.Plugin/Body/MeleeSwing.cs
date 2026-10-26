@@ -17,6 +17,9 @@ namespace InkVR.Body;
 /// turns back, so each chop of a quick chop-chop is its own swing. Speed is measured in your play space, so
 /// walking and turning never count as swinging. The attack button still plays the game's swing, but not when
 /// it's pulled while your arm is already swinging: then it's your swing that hits.
+/// Quiet unless you mean it (0.10.0): the whoosh only plays for a real swing of the arm (the head fast AND the hand
+/// moving, not a flick of the wrist, whose 60 cm of handle sends the head flying), louder the harder you swing; and a
+/// knock on a wall or the floor only buzzes the controller unless you swung hard, so carrying the axe about is silent.
 /// </summary>
 [HarmonyPatch(typeof(BaseWeapon))]
 public static class MeleeSwing
@@ -26,6 +29,11 @@ public static class MeleeSwing
     private const float Cooldown = 0.3f;   // s between hits (the game's own swing takes about 0.6 s)
     private const float HeadRadius = 0.07f; // m
     private const float MaxSpeed = 25f;     // faster than any arm: a tracking glitch
+    private const float WhooshSpeed = 3.2f;  // m/s at the head for the swing sound
+    private const float WhooshHand = 0.9f;   // m/s at the hand: the arm swings, not just the wrist
+    private const float WhooshGap = 0.45f;   // s between whooshes
+    private const float SolidHitSpeed = 3.0f; // m/s (the swing's peak) for a wall or the floor to get the game's loud hit
+    private const float SolidGap = 0.8f;     // s between loud wall/floor hits, whatever they hit
 
     private static BaseWeapon _weapon;
     private static Transform _model;
@@ -35,8 +43,8 @@ public static class MeleeSwing
     private static readonly Vector3[] Prev = new Vector3[Along.Length], Now = new Vector3[Along.Length];
     private static readonly F3[] PrevF = new F3[Along.Length], NowF = new F3[Along.Length];
     private static Vector3 _prevHeadTracking, _swingDir, _prevGrip;
-    private static bool _havePrev, _swinging, _hitThisSwing;
-    private static float _lastHit = -10f, _slowFor, _gameSwingUntil, _lastThudAt = -10f;
+    private static bool _havePrev, _swinging, _hitThisSwing, _whooshed;
+    private static float _lastHit = -10f, _slowFor, _gameSwingUntil, _lastThudAt = -10f, _lastWhoosh = -10f, _lastLoudSolid = -10f;
     private static System.IntPtr _lastThud;
     private static AudioSource _audio;
     private static Il2CppStructArray<RaycastHit> _hits;
@@ -126,8 +134,16 @@ public static class MeleeSwing
             _swingDir = vel / Speed;
             PeakSpeed = Speed;
             Swings++;
-            Whoosh(head);
+            _whooshed = false;
             XrInput.Haptic(ControllerBindings.Dominant, 0.12f, 0.03f);
+        }
+
+        // The swing sound, once per swing, only when the arm is really swinging (and as loud as the swing).
+        if (_swinging && !_whooshed && Speed >= WhooshSpeed && HandSpeed >= WhooshHand && now - _lastWhoosh > WhooshGap)
+        {
+            _whooshed = true;
+            _lastWhoosh = now;
+            Whoosh(head, Mathf.Clamp((PeakSpeed - 2.4f) / 4f, 0.25f, 0.8f));
         }
 
         if (_swinging && !_hitThisSwing && now - _lastHit > Cooldown && HitEnemy())
@@ -140,8 +156,17 @@ public static class MeleeSwing
         {
             // A wall or the floor thuds once (not again while you scrape along it) and doesn't use the swing up.
             var thudAgain = !hittable && hit.collider.Pointer == _lastThud && now - _lastThudAt < 0.6f;
-            if (!thudAgain)
+            // Bumping a wall or the floor with the axe in hand (not a hard swing): a buzz in the hand, no loud crack.
+            var quietKnock = !hittable && (PeakSpeed < SolidHitSpeed || HandSpeed < 0.8f || now - _lastLoudSolid < SolidGap);
+            if (!thudAgain && quietKnock)
             {
+                _lastThud = hit.collider.Pointer;
+                _lastThudAt = now;
+                XrInput.Haptic(ControllerBindings.Dominant, 0.18f, 0.03f);
+            }
+            else if (!thudAgain)
+            {
+                if (!hittable) _lastLoudSolid = now;
                 if (hittable)
                 {
                     _hitThisSwing = true;
@@ -364,7 +389,7 @@ public static class MeleeSwing
     }
 
     /// <summary>The weapon's own swing sound, from the head, through the game's sound-effects mix.</summary>
-    private static void Whoosh(Vector3 at)
+    private static void Whoosh(Vector3 at, float volume)
     {
         var clips = _weapon.m_AttackClips;
         if (clips == null || clips.Count == 0) return;
@@ -389,7 +414,7 @@ public static class MeleeSwing
         _audio.minDistance = 1f * scale;
         _audio.maxDistance = 20f * scale;
         _audio.transform.position = at;
-        _audio.PlayOneShot(clips[Random.Range(0, clips.Count)]);
+        _audio.PlayOneShot(clips[Random.Range(0, clips.Count)], volume);
     }
 
     // The game's own button swing animates the weapon: not an arm swing. (Attack() runs every frame; the
@@ -402,6 +427,9 @@ public static class MeleeSwing
     }
 
     public static int GameSwings;
+
+    /// <summary>The game's own button swing is animating the weapon right now.</summary>
+    public static bool GameSwinging => Time.unscaledTime < _gameSwingUntil;
 
     [HarmonyPostfix, HarmonyPatch(nameof(BaseWeapon.HandleSwingComplete))]
     private static void AfterSwingComplete() => _gameSwingUntil = Mathf.Min(_gameSwingUntil, Time.unscaledTime + 0.1f);

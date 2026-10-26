@@ -18,9 +18,11 @@ namespace InkVR.Input;
 /// </summary>
 public static class GravityPull
 {
-    private const float Range = 5f;           // metres
-    private const float CastRadius = 0.2f;    // metres either side of where the hand points
-    private const float MaxAngle = 16f;       // degrees off the hand's aim
+    // Seated, everything is further from your hand (you can't lean over to it), so the pull reaches further and
+    // forgives a looser aim.
+    private static float Range => ModConfig.SeatedMode.Value ? 8.5f : 5f;            // metres
+    private static float CastRadius => ModConfig.SeatedMode.Value ? 0.3f : 0.2f;     // metres either side of where the hand points
+    private static float MaxAngle => ModConfig.SeatedMode.Value ? 22f : 16f;         // degrees off the hand's aim
     private const float MinDistance = 0.45f;  // closer than this, you just grip it
     private const float FlickSpeed = 1.2f;    // m/s of the hand back towards you
     private const float HoldToPull = 0.75f;   // or keep gripping this long

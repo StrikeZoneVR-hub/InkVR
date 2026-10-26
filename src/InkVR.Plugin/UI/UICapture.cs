@@ -8,8 +8,10 @@ namespace InkVR.UI;
 /// </summary>
 public static class UICapture
 {
-    public const int Width = 1920;
-    public const int Height = 1080;
+    // 1440p rather than 1080p: the game's UI scales with the screen, so its text and the tapes' notes are drawn with a
+    // third more detail each way (the notes are read close up).
+    public const int Width = 2560;
+    public const int Height = 1440;
     private const string UIManagerName = "[UI MANAGER]";
 
     private static RenderTexture _rt;
@@ -21,7 +23,10 @@ public static class UICapture
         {
             if (_rt == null)
             {
-                _rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32) { name = "InkVR_UI", useMipMap = false, antiAliasing = 1 };
+                // Mipmapped: the HUD panel is seen smaller than the texture, which without mips sparkles and shimmers.
+                _rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32) { name = "InkVR_UI", useMipMap = true, autoGenerateMips = true, antiAliasing = 1 };
+                _rt.filterMode = FilterMode.Trilinear;
+                _rt.anisoLevel = 4;
                 _rt.Create();
                 Object.DontDestroyOnLoad(_rt);
             }

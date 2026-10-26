@@ -269,9 +269,8 @@ public sealed class HenryBody
         if (outline != null) _renderers.Add(outline);
 
         // Your shadow: the clothes cast it (the ink outline doesn't, it would only thicken it), and a head the size of
-        // Henry's casts it above the collar, drawn only into the shadow (you look out of it).
-        if (!ModConfig.PlayerShadows.Value) return;
-        foreach (var piece in pieces) piece.Renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+        // Henry's casts it above the collar, drawn only into the shadow (you look out of it). YOUR SHADOW switches it live.
+        foreach (var piece in pieces) _casters.Add(piece.Renderer);
         var head = new GameObject("InkVR_HenryHeadShadow");
         head.transform.SetParent(_root, false);
         head.AddComponent<MeshFilter>().sharedMesh = Blob(new Vector3(0, 0.03f, -0.08f), new Vector3(0.085f, 0.115f, 0.105f), 14, 8).ToMesh("InkVR_HenryHeadShadow");
@@ -280,9 +279,20 @@ public sealed class HenryBody
         hr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
         hr.receiveShadows = false;
         _headShadow = head.transform;
+        ApplyShadows(ModConfig.PlayerShadows.Value);
     }
 
     private Transform _headShadow;
+    private readonly System.Collections.Generic.List<Renderer> _casters = new();
+
+    /// <summary>YOUR SHADOW on or off: the clothes cast (or not), and the shadow-only head is there (or not).</summary>
+    public void ApplyShadows(bool on)
+    {
+        foreach (var r in _casters)
+            if (r != null)
+                r.shadowCastingMode = on ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+        if (_headShadow != null && _headShadow.gameObject.activeSelf != on) _headShadow.gameObject.SetActive(on);
+    }
 
     private static InkRegion? RegionOf(string material) => material switch
     {

@@ -20,6 +20,15 @@ public class Cinema
     private float _scratchUntil;
     private readonly VRPanel _scratch;
     private readonly List<TMPro.TextMeshPro> _signs = new();
+    private readonly Dictionary<string, TMPro.TextMeshPro> _signById = new();
+
+    /// <summary>The theatre's root (it moves around you as you walk: see <see cref="TheatreWalk"/>).</summary>
+    public Transform Root => _root;
+
+    public Theatre Theatre => _theatre;
+
+    /// <summary>A sign that was given an id (null until the signs are made).</summary>
+    public TMPro.TextMeshPro Sign(string id) => _signById.TryGetValue(id, out var t) && t != null ? t : null;
 
     public Cinema(Transform origin, Texture screenTexture)
     {
@@ -108,6 +117,7 @@ public class Cinema
             if (t != null)
                 Object.Destroy(t.gameObject);
         _signs.Clear();
+        _signById.Clear();
         foreach (var spec in _theatre.Signs) MakeSign(spec);
     }
 
@@ -153,11 +163,13 @@ public class Cinema
     {
         var go = new GameObject("InkVR_Sign");
         go.layer = VRLayers.UI;
-        go.transform.SetParent(_root, false);
-        go.transform.localPosition = spec.Pos;
+        var piece = spec.Group != null ? _theatre.Piece(spec.Group) : null;
+        go.transform.SetParent(piece != null ? piece : _root, false);
+        go.transform.localPosition = piece != null ? spec.Pos - _theatre.PivotOf(spec.Group) : spec.Pos;
         go.transform.localRotation = spec.Rot;
         var tmp = go.AddComponent<TMPro.TextMeshPro>();
         _signs.Add(tmp);
+        if (spec.Id != null) _signById[spec.Id] = tmp;
         var font = GameFonts.Title;
         if (font != null) tmp.font = font;
         tmp.text = spec.Text;

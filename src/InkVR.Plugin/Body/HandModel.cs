@@ -31,6 +31,7 @@ public class HandModel
     private readonly Finger _thumb;
     private readonly Transform _hourHand, _minuteHand;
     private readonly List<Renderer> _renderers = new();
+    private readonly List<Renderer> _casters = new(); // the parts that cast your shadow (not the ink outlines)
 
     /// <summary>The skin and sleeve parts ink can get onto.</summary>
     public readonly List<StainPart> Stains = new();
@@ -378,6 +379,8 @@ public class HandModel
         foreach (var piece in built)
         {
             _renderers.Add(piece.Renderer);
+            _casters.Add(piece.Renderer);
+            piece.Renderer.shadowCastingMode = ModConfig.PlayerShadows.Value ? ShadowCastingMode.On : ShadowCastingMode.Off;
             var part = InkStains.RegisterSkinned(piece.Renderer, piece.Geometry, piece.Weights, bones, bind, InkRegion.Hand, piece.Bands);
             if (part != null) Stains.Add(part);
         }
@@ -406,6 +409,7 @@ public class HandModel
         r.sharedMaterial = material;
         r.shadowCastingMode = ModConfig.PlayerShadows.Value ? ShadowCastingMode.On : ShadowCastingMode.Off; // your hands' shadow
         _renderers.Add(r);
+        _casters.Add(r);
         if (stain)
         {
             var part = InkStains.Register(go.transform, r, material, mb, sleeve, sleeve || go.name.Contains("Forearm") ? InkRegion.Arm : InkRegion.Hand);
@@ -420,6 +424,15 @@ public class HandModel
         orr.shadowCastingMode = ShadowCastingMode.Off;
         orr.receiveShadows = false;
         _renderers.Add(orr);
+    }
+
+    /// <summary>YOUR SHADOW on or off, live.</summary>
+    public void ApplyShadows(bool on)
+    {
+        var mode = on ? ShadowCastingMode.On : ShadowCastingMode.Off;
+        foreach (var r in _casters)
+            if (r != null && r.shadowCastingMode != mode)
+                r.shadowCastingMode = mode;
     }
 
     public Vector3 WristPosition => _wrist.position;

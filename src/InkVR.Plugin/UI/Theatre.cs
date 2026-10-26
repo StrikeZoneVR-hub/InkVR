@@ -16,7 +16,7 @@ namespace InkVR.UI;
 /// by the screen, the sconces, the footlights, the chandelier and the little lamps over the posters.
 /// Opaque parts draw a depth-only pass first, then their colour with an equal-depth test.
 /// </summary>
-public sealed class Theatre
+public sealed partial class Theatre
 {
     // ---- layout, in metres: +z towards the screen, +x to the right; (0, 0, 0) is where you stand, in the centre aisle ----
 
@@ -58,6 +58,9 @@ public sealed class Theatre
         public Quaternion Rot;
         public float Height, Width;
         public Color Color;
+
+        /// <summary>The moving piece it's fixed to (null: the theatre), and a name to find it by.</summary>
+        public string Group, Id;
     }
 
     /// <summary>Lettering for <see cref="Cinema"/> to set in the game's own font.</summary>
@@ -92,6 +95,7 @@ public sealed class Theatre
         Step("balcony", BuildBalcony);
         Step("back", BuildBackWall);
         Step("posters", BuildPosters);
+        Step("lobby", BuildLobby);
         Step("ink", BuildInk);
         Step("meshes", Finish);
         Step("glows", BuildGlows);
@@ -113,7 +117,7 @@ public sealed class Theatre
         public float Range;
         public Vector3 Aim;
         public float Spread;
-        public bool Under;
+        public bool Under, Lobby;
         public float Reach2;
     }
 
@@ -122,7 +126,7 @@ public sealed class Theatre
 
     private void AddLamp(Vector3 pos, Color color, float range, Vector3 aim = default, float spread = 0f)
     {
-        _lamps.Add(new Lamp { Pos = pos, Color = color, Range = range, Aim = aim.normalized, Spread = spread, Under = UnderBalcony(pos), Reach2 = range * range * 25f });
+        _lamps.Add(new Lamp { Pos = pos, Color = color, Range = range, Aim = aim.normalized, Spread = spread, Under = UnderBalcony(pos), Lobby = InLobby(pos, Vector3.zero), Reach2 = range * range * 25f });
         _lampArray = _lamps.ToArray();
     }
 
@@ -135,9 +139,19 @@ public sealed class Theatre
         var g = 0.13f * height;
         var b = 0.1f * height;
         var under = UnderBalcony(p);
+        var lobby = InLobby(p, n);
+        if (lobby)
+        {
+            // the lobby's a lower room: less of the dark up top
+            r = 0.13f;
+            g = 0.105f;
+            b = 0.08f;
+        }
+
         for (var i = 0; i < _lampArray.Length; i++)
         {
             ref var l = ref _lampArray[i];
+            if (l.Lobby != lobby) continue;
             var d = l.Pos - p;
             var d2 = d.sqrMagnitude;
             if (d2 > l.Reach2) continue;
@@ -195,6 +209,8 @@ public sealed class Theatre
         // A little picture lamp over every poster.
         foreach (var slot in PosterSlots())
             AddLamp(slot.Center + slot.Normal * 0.45f + Vector3.up * (slot.Portrait ? 0.95f : 0.75f), new Color(1f, 0.85f, 0.6f) * 1.2f, 0.95f, -slot.Normal + Vector3.down, 0.4f);
+
+        PlanLobbyLamps();
     }
 
     // =====================================================================================================
@@ -203,6 +219,7 @@ public sealed class Theatre
 
     private sealed class Part
     {
+        public string Group;
         public readonly string Name;
         public readonly Texture Tex;
         public readonly bool Transparent;
@@ -226,10 +243,58 @@ public sealed class Theatre
 
     private Part NewPart(string name, Texture tex, bool transparent = false, int queue = 2001)
     {
-        var p = new Part(name, tex, transparent, queue);
+        var p = new Part(name, tex, transparent, queue) { Group = _group };
         _parts.Add(p);
         return p;
     }
+
+    // ---- moving pieces (doors, cans, keys...): their own meshes, under a transform at their pivot ----
+
+    private string _group;
+    private readonly Dictionary<string, Vector3> _pivots = new();
+    private readonly Dictionary<(Part, string), Part> _groupParts = new();
+    private readonly Dictionary<string, Transform> _groupTransforms = new();
+
+    /// <summary>Everything built inside <paramref name="build"/> becomes the piece <paramref name="name"/>, pivoting at <paramref name="pivot"/>.</summary>
+    private void InGroup(string name, Vector3 pivot, System.Action build)
+    {
+        var was = _group;
+        _group = name;
+        _pivots[name] = pivot;
+        build();
+        _group = was;
+    }
+
+    private Part Route(Part p)
+    {
+        if (_group == null || p.Group != null) return p;
+        if (!_groupParts.TryGetValue((p, _group), out var gp))
+        {
+            gp = new Part(p.Name + "_" + _group, p.Tex, p.Transparent, p.Queue) { Group = _group };
+            _parts.Add(gp);
+            _groupParts[(p, _group)] = gp;
+        }
+
+        return gp;
+    }
+
+    /// <summary>A moving piece's transform (child of the theatre; at rest it sits at its pivot, unrotated).</summary>
+    public Transform Piece(string name) => _groupTransforms.TryGetValue(name, out var t) ? t : null;
+
+    public Vector3 PivotOf(string name) => _pivots.TryGetValue(name, out var p) ? p : Vector3.zero;
+
+    private Transform GroupTransform(string name)
+    {
+        if (_groupTransforms.TryGetValue(name, out var t)) return t;
+        var go = new GameObject("InkVR_Theatre_" + name) { layer = VRLayers.UI };
+        go.transform.SetParent(_root, false);
+        go.transform.localPosition = PivotOf(name);
+        _groupTransforms[name] = go.transform;
+        return go.transform;
+    }
+
+    /// <summary>Where a piece's vertices start and end in its part (for pieces animated vertex by vertex, like the keys).</summary>
+    private int VertexCount(Part p) => Route(p).V.Count;
 
     private static int Sub(float len, float step = 0.9f) => Mathf.Clamp(Mathf.CeilToInt(len / step - 0.01f), 1, 48);
 
@@ -240,6 +305,7 @@ public sealed class Theatre
     private void Patch(Part p, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 n, Color tint, int su = 1, int sv = 1,
         float tileU = 0, float tileV = 0, float ao = 1f, bool unlit = false, Vector4? uvRect = null, bool flat = false)
     {
+        p = Route(p);
         su = Mathf.Max(1, su);
         sv = Mathf.Max(1, sv);
         var flatColor = flat && !unlit ? Lit((a + b + c + d) * 0.25f, n, tint, ao) : tint;
@@ -317,6 +383,7 @@ public sealed class Theatre
     /// <summary>A horizontal ring (tube) around a vertical axis.</summary>
     private void Ring(Part p, Vector3 center, float radius, float tube, Color tint, int seg = 28, int sides = 6, float ao = 1f)
     {
+        p = Route(p);
         var start = p.V.Count;
         for (var i = 0; i <= seg; i++)
         {
@@ -337,8 +404,9 @@ public sealed class Theatre
     }
 
     /// <summary>A surface of revolution around a vertical axis; profile points are (radius, height).</summary>
-    private void Lathe(Part p, Vector3 center, Vector2[] profile, Color tint, int sides = 20, bool unlit = false)
+    private void Lathe(Part p, Vector3 center, Vector2[] profile, Color tint, int sides = 20, bool unlit = false, float uRepeat = 4f, float vFrom = 0f, float vTo = 1f)
     {
+        p = Route(p);
         var start = p.V.Count;
         for (var k = 0; k < profile.Length; k++)
         {
@@ -354,7 +422,7 @@ public sealed class Theatre
                 var pos = center + dir * profile[k].x + Vector3.up * profile[k].y;
                 var n = (dir * nr.x + Vector3.up * nr.y).normalized;
                 p.V.Add(pos);
-                p.UV.Add(new Vector2((float)s / sides * 4, (float)k / (profile.Length - 1)));
+                p.UV.Add(new Vector2((float)s / sides * uRepeat, Mathf.Lerp(vFrom, vTo, (float)k / (profile.Length - 1))));
                 p.C.Add(unlit ? tint : Lit(pos, n, tint, 1f));
             }
         }
@@ -393,6 +461,7 @@ public sealed class Theatre
     /// <summary>A glowing deco fan (a sconce's glass), upright, facing along normal.</summary>
     private void Fan(Part p, Vector3 center, Vector3 right, float radius, int wedges, Color color)
     {
+        p = Route(p);
         for (var k = 0; k < wedges; k++)
         {
             var a0 = Mathf.PI * k / wedges;
@@ -617,11 +686,11 @@ public sealed class Theatre
         Glow(at + n * 0.14f + Vector3.up * 0.1f, 0.38f, new Color(1f, 0.9f, 0.7f, 0.85f), GlowGroup.Flicker);
     }
 
-    private void Doorway(Vector3 bottomCentre, Vector3 right, Vector3 n, float width, float height)
+    private void Doorway(Vector3 bottomCentre, Vector3 right, Vector3 n, float width, float height, bool leaves = true)
     {
         right = right.normalized;
         var half = width * 0.5f;
-        for (var leaf = 0; leaf < 2; leaf++)
+        for (var leaf = 0; leaf < (leaves ? 2 : 0); leaf++)
         {
             var a = bottomCentre + right * (leaf == 0 ? -half : 0f);
             var b = a + right * half;
@@ -726,7 +795,8 @@ public sealed class Theatre
         // Footlights: a brass trough with a row of bulbs.
         Box(_box, new Vector3(0, StageY + 0.04f, ApronZ + 0.1f), new Vector3(10.6f, 0.08f, 0.16f), GoldDark);
         for (var x = -5.1f; x <= 5.11f; x += 0.6f) Glow(new Vector3(x, StageY + 0.11f, ApronZ + 0.08f), 0.28f, new Color(1f, 0.85f, 0.55f, 0.85f), GlowGroup.Flicker);
-        Signs.Add(new SignSpec { Text = "InkVR  -  VR mod made by StrikeZoneVR", Pos = new Vector3(0, 0.2f, ApronZ - 0.012f), Rot = Quaternion.identity, Height = 0.13f, Width = 6f, Color = new Color(0.95f, 0.82f, 0.56f) });
+        Signs.Add(new SignSpec { Text = "InkVR  -  VR mod made by StrikeZoneVR", Pos = new Vector3(0, 0.25f, ApronZ - 0.012f), Rot = Quaternion.identity, Height = 0.13f, Width = 6f, Color = new Color(0.95f, 0.82f, 0.56f) });
+        Signs.Add(new SignSpec { Text = "click the move stick to explore the theatre", Pos = new Vector3(0, 0.1f, ApronZ - 0.012f), Rot = Quaternion.identity, Height = 0.065f, Width = 6f, Color = new Color(0.95f, 0.82f, 0.56f) * 0.85f });
 
         // Black masking behind the screen.
         Patch(_curtain, new Vector3(-OpenHalf, StageY, ScreenZ + 0.25f), new Vector3(OpenHalf, StageY, ScreenZ + 0.25f), new Vector3(OpenHalf, OpenTop, ScreenZ + 0.25f), new Vector3(-OpenHalf, OpenTop, ScreenZ + 0.25f),
@@ -860,10 +930,11 @@ public sealed class Theatre
                     Box(_box, new Vector3((xs[i] + xs[i + 1]) * 0.5f, CeilingY - 0.18f, z), new Vector3(xs[i + 1] - xs[i], 0.36f, 0.3f), GoldDark, 1f, true);
     }
 
-    private void BuildChandelier()
+    private void BuildChandelier() => Chandelier(new Vector3(0, 8.4f, -3.5f), CeilingY - 0.4f);
+
+    private void Chandelier(Vector3 c, float hangFrom)
     {
-        var c = new Vector3(0, 8.4f, -3.5f);
-        Box(_box, new Vector3(0, (c.y + 0.7f + CeilingY - 0.4f) * 0.5f, c.z), new Vector3(0.04f, CeilingY - 0.4f - (c.y + 0.7f), 0.04f), Gold, 1.6f);
+        Box(_box, new Vector3(c.x, (c.y + 0.7f + hangFrom) * 0.5f, c.z), new Vector3(0.04f, hangFrom - (c.y + 0.7f), 0.04f), Gold, 1.6f);
         Ring(_box, c, 0.95f, 0.05f, Gold, 36, 6, 1.6f);
         Ring(_box, c + Vector3.up * 0.4f, 0.62f, 0.045f, Gold, 30, 6, 1.6f);
         Ring(_box, c + Vector3.up * 0.72f, 0.32f, 0.04f, Gold, 24, 6, 1.6f);
@@ -945,22 +1016,29 @@ public sealed class Theatre
         var z = BackZ;
         var floor = RowFloor(Rows - 1);
 
-        // Under the balcony: panelling, wallpaper, the lobby doors and two exits.
-        Patch(_wood, new Vector3(-Half, floor, z), new Vector3(Half, floor, z), new Vector3(Half, floor + 1.1f, z), new Vector3(-Half, floor + 1.1f, z), n, WoodDark, 12, 1, 1.6f, 1.6f);
-        Patch(_wall, new Vector3(-Half, floor + 1.1f, z), new Vector3(Half, floor + 1.1f, z), new Vector3(Half, SoffitY, z), new Vector3(-Half, SoffitY, z), n, Paper, 12, 3, 1.2f, 1.2f);
-        Doorway(new Vector3(0, floor, z + 0.02f), Vector3.left, n, 2.2f, 2.3f);
+        // Under the balcony: panelling, wallpaper, the lobby doors (they open into the lobby) and two exits.
+        var door = new[] { new Vector4(-LobbyDoorHalf, floor, LobbyDoorHalf, floor + LobbyDoorHeight) };
+        WallWithHoles(_wood, new Vector3(0, 0, z), Vector3.right, -Half, Half, floor, floor + 1.1f, n, WoodDark, door, 1.6f, 1.6f);
+        WallWithHoles(_wall, new Vector3(0, 0, z), Vector3.right, -Half, Half, floor + 1.1f, SoffitY, n, Paper, door, 1.2f, 1.2f);
+        Doorway(new Vector3(0, floor, z + 0.02f), Vector3.left, n, LobbyDoorHalf * 2, LobbyDoorHeight, false);
         foreach (var s in new[] { -1f, 1f })
         {
             Doorway(new Vector3(s * 6f, floor, z + 0.02f), Vector3.left, n, 1.3f, 2.1f);
             ExitSign(new Vector3(s * 6f, 3.6f, z + 0.05f), Quaternion.Euler(0, 180, 0), n);
         }
 
-        Glow(new Vector3(0, floor + 1.4f, z + 0.25f), 2.6f, new Color(1f, 0.78f, 0.45f, 0.18f), GlowGroup.Steady);
+        Glow(new Vector3(0, floor + 2.8f, z + 0.25f), 1.6f, new Color(1f, 0.78f, 0.45f, 0.16f), GlowGroup.Steady);
 
         // Above the balcony: the projection booth.
         var top = BalconyFloor(BalconyRows - 1);
-        Patch(_wood, new Vector3(-Half, top, z), new Vector3(Half, top, z), new Vector3(Half, top + 1.1f, z), new Vector3(-Half, top + 1.1f, z), n, WoodDark, 12, 1, 1.6f, 1.6f);
-        Patch(_wall, new Vector3(-Half, top + 1.1f, z), new Vector3(Half, top + 1.1f, z), new Vector3(Half, CorniceY, z), new Vector3(-Half, CorniceY, z), n, Paper * 0.9f, 12, 4, 1.2f, 1.2f);
+        var upper = BalconyDoors(top);
+        WallWithHoles(_wood, new Vector3(0, 0, z), Vector3.right, -Half, Half, top, top + 1.1f, n, WoodDark, upper, 1.6f, 1.6f);
+        WallWithHoles(_wall, new Vector3(0, 0, z), Vector3.right, -Half, Half, top + 1.1f, CorniceY, n, Paper * 0.9f, upper, 1.2f, 1.2f);
+        foreach (var s in new[] { -1f, 1f })
+        {
+            Doorway(new Vector3(s * BalconyDoorX, top, z + 0.02f), Vector3.left, n, BalconyDoorHalf * 2, BalconyDoorHeight, false);
+            Signs.Add(new SignSpec { Text = "STAIRS", Pos = new Vector3(s * BalconyDoorX, top + BalconyDoorHeight + 0.32f, z + 0.06f), Rot = Quaternion.Euler(0, 180, 0), Height = 0.16f, Width = 1.2f, Color = new Color(1f, 0.84f, 0.5f) });
+        }
         Band(_ornament, new Vector3(-Half, CorniceY, z + 0.12f), new Vector3(Half, CorniceY, z + 0.12f), Vector3.up, 0.6f, n, Gold, 1.6f);
         Patch(_box, new Vector3(-Half, CorniceY, z), new Vector3(Half, CorniceY, z), new Vector3(Half, CorniceY, z + 0.12f), new Vector3(-Half, CorniceY, z + 0.12f), Vector3.down, GoldDark);
         Patch(_wall, new Vector3(-Half, CorniceY + 0.6f, z), new Vector3(Half, CorniceY + 0.6f, z), new Vector3(Half, CeilingY, z), new Vector3(-Half, CeilingY, z), n, Plaster * 0.8f, 12, 1, 1.2f, 1.2f);
@@ -1107,7 +1185,14 @@ public sealed class Theatre
             if (p.V.Count == 0) continue;
             var mesh = new Mesh { name = "InkVR_Theatre_" + p.Name };
             if (p.V.Count > 65000) mesh.indexFormat = IndexFormat.UInt32;
-            mesh.SetVertices(p.V.ToArray());
+            var verts = p.V.ToArray();
+            if (p.Group != null)
+            {
+                var pivot = PivotOf(p.Group);
+                for (var i = 0; i < verts.Length; i++) verts[i] -= pivot;
+            }
+
+            mesh.SetVertices(verts);
             mesh.SetUVs(0, p.UV.ToArray());
             mesh.SetColors(p.C.ToArray());
             mesh.SetTriangles(p.T.ToArray(), 0);
@@ -1119,8 +1204,9 @@ public sealed class Theatre
             Keep(mat);
 
             var go = new GameObject("InkVR_Theatre_" + p.Name) { layer = VRLayers.UI };
-            go.transform.SetParent(_root, false);
+            go.transform.SetParent(p.Group != null ? GroupTransform(p.Group) : _root, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            if (p.Group != null) _groupMeshes[p.Name] = mesh;
             var r = go.AddComponent<MeshRenderer>();
             r.sharedMaterials = p.Transparent ? new[] { mat } : new[] { depth, mat };
             r.shadowCastingMode = ShadowCastingMode.Off;
@@ -1160,15 +1246,17 @@ public sealed class Theatre
     private readonly List<GlowSpec> _glows = new();
     private Mesh _glowMesh;
     private Color[] _glowColors;
+    private Vector3[] _glowVerts;
+    private Vector3 _glowEye = new(0, 1.6f, 0);
 
     private void Glow(Vector3 pos, float size, Color color, GlowGroup group, int index = 0) =>
         _glows.Add(new GlowSpec { Pos = pos, Size = size, Color = color, Group = group, Index = index });
 
     private void BuildGlows()
     {
-        var eye = new Vector3(0, 1.6f, 0);
+        var eye = _glowEye;
         var n = _glows.Count;
-        var v = new Vector3[n * 4];
+        var v = _glowVerts = new Vector3[n * 4];
         var uv = new Vector2[n * 4];
         _glowColors = new Color[n * 4];
         var t = new int[n * 6];
@@ -1200,9 +1288,10 @@ public sealed class Theatre
         _glowMesh = new Mesh { name = "InkVR_TheatreGlows" };
         _glowMesh.SetVertices(v);
         _glowMesh.SetUVs(0, uv);
+        _glowMesh.MarkDynamic();
         _glowMesh.SetColors(_glowColors);
         _glowMesh.SetTriangles(t, 0);
-        _glowMesh.RecalculateBounds();
+        _glowMesh.bounds = new Bounds(new Vector3(0, 5, -9), new Vector3(20, 14, 34));
         Keep(_glowMesh);
         AddRenderer("InkVR_TheatreGlows", _glowMesh, Textures.SoftDot, 3050);
     }
@@ -1296,10 +1385,29 @@ public sealed class Theatre
     {
         if (_glowMesh == null) return;
         var step = Mathf.FloorToInt(time * 7f);
+        var turn = (eyeLocal - _glowEye).sqrMagnitude > 0.02f * 0.02f;
+        if (turn) _glowEye = eyeLocal;
         for (var i = 0; i < _glows.Count; i++)
         {
             var g = _glows[i];
             var k = 1f;
+            var toEye = eyeLocal - g.Pos;
+            var dist = toEye.magnitude;
+            if (turn)
+            {
+                var f = toEye / Mathf.Max(dist, 1e-4f);
+                var r = Vector3.Cross(Vector3.up, f);
+                r = r.sqrMagnitude < 1e-4f ? Vector3.right : r.normalized;
+                var u = Vector3.Cross(f, r);
+                var h = g.Size * 0.5f;
+                _glowVerts[i * 4] = g.Pos - r * h - u * h;
+                _glowVerts[i * 4 + 1] = g.Pos + r * h - u * h;
+                _glowVerts[i * 4 + 2] = g.Pos + r * h + u * h;
+                _glowVerts[i * 4 + 3] = g.Pos - r * h + u * h;
+            }
+
+            // walked up to: a glow fades rather than filling your eyes
+            k *= Mathf.Clamp01((dist - g.Size * 0.35f) / (g.Size * 0.65f + 0.1f));
             switch (g.Group)
             {
                 case GlowGroup.Flicker:
@@ -1317,6 +1425,7 @@ public sealed class Theatre
             _glowColors[i * 4] = _glowColors[i * 4 + 1] = _glowColors[i * 4 + 2] = _glowColors[i * 4 + 3] = c;
         }
 
+        if (turn) _glowMesh.SetVertices(_glowVerts);
         _glowMesh.SetColors(_glowColors);
         UpdateMotes(time, eyeLocal);
     }

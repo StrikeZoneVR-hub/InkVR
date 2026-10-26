@@ -1290,6 +1290,130 @@ public class DevTools : MonoBehaviour
             case "curl":
                 InkVR.Body.Hands.DevCurl = float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture);
                 break;
+            case "twalk":
+            {
+                // twalk x z yaw [floor] : stand in the theatre there
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                InkVR.UI.TheatreWalk.DevPlace(a[0], a[1], a.Length > 2 ? a[2] : 0f, a.Length > 3 ? a[3] : 0f);
+                break;
+            }
+            case "tmove":
+            {
+                // tmove x y seconds : walk with the stick
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                InkVR.UI.TheatreWalk.DevStick(new Vector2(a[0], a[1]), a[2]);
+                break;
+            }
+            case "tturn":
+                InkVR.Core.VRRig.Turn(float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture));
+                break;
+            case "tstate":
+                Plugin.L.LogInfo("TWALK " + InkVR.UI.TheatreWalk.Describe());
+                Plugin.L.LogInfo("TTOYS " + InkVR.UI.TheatreToys.Describe());
+                break;
+            case "thand":
+            {
+                // thand r|l x y z [yaw pitch] : a dev hand at a theatre point (grip pose)
+                var tp = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var a = tp.Skip(1).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                var root = InkVR.Core.VRRig.Cinema?.Root;
+                var o = InkVR.Core.VRRig.ActiveOrigin;
+                if (root == null || o == null) break;
+                var world = root.TransformPoint(new Vector3(a[0], a[1], a[2]));
+                var wrot = root.rotation * Quaternion.Euler(a.Length > 4 ? a[4] : 0f, a.Length > 3 ? a[3] : 0f, 0);
+                var lp = o.InverseTransformPoint(world) - Vector3.up * InkVR.Core.VRRig.HeightLift;
+                var lr = Quaternion.Inverse(o.rotation) * wrot;
+                if (tp[0].StartsWith("l")) InkVR.Body.Hands.DevLeft = (lp, lr);
+                else InkVR.Body.Hands.DevRight = (lp, lr);
+                break;
+            }
+            case "thandgo":
+            {
+                // thandgo x y z seconds : the dev right hand (grip pose) moves smoothly to a theatre point
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                var root = InkVR.Core.VRRig.Cinema?.Root;
+                var o = InkVR.Core.VRRig.ActiveOrigin;
+                if (root == null || o == null) break;
+                var lp = o.InverseTransformPoint(root.TransformPoint(new Vector3(a[0], a[1], a[2]))) - Vector3.up * InkVR.Core.VRRig.HeightLift;
+                DevRecorder.HandGoTo(lp, a[3]);
+                break;
+            }
+            case "tgrip":
+            {
+                // tgrip r|l on|off
+                var tp = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                InkVR.UI.TheatreToys.DevGrip[tp[0].StartsWith("l") ? 0 : 1] = tp.Length < 2 || tp[1] == "on";
+                break;
+            }
+            case "tshot":
+            {
+                // tshot name x y z yaw pitch [fov] : a picture from a point in the theatre
+                var tp = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var a = tp.Skip(1).Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                var root = InkVR.Core.VRRig.Cinema?.Root;
+                if (root == null) break;
+                var at = root.TransformPoint(new Vector3(a[0], a[1], a[2]));
+                var dir = root.rotation * (Quaternion.Euler(a[4], a[3], 0) * Vector3.forward);
+                ShootFrom(tp[0], at, at + dir, root.up, true, a.Length > 5 ? a[5] : 80f);
+                break;
+            }
+            case "pack":
+                Plugin.L.LogInfo("PACK " + InkVR.Input.Backpack.Describe());
+                break;
+            case "packshoulder":
+            {
+                // packshoulder r|l : that dev hand over the left shoulder, where the satchel hangs
+                var h = InkVR.Core.VRRig.Head;
+                var s2 = InkVR.Core.VRRig.ActiveScale;
+                var fwd = Vector3.ProjectOnPlane(h.forward, Vector3.up).normalized;
+                var right = Vector3.Cross(Vector3.up, fwd);
+                var spot = h.position - right * (0.15f * s2) - fwd * (0.13f * s2) - Vector3.up * (0.12f * s2);
+                var o = InkVR.Core.VRRig.ActiveOrigin;
+                var lp = o.InverseTransformPoint(spot);
+                var lr = Quaternion.Inverse(o.rotation) * Quaternion.LookRotation(-fwd);
+                if (arg.StartsWith("l")) InkVR.Body.Hands.DevLeft = (lp, lr);
+                else SetDevRightWorld(spot, Quaternion.LookRotation(-fwd));
+                break;
+            }
+            case "kinds":
+            {
+                // kinds: every Interactable in the level and what a grip does with it (Take, Valve, Lever...)
+                var n = 0;
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Interactable>()))
+                {
+                    var it = o.Cast<Interactable>();
+                    if (!it.gameObject.scene.IsValid()) continue;
+                    var kind = InkVR.Input.PhysicalInteract.Classify(it);
+                    if (kind == InkVR.Input.PhysicalInteract.Kind.None && arg != "all") continue;
+                    var r = it.GetComponentInChildren<Renderer>();
+                    Plugin.L.LogInfo($"KIND {kind} {PathOf(it.transform)} single={it.m_EnableSingleInteraction} size={(r != null ? (r.bounds.size / InkVR.Core.VRRig.ActiveScale).ToString() : "-")} active={it.gameObject.activeInHierarchy}");
+                    if (++n > 200) break;
+                }
+
+                break;
+            }
+            case "shotweapons":
+                ShotWeapons = arg != "off";
+                break;
+            case "gripstate":
+            {
+                // where the weapon's handle runs relative to each hand's fist (the grip pose's +Z line through its origin)
+                var have = InkVR.Body.Grips.WeaponLine(out var near, out var far);
+                var sc = InkVR.Core.VRRig.ActiveScale;
+                foreach (var h in new[] { Hand.Left, Hand.Right })
+                {
+                    var w = InkVR.Body.Hands.WristOf(h);
+                    if (w == null || !have) continue;
+                    var root = w.parent;
+                    var dir = (far - near).normalized;
+                    var off = Vector3.ProjectOnPlane(root.position - near, dir).magnitude / sc;
+                    var along = Vector3.Dot(root.position - near, dir) / sc;
+                    var ang = Vector3.Angle(root.forward, dir);
+                    Plugin.L.LogInfo($"GRIP {h}: handle {(off * 100):F1} cm from the fist's line, {along * 100:F0} cm up from the knob, angle {ang:F0} deg (len {(far - near).magnitude / sc:F2} m) override={InkVR.Body.Grips.HandPose(h, out _, out _)} maxCurl={InkVR.Body.Grips.MaxCurl(h):F2}");
+                }
+
+                break;
+            }
             case "handshot":
             {
                 // handshot <name> left|right back|palm|side|thumb [distance m]
@@ -1322,6 +1446,29 @@ public class DevTools : MonoBehaviour
                 var fwd = Vector3.ProjectOnPlane(InkVR.Core.VRRig.Head.forward, Vector3.up).normalized;
                 var dir = Quaternion.Euler(0, yaw, 0) * (fwd * 0.6f + Vector3.up).normalized;
                 ShootFrom(a[0], center + dir * d, center, fwd, false, 45f);
+                break;
+            }
+            case "shotflash":
+                ShotFlash = arg != "off";
+                break;
+            case "oshot":
+            {
+                // oshot <name> <object name> <distance m> <yaw> <pitch> [fov] : orbit-camera picture of an object (world yaw/pitch)
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                Transform t = null;
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Transform>()))
+                {
+                    var tr = o.Cast<Transform>();
+                    if (tr.name == a[1] && tr.gameObject.activeInHierarchy) { t = tr; break; }
+                }
+
+                if (t == null) { Plugin.L.LogWarning("oshot: not found " + a[1]); break; }
+                float N(int i) => float.Parse(a[i], System.Globalization.CultureInfo.InvariantCulture);
+                var d = N(2) * InkVR.Core.VRRig.ActiveScale;
+                var r = t.GetComponentInChildren<Renderer>();
+                var c = r != null ? r.bounds.center : t.position;
+                var dir = Quaternion.Euler(N(4), N(3), 0) * Vector3.back;
+                ShootFrom(a[0], c + dir * d, c, Vector3.up, InkVR.Core.VRRig.CinemaActive || !InkVR.Core.VRRig.InGame, a.Length > 5 ? N(5) : 40f);
                 break;
             }
             case "closeshot":
@@ -1926,6 +2073,12 @@ public class DevTools : MonoBehaviour
     }
 
     /// <summary>Render one picture from a temporary camera (not the headset's) and save it to shots/.</summary>
+    /// <summary>Dev: shots include layer 10 (the held weapon).</summary>
+    private static bool ShotWeapons;
+
+    /// <summary>Dev: the fill flash on dev pictures (off to judge shadows).</summary>
+    private static bool ShotFlash = true;
+
     private void ShootFrom(string name, Vector3 camPos, Vector3 target, Vector3 up, bool cinema, float fov)
     {
         var scale = InkVR.Core.VRRig.ActiveScale;
@@ -1933,7 +2086,7 @@ public class DevTools : MonoBehaviour
         var cam = go.AddComponent<Camera>();
         cam.enabled = false;
         cam.stereoTargetEye = StereoTargetEyeMask.None;
-        cam.cullingMask = cinema ? InkVR.UI.VRLayers.UIMask : ~InkVR.UI.VRLayers.UIMask & ~(1 << 10);
+        cam.cullingMask = cinema ? InkVR.UI.VRLayers.UIMask : ~InkVR.UI.VRLayers.UIMask & (ShotWeapons ? ~0 : ~(1 << 10));
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.05f, 0.04f, 0.03f);
         cam.fieldOfView = fov;
@@ -1944,7 +2097,7 @@ public class DevTools : MonoBehaviour
         var rt = new RenderTexture(1024, 1024, 24);
         cam.targetTexture = rt;
         // A flash at the camera, so dark corners of the studio don't hide what's being checked.
-        var flash = cinema ? null : new GameObject("InkVR_ShotFlash").AddComponent<Light>();
+        var flash = cinema || !ShotFlash ? null : new GameObject("InkVR_ShotFlash").AddComponent<Light>();
         if (flash != null)
         {
             flash.type = LightType.Point;

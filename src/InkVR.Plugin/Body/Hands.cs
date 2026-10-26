@@ -66,6 +66,7 @@ public static class Hands
 
         Ensure();
         if (_left != null && _left.Lifelike != ModConfig.Lifelike) Rebuild();
+        if (_shadows != ModConfig.PlayerShadows.Value) ApplyShadows();
         UpdateChapterInk();
         if (_usingFallbackShader && Time.unscaledTime > _nextShaderCheck) TryUseGameShader();
 
@@ -84,14 +85,52 @@ public static class Hands
     private static void PoseBoth(float scale, int layer, float dt)
     {
         if (_root == null) return; // the game's reset destroyed Henry this frame; he's rebuilt on the next update
+        Grips.BeginFrame();
         PoseBody(scale, layer, dt);
         var holding = HoldingWeapon();
-        Pose(_left, Hand.Left, DevLeft, scale, layer, holding && ControllerBindings.Dominant == Hand.Left, dt);
-        Pose(_right, Hand.Right, DevRight, scale, layer, holding && ControllerBindings.Dominant == Hand.Right, dt);
+        var gun = holding && GameManager.Instance.Player.WeaponGameObject.GetComponent<GunWeapon>() != null;
+        Pose(_left, Hand.Left, DevLeft, scale, layer, Holds(Hand.Left, holding), gun && ControllerBindings.Dominant == Hand.Left, dt);
+        Pose(_right, Hand.Right, DevRight, scale, layer, Holds(Hand.Right, holding), gun && ControllerBindings.Dominant == Hand.Right, dt);
         AttachHeldItem();
+        PutHandsOnWhatTheyHold(scale);
     }
 
-    private static void Pose(HandModel model, Hand hand, (Vector3 pos, Quaternion rot)? dev, float scale, int layer, bool fist, float dt)
+    /// <summary>This hand is closed round a weapon: the weapon hand, or the other hand on the axe's handle or the gun's front.</summary>
+    private static bool Holds(Hand hand, bool holding)
+    {
+        if (!holding) return false;
+        if (hand == ControllerBindings.Dominant) return true;
+        return WeaponHandling.OffHandOnMelee || WeaponHandling.OffHandOnGun;
+    }
+
+    /// <summary>
+    /// Natural grips: a hand holding a handle (the weapon hand turned along a two-handed handle, the other hand on the
+    /// axe's handle or the gun's barrel) goes onto it instead of following its controller exactly, and its arm follows.
+    /// </summary>
+    private static void PutHandsOnWhatTheyHold(float scale)
+    {
+        if (!ModConfig.NaturalGrips.Value || !HoldingWeapon()) return;
+        var off = ControllerBindings.OffHand;
+        if ((WeaponHandling.OffHandOnMelee || WeaponHandling.OffHandOnGun) && Grips.WeaponLine(out var near, out var far))
+        {
+            var dev = off == Hand.Right ? DevRight : DevLeft;
+            var c = XrInput.Get(off);
+            VRRig.TrackingToWorld(dev?.pos ?? c.GripPosition, dev?.rot ?? c.GripRotation, out var cp, out var cr);
+            var domModel = ControllerBindings.Dominant == Hand.Left ? _left : _right;
+            Grips.PlaceOffHand(off, cp, cr, near, far, domModel.Root.position, WeaponHandling.OffHandOnGun);
+        }
+
+        foreach (var hand in new[] { Hand.Left, Hand.Right })
+        {
+            if (!Grips.HandPose(hand, out var pos, out var rot)) continue;
+            var model = hand == Hand.Left ? _left : _right;
+            if (!model.Root.gameObject.activeSelf) continue;
+            model.Root.SetPositionAndRotation(pos, rot);
+            SolveArm(model, hand, scale);
+        }
+    }
+
+    private static void Pose(HandModel model, Hand hand, (Vector3 pos, Quaternion rot)? dev, float scale, int layer, bool fist, bool onTrigger, float dt)
     {
         var c = XrInput.Get(hand);
         var valid = dev.HasValue || (XrInput.Ready && c.PoseValid);
@@ -108,16 +147,32 @@ public static class Hands
         var index = c.TriggerTouch ? Mathf.Lerp(0.3f, 1f, c.Trigger) : 0.05f;
         var grip = Mathf.Lerp(0.15f, 1f, c.Grip);
         var thumb = c.ThumbTouch ? 0.85f : 0.15f;
-        if (fist) index = grip = thumb = 1f;
+        if (fist)
+        {
+            // closed round the handle; on a gun the index finger rests on the trigger and squeezes it
+            grip = thumb = 1f;
+            index = onTrigger ? Mathf.Lerp(0.55f, 1f, c.Trigger) : 1f;
+        }
+
         if (dev.HasValue)
         {
             index = DevCurl * 0.85f;
             grip = DevCurl;
             thumb = DevCurl;
+            if (fist) index = grip = thumb = 1f;
         }
 
+        // round something carried, the fingers stop on it
+        var most = Grips.MaxCurl(hand);
+        index = Mathf.Min(index, most);
+        grip = Mathf.Min(grip, most);
+        thumb = Mathf.Min(thumb, Mathf.Max(most, 0.6f));
         model.Animate(index, grip, thumb, dt);
+        SolveArm(model, hand, scale);
+    }
 
+    private static void SolveArm(HandModel model, Hand hand, float scale)
+    {
         if (Body != null)
         {
             // Full body: the arms hang from its shoulders.
@@ -136,6 +191,20 @@ public static class Hands
             VRRig.TrackingToWorld(hint, Quaternion.identity, out var hw, out _);
             model.SolveArm(sw, hw, scale);
         }
+    }
+
+    private static bool? _shadows;
+
+    /// <summary>YOUR SHADOW changed (or Henry was just built): every part of him follows it at once.</summary>
+    private static void ApplyShadows()
+    {
+        var on = ModConfig.PlayerShadows.Value;
+        _left?.ApplyShadows(on);
+        _right?.ApplyShadows(on);
+        _toonBody?.ApplyShadows(on);
+        _studioBody?.ApplyShadows(on);
+        if (_shadows.HasValue) Plugin.L.LogInfo($"Your shadow {(on ? "on" : "off")}");
+        _shadows = on;
     }
 
     private static void Show(bool on)
@@ -166,6 +235,7 @@ public static class Hands
 
         if (want == BodyStyle.Toon) _toonBody ??= new HenryBody(BodyStyle.Toon, _root, Mat);
         else _studioBody ??= new HenryBody(BodyStyle.Lifelike, _root, Mat);
+        (want == BodyStyle.Toon ? _toonBody : _studioBody).ApplyShadows(ModConfig.PlayerShadows.Value);
         Body = want == BodyStyle.Toon ? _toonBody : _studioBody;
         (want == BodyStyle.Toon ? _studioBody : _toonBody)?.SetVisible(false);
         Body.SetVisible(true);
@@ -407,11 +477,17 @@ public static class Hands
         var c = ControllerBindings.Dom;
         if (!c.PoseValid) return;
         VRRig.TrackingToWorld(c.GripPosition, c.AimRotation, out var gripWorld, out var aimWorld);
+        VRRig.TrackingToWorld(c.GripPosition, c.GripRotation, out _, out var gripRotWorld);
         // Two hands on a gun: it points from the dominant hand towards the one holding its front.
         if (WeaponHandling.TwoHandAim(out _, out var twoHands)) aimWorld = twoHands;
         var rot = aimWorld * Quaternion.Euler(ModConfig.HeldItemPitch.Value, 0, 0) * Quaternion.Inverse(_handRestRot);
         _handContainer.rotation = rot;
         _handContainer.position = gripWorld - rot * Vector3.Scale(_handRestPos, _handContainer.lossyScale);
+
+        // Natural grip: a tool's handle through your fist (along both hands, with two on it).
+        var held = p.WeaponGameObject != null ? p.WeaponGameObject.GetComponent<BaseWeapon>() : null;
+        Vector3? twoHandDir = WeaponHandling.TwoHandMelee(out var both) ? both : null;
+        if (HoldingWeapon() && Grips.PlaceWeapon(_handContainer, held, gripWorld, gripRotWorld, rot, twoHandDir)) return;
 
         // Two hands on the axe: its handle lies along both hands, still held at the dominant one.
         if (WeaponHandling.TwoHandMelee(out var along) && MeleeSwing.HandleLine(out var near, out var far))

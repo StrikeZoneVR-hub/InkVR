@@ -42,10 +42,14 @@
 | <img src="docs/images/fight.jpg" alt="The axe bursting a Searcher into ink" width="100%"> | <img src="docs/images/ink.jpg" alt="Ink stains on Henry's sleeve and glove" width="100%"> |
 | **Fight like you mean it.** Swing the axe with one hand or both: a hit counts anywhere on an enemy, and planks break where you strike. Guns aim where your hand points, with a two-handed grip. | **Real-time ink.** Every drop lands on your hands, arms and clothes, runs and drips. Wade in and the ink ripples and splashes round you, and inky shoes leave footprints. |
 | <img src="docs/images/scenes.jpg" alt="A scripted scene playing around you in VR" width="100%"> | <img src="docs/images/theatre.jpg" alt="The 1930s theatre the menus play in, Henry's glove raised" width="100%"> |
-| **Cutscenes in VR.** Scripted scenes play around you while you keep Henry's body. Your head does the looking, and the world never tilts, spins or shakes. | **A picture palace.** The menus play on the big screen of a 1930s theatre built in the game's style, and VR SETTINGS sits inside the game's own Options. |
+| **Cutscenes in VR.** Scripted scenes play around you while you keep Henry's body. Your head does the looking, and the world never tilts, spins or shakes. | **A picture palace.** The menus play on the big screen of a 1930s theatre built in the game's style, and VR SETTINGS sits inside the game's own Options. Click the move stick to walk it: the stage, the lobby, the stairs and the balcony, with a few things to find. |
 
 Also included:
 - Every chapter playable from start to finish, and the Archives.
+- A satchel over your left shoulder: what you pick up stays in your hand until you put it in. Reach back to take it out, hold it to what it's for to use it, or throw it (it comes back).
+- Natural grips: the axe, the tools and what you carry sit in your hand by their handles, and your fingers close round them.
+- Your shadow: Henry's body, arms and hands cast a real-time shadow under the game's lights.
+- Tape notes come up close in front of you to read.
 - Reach without walking: point at an item, grip and flick, and it flies to your hand on an ink thread.
 - A weapon wheel (click the right stick) and an inventory card in your hand (hold Y), or the game's own buttons.
 - Snap or smooth turning; seated or standing play.
@@ -80,7 +84,7 @@ Also included:
 
 | Left controller | Right controller |
 |---|---|
-| Stick: move (click it to run) | Stick: turn (click it for the weapon wheel) |
+| Stick: move (click it to run; in the menu theatre, click it to walk around) | Stick: turn (click it for the weapon wheel) |
 | Trigger: run | Trigger: use your weapon, or swing your arm to hit |
 | X: interact | A: jump |
 | Y: inventory (hold it) | B: back, in menus |
