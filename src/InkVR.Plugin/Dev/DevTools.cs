@@ -1358,6 +1358,16 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"watch: {ModConfig.Watch.Value}");
                 break;
             }
+            case "arcade":
+            {
+                // arcade state | arcade throw <name> vx vy vz [x y z] | arcade progress
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                float N(int i) => float.Parse(a[i], System.Globalization.CultureInfo.InvariantCulture);
+                if (a[0] == "throw") Plugin.L.LogInfo("ARCADE " + InkVR.UI.Arcade.DevThrow(a[1], new Vector3(N(2), N(3), N(4)), a.Length > 7 ? new Vector3(N(5), N(6), N(7)) : null));
+                else if (a[0] == "progress") Plugin.L.LogInfo("PROGRESS " + InkVR.UI.Progress.Describe());
+                else Plugin.L.LogInfo("ARCADE " + InkVR.UI.Arcade.Describe());
+                break;
+            }
             case "show":
                 // show: start the theatre's opening again (house lights, follow spots, the curtain)
                 InkVR.Core.VRRig.Cinema?.StartShow(true);

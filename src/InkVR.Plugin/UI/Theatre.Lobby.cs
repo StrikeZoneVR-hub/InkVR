@@ -575,9 +575,11 @@ public sealed partial class Theatre
         {
             var x = s * hx;
             var n = new Vector3(-s, 0, 0);
-            Patch(_wood, new Vector3(x, f, zf), new Vector3(x, f, zb), new Vector3(x, f + 1.1f, zb), new Vector3(x, f + 1.1f, zf), n, WoodDark, Sub(zb - zf, 1.2f), 1, 1.6f, 1.6f);
-            Patch(_box, new Vector3(x - s * 0.03f, f + 1.1f, zf), new Vector3(x - s * 0.03f, f + 1.1f, zb), new Vector3(x - s * 0.03f, f + 1.2f, zb), new Vector3(x - s * 0.03f, f + 1.2f, zf), n, GoldDark, Sub(zb - zf, 1.2f), 1);
-            Patch(_wall, new Vector3(x, f + 1.2f, zf), new Vector3(x, f + 1.2f, zb), new Vector3(x, cornice, zb), new Vector3(x, cornice, zf), n, Paper, Sub(zb - zf, 1.2f), Sub(cornice - f, 1.2f), 1.2f, 1.2f);
+            // (a door at the foot of each staircase: the Fun Hall on the right, Joey's office on the left)
+            var side = new[] { new Vector4(SideDoorZ - SideDoorHalf, f - 1f, SideDoorZ + SideDoorHalf, f + SideDoorHeight) };
+            WallX(_wood, x, zf, zb, f, f + 1.1f, n, WoodDark, side, 1.6f, 1.6f);
+            WallX(_box, x - s * 0.03f, zf, zb, f + 1.1f, f + 1.2f, n, GoldDark, side, 0, 0);
+            WallX(_wall, x, zf, zb, f + 1.2f, cornice, n, Paper, side, 1.2f, 1.2f);
             Band(_ornament, new Vector3(x - s * 0.12f, cornice, zf), new Vector3(x - s * 0.12f, cornice, zb), up, 0.6f, n, Gold, 1.6f);
         }
 

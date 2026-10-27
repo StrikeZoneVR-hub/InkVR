@@ -32,6 +32,16 @@ public sealed partial class Theatre
         }
     }
 
+    /// <summary>A room's floor height (the main level of it).</summary>
+    public static float RoomFloor(Room r) => r switch
+    {
+        Room.Lobby or Room.Arcade or Room.Office => LobbyFloor,
+        Room.Basement => BasementFloor,
+        Room.Booth => ProjFloor,
+        Room.Backstage or Room.Dressing => StageY,
+        _ => 0f
+    };
+
     private static float CellarHeight(float z)
     {
         if (z < CellarTopZ) return StageY;
@@ -76,6 +86,12 @@ public sealed partial class Theatre
         list.Add(new Slab(ProjStairX1, ProjDoorX + 0.3f, -13.6f, -13.3f, FloorKind.Booth));
         list.Add(new Slab(ProjDoorX - 0.22f, ProjDoorX + 0.22f, LobbyZ - 0.25f, -13.3f, FloorKind.Booth));
         list.Add(new Slab(ProjX0 + 0.22f, ProjX1 - 0.22f, ProjBackZ + 0.22f, LobbyZ - 0.2f, FloorKind.Booth));
+
+        // through the side doors: the Fun Hall on the right, Joey's office on the left (locked till every find's found)
+        list.Add(new Slab(LobbyHalf - 0.35f, ArcadeX0 + 0.35f, SideDoorZ - SideDoorHalf + 0.22f, SideDoorZ + SideDoorHalf - 0.22f, FloorKind.Arcade));
+        list.Add(new Slab(ArcadeX0 + 0.22f, ArcadeX1 - 0.22f, ArcadeZ0 + 0.22f, ArcadeZ1 - 0.22f, FloorKind.Arcade));
+        list.Add(new Slab(-ArcadeX0 - 0.35f, -LobbyHalf + 0.35f, SideDoorZ - SideDoorHalf + 0.22f, SideDoorZ + SideDoorHalf - 0.22f, FloorKind.Office));
+        list.Add(new Slab(OfficeX0 + 0.22f, OfficeX1 - 0.22f, OfficeZ0 + 0.22f, OfficeZ1 - 0.22f, FloorKind.Office));
     }
 
     private static readonly Blocker[] RoomBlockers =
@@ -93,7 +109,12 @@ public sealed partial class Theatre
         new(-0.3f, 0.3f, -15.7f, -14.2f, ProjFloor), new(1.4f, 2.0f, -15.7f, -14.2f, ProjFloor), new(-2.05f, -1.35f, -15.4f, -14.2f, ProjFloor),
         new(-1.0f, 2.6f, -17.4f, -16.95f, ProjFloor), new(2.75f, 4.25f, -16.85f, -16.15f, ProjFloor),
         // under the booth's stair and landing, from the balcony
-        new(ProjStairX0 + ProjStepRun, ProjDoorX + 0.6f, -13.8f, -13.05f, 5.72f)
+        new(ProjStairX0 + ProjStepRun, ProjDoorX + 0.6f, -13.8f, -13.05f, 5.72f),
+        // the Fun Hall: behind the counters, the strong man's base, the lanes, the cabinets, the prize counter, the photo booth's wall
+        new(10.4f, 13.2f, -18.05f, -15f, 1.2f), new(13.85f, 17.75f, -18.05f, -15f, 1.2f), new(18.55f, 20.65f, -17.85f, -15f, 1.2f),
+        new(21.0f, 22.3f, -19.35f, -18.25f, 1.2f), new(16.65f, 22.3f, -25.05f, -22.95f, 1.2f), new(18.55f, 20.85f, -27f, -25.75f, 1.2f),
+        new(15.55f, 17.05f, -27f, -25.8f, 1.2f), new(12.35f, 14.65f, -27f, -26.3f, 1.2f), new(8.2f, 9.45f, -21.4f, -17.2f, 1.2f),
+        new(10.0f, 10.4f, -16.95f, -15f, 1.2f)
     };
 
     private static float RoomHeight(FloorKind kind, float x, float z) => kind switch

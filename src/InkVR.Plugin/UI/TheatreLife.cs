@@ -37,12 +37,14 @@ public static class TheatreLife
         _cellarWriting = 0;
         _lookedCellar = 0;
         TheatreState.SpotManual = false;
+        Arcade.Reset();
     }
 
     public static void Idle()
     {
         Claim[0] = Claim[1] = null;
         TheatreSounds.StopLoops();
+        Progress.Tick();
     }
 
     private static bool Setup(Cinema cinema)
@@ -75,6 +77,8 @@ public static class TheatreLife
         Booth(dt, now);
         Swaying(dt, now);
         CellarWriting(dt);
+        Arcade.Update(cinema, dt, now);
+        Progress.Tick();
     }
 
     private static readonly bool[] _gripEdge = new bool[2];
@@ -95,6 +99,12 @@ public static class TheatreLife
     }
 
     private static int Holder(string id) => Claim[0] == id ? 0 : Claim[1] == id ? 1 : -1;
+
+    /// <summary>For the Fun Hall: a free hand closing on this spot takes hold of it (or -1).</summary>
+    internal static int Grab(Vector3 at, float r, string id) => TakeHold(at, r, id);
+
+    /// <summary>Which hand has hold of this (or -1).</summary>
+    internal static int HolderOf(string id) => Holder(id);
 
     // =====================================================================================================
     // Doors

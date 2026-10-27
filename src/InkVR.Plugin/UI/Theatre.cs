@@ -104,6 +104,7 @@ public sealed partial class Theatre
         Step("backstage", BuildBackstage);
         Step("cellar", BuildBasement);
         Step("booth", BuildProjectionBooth);
+        Step("funhall", BuildArcade);
         Step("ink", BuildInk);
         Step("meshes", Finish);
         Step("glows", BuildGlows);

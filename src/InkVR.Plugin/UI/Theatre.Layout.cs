@@ -39,7 +39,7 @@ public sealed partial class Theatre
 
     // ---- the Fun Hall ----
     private const float ArcadeX0 = 8.25f, ArcadeX1 = 22.25f, ArcadeZ0 = -27.0f, ArcadeZ1 = -15.0f, ArcadeCeiling = 6.4f;
-    private const float SideDoorZ = -23.05f, SideDoorHalf = 0.55f;
+    private const float SideDoorZ = -23.05f, SideDoorHalf = 0.55f, SideDoorHeight = 2.3f;
 
     /// <summary>A flat-ended cylinder from a to b (a reel, a can, a gauge's bezel): MeshBuilder's tubes have rounded caps.</summary>
     private static void Drum(UnityEngine.Vector3 a, UnityEngine.Vector3 b, float r, int sides, Rendering.MeshBuilder mb)
