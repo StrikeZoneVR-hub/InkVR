@@ -56,6 +56,7 @@ public static class TheatreToys
     /// <summary>The theatre isn't showing: let go of anything held.</summary>
     public static void Idle()
     {
+        MirrorBeam.Show(false);
         if (!_ready || _root == null) return;
         foreach (var g in Grabs)
             if (g.Hand >= 0)
@@ -92,7 +93,12 @@ public static class TheatreToys
     public static void Update(Cinema cinema)
     {
         if (cinema == null || !Setup(cinema)) return;
-        if (!_root.gameObject.activeInHierarchy) return;
+        if (!_root.gameObject.activeInHierarchy)
+        {
+            MirrorBeam.Show(false);
+            return;
+        }
+
         var now = Time.unscaledTime;
         var dt = Mathf.Clamp(now - _prevT, 1e-3f, 0.1f);
         _prevT = now;
@@ -631,6 +637,7 @@ public static class TheatreToys
 
     private static void UpdateMirror(float now)
     {
+        MirrorLaser();
         for (var i = 0; i < 4; i++)
         {
             var face = Theatre.MirrorButton(i);
@@ -658,7 +665,9 @@ public static class TheatreToys
             }
 
             MirrorDown[i] = down || (MirrorDown[i] && depth > 0.002f);
-            MirrorPush[i] = Mathf.Lerp(MirrorPush[i], Mathf.Min(0.012f, depth), 0.6f);
+            // pointed at, it sinks a little; a press with the laser pushes it right in
+            if (_mirrorShot == i) MirrorPush[i] = 0.012f;
+            MirrorPush[i] = Mathf.Lerp(MirrorPush[i], Mathf.Max(Mathf.Min(0.012f, depth), _mirrorHover == i ? 0.004f : 0f), 0.6f);
             var piece = _t.Piece("MirrorBtn" + i);
             if (piece != null) piece.localPosition = face - Vector3.right * MirrorPush[i];
         }
@@ -680,6 +689,92 @@ public static class TheatreToys
             _mirrorWatchShown = watch;
         }
     }
+
+    // The laser: point either hand at the panel beside the mirror (a beam and a dot show where), and pull that hand's
+    // trigger on an arrow. Pressing them with a finger still works.
+    private static readonly LaserPointer.Beam MirrorBeam = new("InkVR_MirrorLaser");
+    private static readonly bool[] MirrorTrig = new bool[2], MirrorTrigWas = new bool[2];
+    private static int _mirrorHover = -1, _mirrorHoverWas = -1, _mirrorShot = -1;
+    private const float MirrorReach = 6f, PanelHalf = 0.26f;
+
+    private static void MirrorLaser()
+    {
+        _mirrorHover = _mirrorShot = -1;
+        var face = Theatre.MirrorPanel;
+        var inv = Quaternion.Inverse(_root.rotation);
+        var hand = -1;
+        var bestT = float.MaxValue;
+        Vector3 from = default, hit = default;
+        foreach (var hd in new[] { ControllerBindings.Dominant, ControllerBindings.OffHand })
+        {
+            var h = (int)hd;
+            MirrorTrigWas[h] = MirrorTrig[h];
+            var trig = Trigger(h);
+            MirrorTrig[h] = MirrorTrig[h] ? trig > 0.3f : trig > 0.55f;
+            if (!Aim(h, out var wp, out var wr) || Grabs.Exists(g => g.Hand == h)) continue;
+            if (hd == ControllerBindings.Dominant && LaserPointer.OnScreen) continue;
+            var lp = _root.InverseTransformPoint(wp);
+            var ld = inv * (wr * Vector3.forward);
+            if (ld.x > -0.05f) continue; // (the panel faces +x: you point towards -x)
+            var t = (face.x - lp.x) / ld.x;
+            if (t <= 0.05f || t > MirrorReach || t >= bestT) continue;
+            var p = lp + ld * t;
+            if (Mathf.Abs(p.y - face.y) > PanelHalf || Mathf.Abs(p.z - face.z) > PanelHalf) continue;
+            bestT = t;
+            hand = h;
+            from = lp;
+            hit = p;
+        }
+
+        if (hand < 0)
+        {
+            MirrorBeam.Show(false);
+            _mirrorHoverWas = -1;
+            return;
+        }
+
+        for (var i = 0; i < 4; i++)
+        {
+            var b = Theatre.MirrorButton(i);
+            // a little more forgiving than the button's face
+            if (Mathf.Abs(hit.y - b.y) <= Theatre.MirrorButtonHalf * 1.35f && Mathf.Abs(hit.z - b.z) <= Theatre.MirrorButtonHalf * 1.35f) _mirrorHover = i;
+        }
+
+        var surface = _root.rotation * Quaternion.LookRotation(Vector3.left);
+        MirrorBeam.Draw(_root.TransformPoint(from), _root.TransformPoint(hit + Vector3.right * 0.004f), surface, _root.lossyScale.x);
+        if (MirrorTrig[hand] && !MirrorTrigWas[hand] && _mirrorHover >= 0)
+        {
+            var i = _mirrorHover;
+            Step(i < 2, i % 2 == 0 ? -1 : 1);
+            TheatreSounds.Play(TheatreSounds.Click, Theatre.MirrorButton(i), 0.35f, Random.Range(1.1f, 1.2f));
+            Buzz(hand, 0.35f, 0.03f);
+            _mirrorShot = i;
+        }
+        else if (_mirrorHover >= 0 && _mirrorHover != _mirrorHoverWas) Buzz(hand, 0.12f, 0.015f);
+
+        _mirrorHoverWas = _mirrorHover;
+    }
+
+    /// <summary>A hand's pointing pose in the world (the dev hands' grip pose on the mock runtime).</summary>
+    private static bool Aim(int h, out Vector3 pos, out Quaternion rot)
+    {
+        pos = default;
+        rot = Quaternion.identity;
+        var dev = h == 1 ? Hands.DevRight : Hands.DevLeft;
+        var c = XrInput.Get((Hand)h);
+        if (!dev.HasValue && !(XrInput.Ready && c.PoseValid)) return false;
+        VRRig.TrackingToWorld(dev?.pos ?? c.AimPosition, dev?.rot ?? c.AimRotation, out pos, out rot);
+        return true;
+    }
+
+    private static float Trigger(int h)
+    {
+        if (h == 1 && XrInput.DevRightTrigger.HasValue) return XrInput.DevRightTrigger.Value;
+        return XrInput.Ready ? XrInput.Get((Hand)h).Trigger : 0f;
+    }
+
+    /// <summary>Dev: what the mirror's laser is on.</summary>
+    public static string DescribeMirror() => $"hover={_mirrorHover} trig={MirrorTrig[0]}/{MirrorTrig[1]} style={Body.Styles.Current.Label} watch={Theatre.WatchLabel()}";
 
     private static void Step(bool style, int dir)
     {

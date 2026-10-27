@@ -18,8 +18,7 @@ public static class LaserPointer
     private static RaycastResults _results;
     private static GameObject _hovered, _pressed, _drag;
     private static bool _dragging;
-    private static LineRenderer _line;
-    private static VRPanel _dot;
+    private static readonly Beam Laser = new("InkVR_Laser");
 
     /// <summary>The pointer is over the game's UI while a menu wants pointer input (blocks gameplay buttons).</summary>
     public static bool IsOverInteractive { get; private set; }
@@ -34,7 +33,10 @@ public static class LaserPointer
     // laser off it, and the click went to the background. So: the trigger presses at 55% and lets go at 30% (a
     // half-pull doesn't flicker), the spot steadies as you squeeze, it holds still on what you pressed, and letting
     // go anywhere near where you pressed clicks what you pressed.
-    private const float PressAt = 0.55f, ReleaseAt = 0.3f, SlipPx = 70f;
+    private const float PressAt = 0.55f, ReleaseAt = 0.3f;
+
+    // In the UI texture's pixels (tuned at 2560 wide): how far the spot may slip off a pressed button, and drag.
+    private const float SlipPx = 70f * UICapture.Width / 2560f, DragPx = 5f * UICapture.Width / 2560f;
     private static bool _trig, _haveSpot;
     private static Vector2 _spot;
     private static GameObject _clickHandler;
@@ -88,7 +90,7 @@ public static class LaserPointer
 
         OnScreen = true;
         Show(true);
-        DrawLaser(origin, hit, panel, scale);
+        Laser.Draw(origin, hit, panel.Transform.rotation, scale);
 
         var pixel = new Vector2((local.x + 0.5f) * UICapture.Width, (local.y + 0.5f) * UICapture.Height);
         Process(pixel, c, down, up);
@@ -167,7 +169,7 @@ public static class LaserPointer
 
         if (_trig && _drag != null)
         {
-            if (!_dragging && (pixel - _ped.pressPosition).sqrMagnitude > 25f)
+            if (!_dragging && (pixel - _ped.pressPosition).sqrMagnitude > DragPx * DragPx)
             {
                 _dragging = true;
                 _ped.dragging = true;
@@ -229,40 +231,54 @@ public static class LaserPointer
 
     // ---------------- visuals ----------------
 
-    private static void Show(bool on)
-    {
-        if (_line != null && _line.gameObject.activeSelf != on) _line.gameObject.SetActive(on);
-        if (_dot != null) _dot.Visible = on;
-    }
+    private static void Show(bool on) => Laser.Show(on);
 
-    private static void DrawLaser(Vector3 from, Vector3 to, VRPanel panel, float scale)
+    /// <summary>A laser beam from the hand with a soft dot where it lands (the menus' laser; the theatre mirror's too).</summary>
+    public sealed class Beam
     {
-        if (_line == null)
+        private readonly string _name;
+        private LineRenderer _line;
+        private VRPanel _dot;
+
+        public Beam(string name) => _name = name;
+
+        public void Show(bool on)
         {
-            var go = new GameObject("InkVR_Laser");
-            Object.DontDestroyOnLoad(go);
-            go.layer = VRLayers.UI;
-            _line = go.AddComponent<LineRenderer>();
-            _line.useWorldSpace = true;
-            _line.positionCount = 2;
-            _line.material = new Material(Shader.Find("Sprites/Default")) { renderQueue = 4050 };
-            _line.startColor = new Color(0.98f, 0.86f, 0.55f, 0.55f);
-            _line.endColor = new Color(0.98f, 0.86f, 0.55f, 0.95f);
-            _line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            _line.receiveShadows = false;
+            if (_line != null && _line.gameObject.activeSelf != on) _line.gameObject.SetActive(on);
+            if (_dot != null && _dot.GameObject != null) _dot.Visible = on;
         }
 
-        if (_dot == null || _dot.GameObject == null)
+        /// <summary>From the hand to a surface; <paramref name="surface"/> faces away from you (a VR panel's turn).</summary>
+        public void Draw(Vector3 from, Vector3 to, Quaternion surface, float scale)
         {
-            _dot = new VRPanel("InkVR_LaserDot", null, Textures.SoftDot, new Color(1f, 0.9f, 0.6f, 1f), 60);
-            Object.DontDestroyOnLoad(_dot.GameObject);
-        }
+            if (_line == null)
+            {
+                var go = new GameObject(_name);
+                Object.DontDestroyOnLoad(go);
+                go.layer = VRLayers.UI;
+                _line = go.AddComponent<LineRenderer>();
+                _line.useWorldSpace = true;
+                _line.positionCount = 2;
+                _line.material = new Material(Shader.Find("Sprites/Default")) { renderQueue = 4050 };
+                _line.startColor = new Color(0.98f, 0.86f, 0.55f, 0.55f);
+                _line.endColor = new Color(0.98f, 0.86f, 0.55f, 0.95f);
+                _line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                _line.receiveShadows = false;
+            }
 
-        _line.startWidth = 0.004f * scale;
-        _line.endWidth = 0.0015f * scale;
-        _line.SetPosition(0, from);
-        _line.SetPosition(1, to);
-        _dot.Transform.SetPositionAndRotation(to - panel.Transform.forward * 0.002f * scale, panel.Transform.rotation);
-        _dot.Transform.localScale = Vector3.one * 0.018f * scale;
+            if (_dot == null || _dot.GameObject == null)
+            {
+                _dot = new VRPanel(_name + "Dot", null, Textures.SoftDot, new Color(1f, 0.9f, 0.6f, 1f), 60);
+                Object.DontDestroyOnLoad(_dot.GameObject);
+            }
+
+            Show(true);
+            _line.startWidth = 0.004f * scale;
+            _line.endWidth = 0.0015f * scale;
+            _line.SetPosition(0, from);
+            _line.SetPosition(1, to);
+            _dot.Transform.SetPositionAndRotation(to - surface * Vector3.forward * 0.002f * scale, surface);
+            _dot.Transform.localScale = Vector3.one * 0.018f * scale;
+        }
     }
 }

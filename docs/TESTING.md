@@ -1,6 +1,25 @@
 # Testing InkVR
 
-## Current build: 1.0.0 (the update: everything since 0.9.1, the old theatre with a mirror, thirteen styles, six watches)
+## Current build: 1.0.1 (tape notes up close and sharp, a laser for the mirror)
+
+1.0 is on GitHub. 1.0.1 is local and installed in your game; it goes on GitHub once you've tried it.
+
+### Tape notes (you: "not readable, very pixelated and kind of blurry")
+- **What went wrong:** the close-up page never came up in 1.0. To lift the note out of the HUD, InkVR asks where each piece of the game's note card is on the screen. It handed the game a plain array to fill in, which the game filled in a copy of, so every corner came back as zero: the whole card a point in the middle of the screen, which InkVR took for "no note". What you read was the note in the corner of the far HUD, 1.6 m away.
+- **Now:** the page comes up half a metre in front of you, a little below and to the left (0.42 m tall, a touch larger than 1.0 meant). The game's UI is drawn at 4K instead of 1440p, so the note has about 1100 x 1450 pixels, and the page has its own sharp copy of it.
+- **Your headset's resolution:** your logs show the game rendering each eye at 1210 x 1278 (70%). That softens all small text in VR; a higher resolution in Virtual Desktop or SteamVR makes the notes even crisper, if your laptop has room for it.
+- **Checked on the test runtime:** a Chapter 1 tape: the page comes up and reads clearly (pictures taken); the menus, Options and the pause menu lay out exactly as before at 4K, and the laser clicks Options and Resume. Your save is byte for byte unchanged and your settings were put back.
+
+### The mirror's arrows by laser (you: "a laser point for choosing full body styles in the mirror will be better than pressing the button")
+- In the lobby, point either hand at the brass panel beside the mirror: a laser and a dot show where. The arrow you point at sinks a little (and the controller ticks). Pull that hand's trigger to press it. The panel now says POINT AT AN ARROW OR PRESS IT; pressing with a finger still works.
+- **Checked on the test runtime:** pointing at STYLE's next arrow and pulling the trigger twice went Henry, Toon Henry, Bendy (the mirror showed each); WATCH's back arrow went from the Ink Demon's watch to Alice's.
+
+### What to try (1.0.1)
+1. Play a tape in any chapter: does the page come up in front of you, and can you read it comfortably? Too big, too small, too close, too low?
+2. In the theatre lobby, point at the mirror's arrows and pull the trigger, with each hand.
+3. Menus with the laser, as before.
+
+## Previous build: 1.0.0 (the update: everything since 0.9.1, the old theatre with a mirror, thirteen styles, six watches)
 
 1.0 is the single update that goes on GitHub once you've tested it: 0.9.2, 0.10.0 and 0.10.1 below, plus these. The release notes are in [CHANGELOG.md](../CHANGELOG.md).
 

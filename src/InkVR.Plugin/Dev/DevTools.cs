@@ -154,6 +154,7 @@ public class DevTools : MonoBehaviour
             case "dump": DumpHierarchy(arg); break;
             case "cams": DumpCameras(); break;
             case "shot": Screenshot(arg); break;
+            case "noteshot": InkVR.UI.NoteReader.DevSave(Path.Combine(Plugin.DataDir, "shots")); break;
             case "find": Find(arg); break;
             case "inspect": Inspect(arg); break;
             case "rinfo":
@@ -1643,6 +1644,7 @@ public class DevTools : MonoBehaviour
             case "tstate":
                 Plugin.L.LogInfo("TWALK " + InkVR.UI.TheatreWalk.Describe());
                 Plugin.L.LogInfo("TTOYS " + InkVR.UI.TheatreToys.Describe());
+                Plugin.L.LogInfo("TMIRROR " + InkVR.UI.TheatreToys.DescribeMirror());
                 break;
             case "thand":
             {

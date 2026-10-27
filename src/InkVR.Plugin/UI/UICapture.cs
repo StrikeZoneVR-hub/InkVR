@@ -8,10 +8,10 @@ namespace InkVR.UI;
 /// </summary>
 public static class UICapture
 {
-    // 1440p rather than 1080p: the game's UI scales with the screen, so its text and the tapes' notes are drawn with a
-    // third more detail each way (the notes are read close up).
-    public const int Width = 2560;
-    public const int Height = 1440;
+    // 4K rather than 1080p: the game's UI scales with the screen, so its text and the tapes' notes are drawn with twice
+    // the detail each way (the notes are read close up, at about 1100 x 1450 pixels).
+    public const int Width = 3840;
+    public const int Height = 2160;
     private const string UIManagerName = "[UI MANAGER]";
 
     private static RenderTexture _rt;

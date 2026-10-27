@@ -896,6 +896,9 @@ public sealed partial class Theatre
 
     public const float MirrorButtonHalf = 0.05f;
 
+    /// <summary>The middle of the mirror's brass panel, in the buttons' plane (the panel is half a metre square).</summary>
+    public static Vector3 MirrorPanel => new(MirrorWallX + 0.068f, LobbyFloor + 1.4f, PanelZ);
+
     private void BuildMirror()
     {
         var f = LobbyFloor;
@@ -920,7 +923,7 @@ public sealed partial class Theatre
         var name = new Color(1f, 0.84f, 0.5f);
         Box(_box, pc, new Vector3(0.03f, 0.52f, 0.5f), GoldDark);
         Box(_box, pc + n * 0.018f, new Vector3(0.01f, 0.46f, 0.44f), Dark * 2.2f);
-        Signs.Add(new SignSpec { Text = "PRESS THE ARROWS", Pos = new Vector3(x + 0.04f, f + 1.6f, PanelZ), Rot = rot, Height = 0.024f, Width = 0.42f, Color = Cream * 0.8f });
+        Signs.Add(new SignSpec { Text = "POINT AT AN ARROW OR PRESS IT", Pos = new Vector3(x + 0.04f, f + 1.6f, PanelZ), Rot = rot, Height = 0.024f, Width = 0.42f, Color = Cream * 0.8f });
         Signs.Add(new SignSpec { Text = "STYLE", Pos = new Vector3(x + 0.04f, f + 1.5f, PanelZ), Rot = rot, Height = 0.045f, Width = 0.22f, Color = Cream });
         Signs.Add(new SignSpec { Text = Body.Styles.Current.Label, Pos = new Vector3(x + 0.04f, f + 1.415f, PanelZ), Rot = rot, Height = 0.03f, Width = 0.42f, Color = name, Id = "MirrorStyle2" });
         Signs.Add(new SignSpec { Text = "WATCH", Pos = new Vector3(x + 0.04f, f + 1.29f, PanelZ), Rot = rot, Height = 0.045f, Width = 0.22f, Color = Cream });

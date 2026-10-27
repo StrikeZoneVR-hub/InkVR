@@ -46,7 +46,7 @@
 
 Also included:
 - Every chapter playable from start to finish, and the Archives.
-- Thirteen body styles, each with its own hands, body and head: Henry (Lifelike or Toon), Bendy, Boris, Alice Angel, the Ink Demon, Sammy Lawrence, the Projectionist, Brute Boris, a Searcher, Joey Drew, Wally Franks and Beast Bendy. Ink gets onto all of them, and the mirror in the theatre's lobby shows you who you are (press its arrows to change).
+- Thirteen body styles, each with its own hands, body and head: Henry (Lifelike or Toon), Bendy, Boris, Alice Angel, the Ink Demon, Sammy Lawrence, the Projectionist, Brute Boris, a Searcher, Joey Drew, Wally Franks and Beast Bendy. Ink gets onto all of them, and the mirror in the theatre's lobby shows you who you are (point at its arrows and pull the trigger, or press them, to change).
 - Six watches for your wrist, all keeping your real time (or none).
 - **Optional:** a satchel over your left shoulder (off unless you turn it on: SATCHEL in VR SETTINGS or the launcher). With it on, what you pick up stays in your hand until you let go of it behind your left shoulder, which puts it in; reach over your shoulder and grip to bring the satchel round and take things out, hold one to what it's for and let go to use it, or throw it (it comes back).
 - Natural grips: the axe, the tools and what you carry sit in your hand by their handles, and your fingers close round them.

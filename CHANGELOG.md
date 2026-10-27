@@ -1,5 +1,27 @@
 # Changelog
 
+## InkVR 1.0.1
+
+### Bug fixes
+
+- **Tape notes weren't up close, so they were hard to read.** In 1.0 the close-up page never came up: InkVR read
+  where the game's note sits on the screen wrongly (as one point in the middle), took it for nothing, and left the
+  note small in the far HUD, pixelated and blurry. Now, when a tape plays, its note comes up as a page half a metre
+  in front of you, a little larger than 1.0 meant it to be.
+- **Sharper text everywhere.** The game's menus, HUD and notes are drawn at 4K (they were 1440p), so a tape's note
+  has about 1100 x 1450 pixels of its own, more than the page needs. The laser clicks just as before.
+
+### Quality of life
+
+- **Point at the mirror's arrows.** In the theatre lobby, point either hand at the brass panel beside the mirror: a
+  laser shows where you're pointing, and the arrow under it sinks a little. Pull that hand's trigger to change your
+  style or your watch. Pressing the arrows with a finger still works.
+
+### Install or update
+
+Download **InkVR-v1.0.1.zip** below, unzip it, and run `InkVR Launcher.exe`. It updates an existing install by
+itself. Your settings are kept.
+
 ## InkVR 1.0
 
 The biggest update yet, and the first full release. Everything since 0.9.1 is in it.
