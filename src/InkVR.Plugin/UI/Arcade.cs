@@ -13,7 +13,7 @@ public static partial class Arcade
 {
     public const int GameCount = 8;
     public static readonly string[] GameNames = { "INK TOSS", "SHOOTING GALLERY", "DARTS", "STRONG MAN", "INK BALL", "WHACK-A-SEARCHER", "THE CLAW", "PACHINKO" };
-    public static readonly string[] PrizeNames = { "BENDY PLUSH", "BORIS PLUSH", "ALICE PLUSH", "BENDY BALLOON", "PARTY HAT", "GOLD LASER", "GOLDEN BENDY", "DEMON'S BOW TIE" };
+    public static readonly string[] PrizeNames = { "BENDY PLUSH", "BORIS PLUSH", "ALICE PLUSH", "BENDY BALLOON", "PARTY HAT", "INK LASER", "GOLDEN BENDY", "DEMON'S BOW TIE" };
     public static readonly int[] PrizeCost = { 10, 10, 10, 20, 25, 30, 60, 40 };
 
     private const float G = 9.81f;
@@ -89,6 +89,7 @@ public static partial class Arcade
             }
 
             if (o.Loose) continue;
+            if (o.Name.StartsWith("Prize") && !Owns(o.Name[5] - '0')) continue; // a prize: yours once you've bought it
             var h = TheatreLife.Grab(o.GripWorld, o.Reach, o.Name);
             if (h < 0) continue;
             o.Hand = h;
@@ -259,6 +260,8 @@ public static partial class Arcade
         _dt = dt;
         Carry();
         Prizes();
+        PrizeEffects();
+        if (Theatre.RoomOf(TheatreWalk.Eye, Vector3.zero) == Theatre.Room.Arcade) PhotoBooth();
         // the games only run while you're in the Fun Hall (or something's still flying there)
         var here = Theatre.RoomOf(TheatreWalk.Eye, Vector3.zero) == Theatre.Room.Arcade;
         if (here || Busy()) Games();

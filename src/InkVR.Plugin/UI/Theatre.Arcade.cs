@@ -12,6 +12,8 @@ namespace InkVR.UI;
 public sealed partial class Theatre
 {
     private static float AF => LobbyFloor;
+    public static float ArcadeX0Pub => ArcadeX0;
+    public static float ArcadeZ1Pub => ArcadeZ1;
 
     // ---- where each game's pieces are (the games read these) ----
     public static Vector3 TossBoardAt => new(11.8f, AF + 1.75f, ArcadeZ1 - 0.25f);
@@ -578,11 +580,11 @@ public sealed partial class Theatre
                 AddBuilder(_fabric, pom, Gold);
                 break;
             }
-            case 5: // a gold laser pen
+            case 5: // an ink laser pen
             {
                 var mb = new MeshBuilder();
                 mb.Tube(new[] { at + new Vector3(0, 0.05f, -0.1f), at + new Vector3(0, 0.05f, 0.1f) }, new[] { 0.012f, 0.012f }, Vector3.up, 10, true, true);
-                AddBuilder(_box, mb, Gold * 1.2f);
+                AddBuilder(_painted, mb, Dark * 1.8f);
                 break;
             }
             case 6: // the golden Bendy

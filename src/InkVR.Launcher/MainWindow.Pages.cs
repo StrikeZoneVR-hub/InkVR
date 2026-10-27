@@ -445,7 +445,7 @@ namespace InkVR.Launcher
         {
             var cfg = _cfg;
             var y = 180.0;
-            const double rowH = 38;
+            const double rowH = 36.5;
             var col = 0;
 
             void Header(string text, int c, double hy = 160)
@@ -565,12 +565,22 @@ namespace InkVR.Launcher
                 WindowState = i == 1 ? WindowState.Maximized : WindowState.Normal;
             });
 
-            Header("HENRY", 1, 342);
-            y = 404;
+            Header("HENRY", 1, 330);
+            y = 390;
             var bodies = new[] { "Full", "Arms", "Hands", "None" };
             Row("BODY", new[] { "FULL BODY", "ARMS & HANDS", "HANDS ONLY", "NONE" }, Math.Max(0, Array.IndexOf(bodies, cfg?.Get("Body", "Mode") ?? "Full")), i => cfg.Set("Body", "Mode", bodies[i]), has);
-            var styles = new[] { "Lifelike", "Toon" };
-            Row("STYLE", new[] { "LIFELIKE", "TOON" }, Math.Max(0, Array.IndexOf(styles, cfg?.Get("Body", "Style") ?? "Lifelike")), i => cfg.Set("Body", "Style", styles[i]), has);
+            // (the twelve styles; the secret thirteenth only once it's been won in the game, so it's set there)
+            var styles = new List<string> { "Lifelike", "Toon", "Bendy", "Boris", "Alice", "InkDemon", "Sammy", "Projectionist", "BruteBoris", "Searcher", "Joey", "Wally" };
+            var styleNames = new List<string> { "HENRY", "TOON HENRY", "BENDY", "BORIS", "ALICE ANGEL", "THE INK DEMON", "SAMMY LAWRENCE", "THE PROJECTIONIST", "BRUTE BORIS", "A SEARCHER", "JOEY DREW", "WALLY FRANKS" };
+            if (cfg?.Get("Body", "Style") == "BeastBendy")
+            {
+                styles.Add("BeastBendy");
+                styleNames.Add("BEAST BENDY");
+            }
+
+            Row("STYLE", styleNames.ToArray(), Math.Max(0, styles.IndexOf(cfg?.Get("Body", "Style") ?? "Lifelike")), i => cfg.Set("Body", "Style", styles[i]), has);
+            var watches = new[] { "Tank", "Bendy", "Studio", "Gauge", "Angel", "Demon", "None" };
+            Row("WATCH", new[] { "TANK (HENRY'S)", "BENDY", "STUDIO GOLD", "INK GAUGE", "ANGEL HALO", "INK DEMON", "NONE" }, Math.Max(0, Array.IndexOf(watches, cfg?.Get("Body", "Watch") ?? "Tank")), i => cfg.Set("Body", "Watch", watches[i]), has);
             Row("YOUR SHADOW", new[] { "ON", "OFF" }, has && !cfg.GetBool("Body", "PlayerShadows", true) ? 1 : 0, i => cfg.Set("Body", "PlayerShadows", i == 0), has);
             Row("MELEE", new[] { "SWING YOUR ARM", "BUTTON ONLY" }, has && !cfg.GetBool("Controls", "PhysicalMelee", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalMelee", i == 0), has);
             Row("GUN AIM", new[] { "HAND", "HEAD" }, has && !cfg.GetBool("Controls", "AimGunsWithHand", true) ? 1 : 0, i => cfg.Set("Controls", "AimGunsWithHand", i == 0), has);

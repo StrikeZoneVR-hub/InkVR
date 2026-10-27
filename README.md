@@ -42,10 +42,13 @@
 | <img src="docs/images/fight.jpg" alt="The axe bursting a Searcher into ink" width="100%"> | <img src="docs/images/ink.jpg" alt="Ink stains on Henry's sleeve and glove" width="100%"> |
 | **Fight like you mean it.** Swing the axe with one hand or both: a hit counts anywhere on an enemy, and planks break where you strike. Guns aim where your hand points, with a two-handed grip. | **Real-time ink.** Every drop lands on your hands, arms and clothes, runs and drips. Wade in and the ink ripples and splashes round you, and inky shoes leave footprints. |
 | <img src="docs/images/scenes.jpg" alt="A scripted scene playing around you in VR" width="100%"> | <img src="docs/images/theatre.jpg" alt="The 1930s theatre the menus play in, Henry's glove raised" width="100%"> |
-| **Cutscenes in VR.** Scripted scenes play around you while you keep Henry's body. Your head does the looking, and the world never tilts, spins or shakes. | **A picture palace.** The menus play on the big screen of a 1930s theatre built in the game's style, and VR SETTINGS sits inside the game's own Options. Click the move stick to walk it: the stage, the lobby, the stairs and the balcony, with a few things to find. |
+| **Cutscenes in VR.** Scripted scenes play around you while you keep Henry's body. Your head does the looking, and the world never tilts, spins or shakes. | **A picture palace.** The menus play on the big screen of a 1930s theatre built in the game's style, and VR SETTINGS sits inside the game's own Options. The house lights dim and the curtain opens for the show. Click the move stick to walk the whole building: backstage, Alice's dressing room, the cellar's ink machine, the projection booth, and the Fun Hall's eight arcade games. |
 
 Also included:
 - Every chapter playable from start to finish, and the Archives.
+- Twelve body styles, each with its own hands, body and head: Henry (Lifelike or Toon), Bendy, Boris, Alice Angel, the Ink Demon, Sammy Lawrence, the Projectionist, Brute Boris, a Searcher, Joey Drew and Wally Franks. Ink gets onto all of them, and the dressing room's mirrors show you who you are.
+- Six watches for your wrist, all keeping your real time (or none).
+- The theatre to explore: sit in any seat, run the house lights, curtain and follow spot from the booth, pull the ink machine's lever, win tickets and prizes in the Fun Hall, take a photo in the photo booth, and hunt down 26 fan finds to open Mr. Drew's office. It dresses for Halloween, Christmas and Bendy's birthday.
 - **Optional:** a satchel over your left shoulder (off unless you turn it on: SATCHEL in VR SETTINGS or the launcher). With it on, what you pick up stays in your hand until you let go of it behind your left shoulder, which puts it in; reach over your shoulder and grip to bring the satchel round and take things out, hold one to what it's for and let go to use it, or throw it (it comes back).
 - Natural grips: the axe, the tools and what you carry sit in your hand by their handles, and your fingers close round them.
 - Solid weapons: the weapon in your hand stops at walls and floors (it tips back in your fist like a real one), your fingers close over its handle, and swings knock loose things about.
@@ -55,7 +58,7 @@ Also included:
 - A weapon wheel (click the right stick) and an inventory card in your hand (hold Y), or the game's own buttons.
 - Snap or smooth turning; seated or standing play.
 - World size: AUTO makes Henry's eyes your eyes, or set it yourself.
-- Body options: full body, arms and hands, hands only, or none; Toon or Lifelike.
+- Body options: full body, arms and hands, hands only, or none; any of the twelve styles.
 - Each motion control can be switched back to a button in VR SETTINGS.
 - Comfort: calm the theatre's projector flicker and film scratches.
 - Automatic render resolution to hold the headset's frame rate.

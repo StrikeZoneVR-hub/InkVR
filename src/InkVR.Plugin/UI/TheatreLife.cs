@@ -47,12 +47,26 @@ public static class TheatreLife
         Progress.Tick();
     }
 
+    private static float _mirrorLook;
+
+    /// <summary>A fan find: stand and look at yourself in one of the dressing room's mirrors for a moment.</summary>
+    private static void MirrorFind(float dt)
+    {
+        var looking = false;
+        foreach (var m in _t.Mirrors)
+            if (m != null && TheatreToys.Sees(m.Transform.localPosition, 30f, 2.6f))
+                looking = true;
+        _mirrorLook = looking && Theatre.RoomOf(TheatreWalk.Eye, Vector3.zero) == Theatre.Room.Dressing ? _mirrorLook + dt : 0f;
+        if (_mirrorLook > 2.5f) FanFinds.Mark("mirror");
+    }
+
     private static bool Setup(Cinema cinema)
     {
         if (_ready && _cinema == cinema && _t != null && cinema.Root != null) return true;
         _cinema = cinema;
         _t = cinema.Theatre;
         if (_t == null) return false;
+        TheatreToys.Did = FanFinds.Mark;
         _ready = true;
         return true;
     }
@@ -72,12 +86,15 @@ public static class TheatreLife
 
         Doors(dt);
         Wardrobe(dt);
+        Reward();
         WatchCase();
         InkMachine(dt, now);
         Booth(dt, now);
         Swaying(dt, now);
         CellarWriting(dt);
         Arcade.Update(cinema, dt, now);
+        FanFinds.Update(cinema, dt);
+        MirrorFind(dt);
         Progress.Tick();
     }
 
@@ -116,6 +133,18 @@ public static class TheatreLife
     {
         Door("DressingDoor", Theatre.DressingDoorHinge + new Vector3(0.5f, 0, 0), -100f, dt);
         Door("BoothDoor", Theatre.BoothDoorHinge + new Vector3(0.4f, 0, 0), 100f, dt);
+        if (Theatre.OfficeOpen) Door("OfficeDoor", Theatre.OfficeDoorHinge + new Vector3(0, 0, 0.55f), -100f, dt);
+        else
+        {
+            // locked: it rattles if you try it
+            var at = Theatre.OfficeDoorHinge + new Vector3(0.05f, 1.05f, 0.95f);
+            for (var h = 0; h < 2; h++)
+                if (_gripEdge[h] && (TheatreToys.PalmOf(h) - at).sqrMagnitude < 0.25f * 0.25f)
+                {
+                    TheatreSounds.Play(TheatreSounds.Rattle, at, 0.6f);
+                    TheatreToys.BuzzOf(h, 0.5f, 0.15f);
+                }
+        }
     }
 
     private static void Door(string name, Vector3 middle, float swing, float dt)
@@ -169,9 +198,24 @@ public static class TheatreLife
             // take hold of it: you're wearing it
             if (TakeHold(middle, 0.24f, "Costume" + i) < 0) continue;
             ModConfig.BodyStyle.Value = style.Key;
+            FanFinds.Mark("costume");
             TheatreSounds.Play(TheatreSounds.Chime, middle, 0.5f, 1.2f);
             Plugin.L.LogInfo($"Wardrobe: wearing {style.Label}");
         }
+    }
+
+    /// <summary>Joey's office: take hold of Beast Bendy and he's yours to wear.</summary>
+    private static void Reward()
+    {
+        var piece = _t.Piece("BeastCostume");
+        if (piece == null || !Theatre.OfficeOpen) return;
+        var wearing = ModConfig.BodyStyle.Value == "BeastBendy" && ModConfig.FullBody;
+        if (piece.gameObject.activeSelf == wearing) piece.gameObject.SetActive(!wearing);
+        if (wearing) return;
+        if (TakeHold(Theatre.BeastAt + Vector3.up * 1.35f, 0.5f, "BeastCostume") < 0) return;
+        ModConfig.BodyStyle.Value = "BeastBendy";
+        TheatreSounds.Play(TheatreSounds.Fanfare, Theatre.BeastAt + Vector3.up * 1.5f, 0.7f, 0.8f);
+        Plugin.L.LogInfo("Joey's office: wearing Beast Bendy");
     }
 
     private static readonly string[] WatchKeys = { "Tank", "Bendy", "Studio", "Gauge", "Angel", "Demon", "None" };
@@ -232,6 +276,7 @@ public static class TheatreLife
         if (want != _machineOn)
         {
             _machineOn = want;
+            if (want) FanFinds.Mark("machine");
             TheatreSounds.Play(TheatreSounds.Clank, pivot, 0.7f, 0.7f);
             TheatreSounds.Play(TheatreSounds.Hiss, Theatre.MachineAt + Vector3.up * 2.5f, 0.6f, 0.8f);
             if (h >= 0) TheatreToys.BuzzOf(h, 0.7f, 0.12f);
@@ -425,6 +470,7 @@ public static class TheatreLife
         }
 
         _lastSpotOn = true;
+        FanFinds.Mark("spot");
         var dir = Quaternion.Euler(-_spotPitch, _spotYaw, 0) * Vector3.forward;
         var nose = pivot + dir * 0.42f;
         _t.AimSpot(0, nose, dir, 0.95f);
@@ -466,6 +512,7 @@ public static class TheatreLife
         if (_cellarWriting <= 0 && _lookedCellar > 0.8f)
         {
             _cellarWriting = 0.001f;
+            FanFinds.Mark("shrine");
             TheatreSounds.Play(TheatreSounds.Seep, at, 0.8f, 0.85f);
         }
 

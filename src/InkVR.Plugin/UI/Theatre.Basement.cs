@@ -16,6 +16,7 @@ public sealed partial class Theatre
     public static Vector3 MachineAt => new(-4.6f, BasementFloor, 11.2f);
     public static Vector3 MachineLever => new(-2.5f, BasementFloor + 1.05f, 12.6f);
     public static Vector3 MachineWheel => MachineAt + new Vector3(0, 1.45f, -1.18f);
+    public static Vector3 GearAt => new(Half - 0.25f, BasementFloor + 0.62f, 11.8f);
 
     private void BuildBasement()
     {

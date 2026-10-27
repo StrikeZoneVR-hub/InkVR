@@ -1365,9 +1365,20 @@ public class DevTools : MonoBehaviour
                 float N(int i) => float.Parse(a[i], System.Globalization.CultureInfo.InvariantCulture);
                 if (a[0] == "throw") Plugin.L.LogInfo("ARCADE " + InkVR.UI.Arcade.DevThrow(a[1], new Vector3(N(2), N(3), N(4)), a.Length > 7 ? new Vector3(N(5), N(6), N(7)) : null));
                 else if (a[0] == "progress") Plugin.L.LogInfo("PROGRESS " + InkVR.UI.Progress.Describe());
+                else if (a[0] == "set") InkVR.UI.Progress.Set(a[1], int.Parse(a[2]));
+                else if (a[0] == "find")
+                {
+                    // arcade find <id>|all : mark fan finds found (a test session keeps them in memory only)
+                    foreach (var f in InkVR.UI.FanFinds.All)
+                        if (a[1] == "all" || a[1] == f.Id)
+                            InkVR.UI.FanFinds.Mark(f.Id);
+                }
                 else Plugin.L.LogInfo("ARCADE " + InkVR.UI.Arcade.Describe());
                 break;
             }
+            case "sit":
+                InkVR.UI.TheatreWalk.DevSit(arg != "off");
+                break;
             case "show":
                 // show: start the theatre's opening again (house lights, follow spots, the curtain)
                 InkVR.Core.VRRig.Cinema?.StartShow(true);

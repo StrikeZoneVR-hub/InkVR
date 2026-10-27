@@ -115,6 +115,9 @@ public static class TheatreWalk
         {
             WalkMode = !WalkMode;
             XrInput.Haptic(ControllerBindings.OffHand, WalkMode ? 0.35f : 0.2f, 0.04f);
+            // stop walking beside a seat and you sit down in it; walk again and you get up
+            if (!WalkMode) TrySit();
+            else StandUp();
         }
 
         _clickWas = off.StickClick;
@@ -171,8 +174,8 @@ public static class TheatreWalk
                 at += (fwd * stick.y + right * stick.x) * ((hurry ? HurrySpeed : WalkSpeed) * Mathf.Min(1f, stick.magnitude) * dt);
             }
 
-            // walls, seats and rails stop you (you slide along them); real steps into them too
-            at = Resolve(_last, at);
+            // walls, seats and rails stop you (you slide along them); real steps into them too (not while you're sat down)
+            if (!Sitting) at = Resolve(_last, at);
             _offset += at - here;
         }
 
@@ -196,8 +199,52 @@ public static class TheatreWalk
         ScreenVisible = Theatre.SeesScreen(Eye);
     }
 
+    // ---------------- sitting in a seat ----------------
+
+    /// <summary>How far down you sit (metres): the body bends to it, and the theatre's floor stays where it is.</summary>
+    public const float SitDrop = 0.45f;
+
+    public static bool Sitting { get; private set; }
+    private static Vector3 _standAt;
+    private static float _standFloor;
+
+    /// <summary>Dev: sit in the nearest seat (or stand up).</summary>
+    public static void DevSit(bool sit)
+    {
+        if (sit) TrySit();
+        else StandUp();
+    }
+
+    private static void TrySit()
+    {
+        if (Sitting || !Theatre.NearestSeat(Eye, _floor, 1.0f, out var seat, out var seatFloor)) return;
+        var head = VRRig.HeadLocalPosition;
+        var rot = Quaternion.Euler(0, _yaw, 0);
+        _standAt = _last;
+        _standFloor = _floor;
+        _offset = new Vector3(seat.x, 0, seat.z) - rot * new Vector3(head.x, 0, head.z);
+        _last = new Vector3(seat.x, 0, seat.z);
+        _floor = seatFloor - SitDrop;
+        Sitting = true;
+        TheatreSounds.Play(TheatreSounds.Creak, seat + Vector3.up * 0.4f, 0.3f, 1.4f);
+        Plugin.L.LogInfo($"Sat down at ({seat.x:F2}, {seat.z:F2})");
+    }
+
+    private static void StandUp()
+    {
+        if (!Sitting) return;
+        var head = VRRig.HeadLocalPosition;
+        var rot = Quaternion.Euler(0, _yaw, 0);
+        _offset = _standAt - rot * new Vector3(head.x, 0, head.z);
+        _last = _standAt;
+        _floor = _standFloor;
+        Sitting = false;
+        TheatreSounds.Play(TheatreSounds.Creak, new Vector3(_standAt.x, _floor + 0.4f, _standAt.z), 0.25f, 1.6f);
+    }
+
     private static void Seat(Vector3 head, Quaternion headRot)
     {
+        Sitting = false;
         var f = headRot * Vector3.forward;
         _yaw = -Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
         _offset = -(Quaternion.Euler(0, _yaw, 0) * new Vector3(head.x, 0, head.z));

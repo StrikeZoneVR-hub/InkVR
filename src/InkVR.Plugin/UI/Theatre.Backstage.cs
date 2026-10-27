@@ -39,6 +39,8 @@ public sealed partial class Theatre
 
     public static Vector3 GhostLight => new(0.6f, StageY, 7.3f);
 
+    public static Vector3 AliceHaloAt => new(8.4f, StageY + 1.32f, 9.0f);
+
     public const int WardrobeCount = 12;
 
     /// <summary>Where costume i hangs: its hook, on the rail along the dressing room's left wall.</summary>

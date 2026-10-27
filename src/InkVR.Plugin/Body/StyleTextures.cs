@@ -1083,6 +1083,13 @@ public static class StyleTextures
             case "toonHenryFace": return JoeyHead(n, true, 222);
             case "henryHair": return Hair(n, new Color(0.3f, 0.2f, 0.12f), 223);
             case "henrySkin": return CartoonSkin(n, new Color(0.88f, 0.7f, 0.52f), 0.2f, 0f, 224);
+            case "partyHat":
+            {
+                var o = C(new Color(0.95f, 0.78f, 0.3f), 225, 0.25f);
+                o.Pinstripe = 22;
+                o.StripeColor = new Color(0.85f, 0.25f, 0.2f);
+                return Fabric(n, o, 128, 128);
+            }
             // the watches
             case "strapBlack": return Strap(n, black, new Color(0.5f, 0.48f, 0.45f), 231);
             case "strapWhite": return Strap(n, White, new Color(0.7f, 0.6f, 0.4f), 232);

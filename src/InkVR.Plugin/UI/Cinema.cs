@@ -219,6 +219,33 @@ public class Cinema
         p.ZTest(UnityEngine.Rendering.CompareFunction.LessEqual);
     }
 
+    private TMPro.TextMeshPro _toast;
+
+    /// <summary>A line of lettering that floats in front of you for a moment (the caller moves and fades it).</summary>
+    public TMPro.TextMeshPro Toast(string text)
+    {
+        if (_toast == null)
+        {
+            var go = new GameObject("InkVR_Toast") { layer = VRLayers.UI };
+            go.transform.SetParent(_root, false);
+            _toast = go.AddComponent<TMPro.TextMeshPro>();
+            var font = GameFonts.Title;
+            if (font != null) _toast.font = font;
+            _toast.alignment = TMPro.TextAlignmentOptions.Center;
+            _toast.enableWordWrapping = false;
+            _toast.fontSize = 0.9f;
+            _toast.rectTransform.sizeDelta = new Vector2(2.4f, 0.3f);
+        }
+
+        _toast.gameObject.SetActive(true);
+        _toast.text = text;
+        _toast.color = new Color(1f, 0.86f, 0.55f, 1f);
+        var mat = _toast.fontMaterial;
+        mat.renderQueue = 4020;
+        mat.SetFloat("unity_GUIZTestMode", (float)UnityEngine.Rendering.CompareFunction.Always);
+        return _toast;
+    }
+
     private void MakeSign(Theatre.SignSpec spec)
     {
         var go = new GameObject("InkVR_Sign");

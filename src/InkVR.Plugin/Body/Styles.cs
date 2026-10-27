@@ -20,7 +20,10 @@ public enum BodyStyle
     BruteBoris,
     Searcher,
     Joey,
-    Wally
+    Wally,
+
+    /// <summary>The secret one: Joey Drew's office holds him, once every fan find is found.</summary>
+    BeastBendy
 }
 
 /// <summary>The shape of the hands: lifelike (one smooth skinned hand) or the cartoon glove.</summary>
@@ -74,6 +77,9 @@ public sealed class StyleDef
 
     /// <summary>Ink drips off you all the time (drops a second), and your footprints are always inky.</summary>
     public float Drips;
+
+    /// <summary>Not on the menus until it's been won.</summary>
+    public bool Secret;
 }
 
 public static class Styles
@@ -149,7 +155,25 @@ public static class Styles
             Hands = HandKind.Lifelike, Sleeves = SleeveKind.Rolled,
             Remap = Map("lifeSkin", "workGlove", "lifePalm", "workGlovePalm", "lifeNail", "workGlove", "sleeve", "wallySleeve", "sleeveRolled", "wallySleeveRolled")
         },
+        new()
+        {
+            Id = BodyStyle.BeastBendy, Key = "BeastBendy", Label = "BEAST BENDY", Blurb = "The Ink Demon at his most monstrous: a huge chest, great horns, ink pouring off him. Found everything? He's yours.",
+            Hands = HandKind.Lifelike, Sleeves = SleeveKind.Bare, ArmBulk = 1.55f, Drips = 2.2f, Remap = Inky("demon"), Secret = true
+        },
     };
+
+    /// <summary>The styles the menus offer: all but the secret one, unless it's been won (or is being worn).</summary>
+    public static StyleDef[] Offered
+    {
+        get
+        {
+            var list = new List<StyleDef>();
+            foreach (var s in All)
+                if (!s.Secret || UI.FanFinds.Complete || ModConfig.BodyStyle.Value == s.Key)
+                    list.Add(s);
+            return list.ToArray();
+        }
+    }
 
     public static StyleDef Of(BodyStyle id)
     {

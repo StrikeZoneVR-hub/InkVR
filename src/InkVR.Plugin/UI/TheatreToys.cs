@@ -155,6 +155,9 @@ public static class TheatreToys
         return false;
     }
 
+    /// <summary>Something happened that a fan find counts (the bell, a can or the doll taken, the writing).</summary>
+    internal static System.Action<string> Did;
+
     private static bool Gripping(int h)
     {
         var dev = h == 1 ? Hands.DevRight : Hands.DevLeft;
@@ -242,6 +245,7 @@ public static class TheatreToys
         var down = depth > 0.003f;
         if (down && !_bellDown)
         {
+            Did?.Invoke("bell");
             TheatreSounds.Play(TheatreSounds.Bell, top, Mathf.Clamp(0.45f + speed * 0.6f, 0.45f, 1f), Random.Range(0.99f, 1.01f));
             Buzz(by, 0.5f, 0.04f);
         }
@@ -429,6 +433,8 @@ public static class TheatreToys
                 var h = g.Hand;
                 var hr = HandRot[h];
                 var hp = Palm[h];
+                if (g.Can) Did?.Invoke("soup");
+                else if (g.Doll) Did?.Invoke("doll");
                 g.T.localPosition = hp + hr * g.HoldPos;
                 g.T.localRotation = hr * g.HoldRot;
             }
@@ -624,6 +630,7 @@ public static class TheatreToys
         if (_writing <= 0 && _lookedAtWriting > 0.7f)
         {
             _writing = 0.001f;
+            Did?.Invoke("writing");
             TheatreSounds.Play(TheatreSounds.Seep, at, 0.75f);
         }
 

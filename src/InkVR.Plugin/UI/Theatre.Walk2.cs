@@ -32,6 +32,35 @@ public sealed partial class Theatre
         }
     }
 
+    /// <summary>The nearest seat to a spot (stalls or balcony), if one's within reach: where your head goes, and its floor.</summary>
+    public static bool NearestSeat(Vector3 eye, float floor, float reach, out Vector3 seat, out float seatFloor)
+    {
+        var best = reach * reach;
+        var found = false;
+        var at = Vector3.zero;
+        void Try(float x, float z, float h)
+        {
+            if (Mathf.Abs(h - floor) > 0.6f) return;
+            var d = (x - eye.x) * (x - eye.x) + (z - eye.z) * (z - eye.z);
+            if (d >= best) return;
+            best = d;
+            at = new Vector3(x, h, z);
+            found = true;
+        }
+
+        foreach (var s in new[] { -1f, 1f })
+            for (var i = 0; i < SeatsPerSide; i++)
+            {
+                var x = s * (SeatStart + SeatW * (i + 0.5f));
+                for (var r = 0; r < Rows; r++) Try(x, RowZ(r) - 0.06f, RowFloor(r));
+                for (var b = 0; b < BalconyRows; b++) Try(x, BalconyRowZ(b) - 0.06f, BalconyFloor(b));
+            }
+
+        seat = at;
+        seatFloor = at.y;
+        return found;
+    }
+
     /// <summary>A room's floor height (the main level of it).</summary>
     public static float RoomFloor(Room r) => r switch
     {

@@ -53,7 +53,7 @@ public static class VRSettingsMenu
         Toggle("CALM THEATRE FLICKER", ModConfig.ReduceFlashes, "ON", "OFF"),
         Category("HENRY"),
         Pick("BODY", ModConfig.BodyMode, new[] { "Full", "Arms", "Hands", "None" }, new[] { "FULL BODY", "ARMS & HANDS", "HANDS ONLY", "NONE" }),
-        Pick("STYLE", ModConfig.BodyStyle, Body.Styles.Keys, Body.Styles.Labels),
+        StylePick(),
         Pick("WATCH", ModConfig.Watch, new[] { "Tank", "Bendy", "Studio", "Gauge", "Angel", "Demon", "None" }, new[] { "TANK (HENRY'S)", "BENDY", "STUDIO GOLD", "INK GAUGE", "ANGEL HALO", "INK DEMON", "NONE" }),
         Toggle("INK ON HENRY", ModConfig.InkOnHands, "ON", "OFF"),
         Toggle("YOUR SHADOW", ModConfig.PlayerShadows, "ON", "OFF"),
@@ -149,6 +149,19 @@ public static class VRSettingsMenu
             }
         };
     }
+
+    /// <summary>STYLE: the styles on offer now (the secret one appears once it's won).</summary>
+    private static Row StylePick() => new()
+    {
+        Label = "STYLE",
+        Value = () => Body.Styles.Current.Label,
+        Step = dir =>
+        {
+            var offered = Body.Styles.Offered;
+            var i = Mathf.Max(0, Array.IndexOf(offered, Body.Styles.Current));
+            ModConfig.BodyStyle.Value = offered[(i + dir + offered.Length) % offered.Length].Key;
+        }
+    };
 
     private static Row Pick(string label, ConfigEntry<string> entry, string[] values, string[] names) => new()
     {

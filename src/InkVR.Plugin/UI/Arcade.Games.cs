@@ -23,6 +23,7 @@ public static partial class Arcade
         _gun = Make("CorkGun", new Vector3(0, -0.07f, 0), Quaternion.identity, 0.14f, true);
         _mallet = Make("Mallet", new Vector3(0, 0.85f, 0), Quaternion.Euler(-90, 0, 0), 0.16f, true);
         _whackMallet = Make("WhackMallet", new Vector3(0, 0.08f, 0), Quaternion.Euler(90, 0, 0), 0.13f, true);
+        SetupPrizes();
         ResetGames();
     }
 
