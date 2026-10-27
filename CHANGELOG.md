@@ -39,6 +39,9 @@ The biggest update yet, and the first full release. Everything since 0.9.1 is in
 - **Point at it, or look at it, to use it.** Point at something with either hand, or just look at it, and the
   game's own highlight and prompt appear; grip or X uses it. No more walking right up to things before the prompt
   shows. With your hand on something, the hands-on way still works.
+- **Chapter 4's fairground games by hand.** The ball toss: point at a bottle and pull the trigger, and the ball
+  leaves your hand on the arc that lands where you point (a gold arc shows it); swing as you let go if you like. The
+  shooting gallery: the pellet gun is in your hand with a gold sight line, and the trigger fires where it points.
 - **Motion controls are never required.** Keep gripping a valve or a lever for a moment and it's done, however
   your hand moved. Pulling something to your hand starts as soon as you grip (no flick needed).
 - **Laser pointer on by default** for the main menu, the pause menu, Options and VR SETTINGS. The stick and A still
@@ -66,6 +69,10 @@ The biggest update yet, and the first full release. Everything since 0.9.1 is in
   flashlight was never switched on. Doors opened by hand now tell the game just as pressing interact does, at every
   door in every chapter. (A grip at the vent could also go to the trunk across the room: see *Point at it, or look
   at it*.)
+- **Chapter 4's fairground games couldn't be won in VR, so the story couldn't go on.** Both aim with the game's
+  camera (your head, in VR): the ball always flew the way you were looking, whatever your hand did, and the gallery
+  shot where you looked, with no gun in your hand. Both now aim with your hand (see *Chapter 4's fairground games by
+  hand*).
 - **Prompts only showed with your hand on things**, so reaching Chapter 4's bridge lever meant walking up to it in
   real life. Fixed (see *Point at it, or look at it*).
 - **The weapon wheel sometimes wouldn't open** in Chapter 4 (an error in the log each time). Fixed.

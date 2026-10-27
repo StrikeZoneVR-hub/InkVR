@@ -728,6 +728,125 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"callall {arg}: {n} instances");
                 break;
             }
+            case "aimat":
+            {
+                // aimat <path> <target path>: turn an object to face another (e.g. a minigame's look at a target)
+                var aa = arg.Split('|');
+                var t = Resolve(aa[0].Trim());
+                var target = Resolve(aa[1].Trim());
+                if (t == null || target == null) break;
+                var tc = target.GetComponent<Collider>();
+                t.rotation = Quaternion.LookRotation((tc != null ? tc.bounds.center : target.position) - t.position);
+                Plugin.L.LogInfo($"AIMAT {PathOf(t)} fwd {t.forward}");
+                break;
+            }
+            case "mgballs":
+            {
+                // mgballs: the ball toss's balls in flight (where, how fast, which way) and the gravity they fall by
+                foreach (var o in Object.FindObjectsOfType(Il2CppType.Of<Minigame_BallToss>()))
+                {
+                    var bt = o.Cast<Minigame_BallToss>();
+                    for (var i = 0; arg == "bottles" && bt.m_Bottles != null && i < bt.m_Bottles.Length; i++)
+                    {
+                        var bo = bt.m_Bottles[i];
+                        if (bo != null) Plugin.L.LogInfo($"MGBOTTLE {i} {bo.name} at {bo.transform.position} hit={bo.IsHit}");
+                    }
+
+                    var balls = bt.m_Balls;
+                    for (var i = 0; balls != null && i < balls.Count; i++)
+                    {
+                        var b = balls[i];
+                        if (b == null) continue;
+                        var gm = b.GetComponent<GravityModifier>();
+                        Plugin.L.LogInfo($"MGBALL {i} at {b.position} vel {b.velocity} mass {b.mass} gravity={b.useGravity} kinematic={b.isKinematic} modifier={(gm != null ? gm.modifier : 0f)} t={Time.time:F3}");
+                    }
+                }
+
+                break;
+            }
+            case "mgauto":
+                // mgauto on|off: the dev hand plays the shooting gallery (points at good targets, fires)
+                InkVR.Input.MinigameThrow.DevAuto = arg != "off";
+                if (arg == "off") InkVR.Input.XrInput.DevRightTrigger = null;
+                break;
+            case "mgaim":
+            {
+                // mgaim [n]: point the dev right hand at a raised good target (the gallery) or at bottle n (the ball toss)
+                var o2 = InkVR.Core.VRRig.ActiveOrigin;
+                if (o2 == null) break;
+                Vector3? goal = null;
+                foreach (var o in Object.FindObjectsOfType(Il2CppType.Of<Minigame_ShootingGallery>()))
+                {
+                    var sg = o.Cast<Minigame_ShootingGallery>();
+                    if (sg.CurrentState != WinnableMiniGameBaseController.MiniGameState.ACTIVE) continue;
+                    foreach (var t in sg.GetComponentsInChildren<CH4FairGameTarget>())
+                        if (!t.IsBad && t.HitCollider != null && t.HitCollider.enabled)
+                            goal = t.HitCollider.bounds.center;
+                }
+
+                foreach (var o in Object.FindObjectsOfType(Il2CppType.Of<Minigame_BallToss>()))
+                {
+                    var bt = o.Cast<Minigame_BallToss>();
+                    if (bt.CurrentState != WinnableMiniGameBaseController.MiniGameState.ACTIVE || bt.m_Bottles == null) continue;
+                    var n = arg.Length > 0 ? int.Parse(arg) : 0;
+                    if (n < bt.m_Bottles.Length && bt.m_Bottles[n] != null) goal = bt.m_Bottles[n].transform.position;
+                }
+
+                if (!goal.HasValue)
+                {
+                    Plugin.L.LogInfo("MGAIM nothing to aim at");
+                    break;
+                }
+
+                var local = o2.InverseTransformPoint(goal.Value) - Vector3.up * InkVR.Core.VRRig.HeightLift;
+                var from = new Vector3(0.2f, 1.25f, 0.3f);
+                InkVR.Body.Hands.DevRight = (from, Quaternion.LookRotation(local - from));
+                Plugin.L.LogInfo($"MGAIM at {goal.Value}");
+                break;
+            }
+            case "mgshoot":
+            {
+                // mgshoot: in the shooting gallery, turn the game's look (its own way) to a target that's up, and fire
+                foreach (var o in Object.FindObjectsOfType(Il2CppType.Of<Minigame_ShootingGallery>()))
+                {
+                    var sg = o.Cast<Minigame_ShootingGallery>();
+                    if (sg.CurrentState != WinnableMiniGameBaseController.MiniGameState.ACTIVE) continue;
+                    CH4FairGameTarget up = null;
+                    foreach (var t in sg.GetComponentsInChildren<CH4FairGameTarget>())
+                        if (!t.IsBad && t.HitCollider != null && t.HitCollider.enabled)
+                            up = t;
+                    if (up == null)
+                    {
+                        Plugin.L.LogInfo("MGSHOOT no good target up");
+                        break;
+                    }
+
+                    var look = sg.m_LocalLookTransform;
+                    var rot = Quaternion.LookRotation(up.HitCollider.bounds.center - look.position);
+                    if (arg != "noaim") sg.m_CharacterLook?.ForceRotation(rot);
+                    VirtualInput.Tap(GameAction.Attack);
+                    Plugin.L.LogInfo($"MGSHOOT at {up.name} (look fwd {look.forward}, wanted {rot * Vector3.forward})");
+                }
+
+                break;
+            }
+            case "mgstate":
+            {
+                // mgstate: the minigames here: state, the game's look (where it aims), the camera, the score
+                var cam = Camera.main;
+                Plugin.L.LogInfo($"MG camera {(cam != null ? PathOf(cam.transform) + " at " + cam.transform.position + " fwd " + cam.transform.forward : "none")}");
+                foreach (var o in Object.FindObjectsOfType(Il2CppType.Of<WinnableMiniGameBaseController>()))
+                {
+                    var g = o.Cast<WinnableMiniGameBaseController>();
+                    var look = g.m_LocalLookTransform;
+                    var extra = "";
+                    if (g.TryCast<Minigame_ShootingGallery>() is { } sg) extra = $"score={sg.m_CurrentScore}/{sg.m_WinScore} shots={sg.m_CurrentShotCount}/{sg.m_TotalShotCount} reloading={sg.m_IsReloading} lasthit={(sg.hit.collider != null ? sg.hit.collider.name + " at " + sg.hit.point : "-")}";
+                    if (g.TryCast<Minigame_BallToss>() is { } bt) extra = $"score={bt.m_Score}/{bt.m_WinAmount} balls={bt.m_BallCount}/{bt.m_BallLimit} force={bt.m_ThrowForce} reloading={bt.m_Reloading}";
+                    Plugin.L.LogInfo($"MG {g.name} state={g.CurrentState} look={(look != null ? look.position + " fwd " + look.forward : "-")} {extra}");
+                }
+
+                break;
+            }
             case "sections":
             {
                 // sections: every story controller in the level, active and complete or not (the story's progress)

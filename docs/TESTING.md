@@ -4,6 +4,13 @@
 
 1.0 is the single update that goes on GitHub once you've tested it: 0.9.2, 0.10.0 and 0.10.1 below, plus these. The release notes are in [CHANGELOG.md](../CHANGELOG.md).
 
+### Fixed in 1.0 (from your fourth test): Chapter 4's fairground games
+- **What went wrong:** to power the haunted house, the story needs both the ball toss (knock down 5 bottles with 3 balls) and the shooting gallery (10 hits from 20 shots) won. The flat game aims both with its camera, which in VR is your head. The ball toss threw every ball the way you were looking (the ball isn't the kind of throw InkVR steered by hand), and the gallery shot where you looked, with no gun in your hand. Your log: plenty of throws, no win, and the fair games lever pulled before the games were won.
+- **The ball toss now:** point at a bottle with your throwing hand and pull, then let go of, the trigger. The ball leaves your hand on the arc that lands on the bottle nearest where you point (within about 12 degrees), aimed at its middle, brisk enough to knock it off its stand. A gold arc shows where it'll go; swing as you let go if you like (the throw goes where you pointed as you began the swing). No more weak lobs from a gentle release.
+- **The shooting gallery now:** the pellet gun is in your hand with a thin gold sight line; the trigger fires where it points (the game's shot is taken from your hand for the moment it fires; your view never moves).
+- **Checked on your own save** (Slot 1, read-only; byte for byte unchanged): the ball toss won with three balls (6 bottles of 5 needed) by pointing at the bottom bottle of each stand; the gallery won with the gun aimed by hand (16 hits of 10 needed). Both of the game's own "won" flags set in one session. Next, pull the fair games lever.
+- The hammer (High Striker) is a press-the-trigger-fast game and isn't needed to go on; it works as before.
+
 ### Fixed in 1.0 (from your third test): Chapter 4's flashlight in the vent, for real this time
 - **The real cause:** the flashlight is switched on by the story when the stairwell door into the holding room is opened, and the story listens for the door being *interacted with*. A door pushed open by hand was opened directly, so the story never heard it: the stairwell never finished, the holding room never started, and the flashlight stayed off (`m_Active = False` at your checkpoint, after your door push). My earlier test switched the flashlight on by hand, which hid this.
 - **Fix:** a door pushed open by hand now tells the game through its own interaction (exactly what X does), then stays where your hand has it. If the story locks the door open behind you (this one does), it stays as wide as the game opens it, so you can't end up locked behind a crack.
@@ -43,11 +50,11 @@
 - **Checked:** Chapter 1's wrench, satchel off, thrown at 4.7 m/s.
 
 ### What to try (1.0)
-1. Chapter 4: in the Lost Ones' room, point at the flashlight in the vent (or just look at it) and grip or press X.
-2. Anywhere: point at things from a step or two away with either hand, and with neither hand, just look at them. Does the prompt show, and does grip or X use it?
+1. Chapter 4's fair games: the ball toss (point at a bottom bottle, pull and let go of the trigger) and the shooting gallery (aim the gun in your hand, pull the trigger). Then pull the fair games lever.
+2. Anywhere: point at things with either hand, or just look at them, then grip or press X.
 3. Grip a valve or a lever and just hold the grip: does it finish after a moment?
-4. On the title screen, move the stick up and down, then point the laser at a different item and click: it should open what you pointed at. Same in Options, VR SETTINGS and the pause menu.
-5. The theatre: find the mirror by the piano, try the STYLE and WATCH arrows; walk about (legs and quiet footsteps).
+4. Menus: move the stick, then point the laser at a different item and click.
+5. The theatre: the mirror by the piano (STYLE and WATCH arrows); walk about (legs and quiet footsteps).
 6. Everything from 0.10.1 below.
 
 ## Previous build: 0.10.1 (pull and reach story items, solid weapons, the satchel optional)
