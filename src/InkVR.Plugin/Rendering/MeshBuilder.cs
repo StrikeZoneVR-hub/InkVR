@@ -359,6 +359,18 @@ public class MeshBuilder
     }
 
     /// <summary>Copies of the built geometry (for painting ink onto the mesh's texture at a touched point).</summary>
+    /// <summary>A builder holding an existing mesh's geometry (a game model's, for ink).</summary>
+    public static MeshBuilder FromArrays(Vector3[] v, Vector3[] n, Vector2[] uv, int[] t)
+    {
+        var mb = new MeshBuilder();
+        mb._v.AddRange(v);
+        mb._n.AddRange(n.Length == v.Length ? n : new Vector3[v.Length]);
+        mb._uv.AddRange(uv.Length == v.Length ? uv : new Vector2[v.Length]);
+        for (var i = 0; i < v.Length; i++) mb._c.Add(Color.white);
+        mb._t.AddRange(t);
+        return mb;
+    }
+
     public Vector3[] VertexArray => _v.ToArray();
     public Vector3[] NormalArray => _n.ToArray();
     public Vector2[] UvArray => _uv.ToArray();

@@ -84,6 +84,15 @@ public sealed class StyleDef
 
     /// <summary>Or a statue in the Archives scene to read the model from (characters only in a chapter's own files).</summary>
     public string ArchiveModel;
+
+    /// <summary>The model's own head is left off for InkVR's drawn one (the concept Bendy statue's head is a cutaway).</summary>
+    public bool DrawnHead;
+
+    /// <summary>How much bigger than Henry-sized the drawn head is drawn on that model (a cartoon's big head).</summary>
+    public float DrawnHeadScale = 1f;
+
+    /// <summary>A projector's lens light from the eyes, where you look (the Projectionist).</summary>
+    public bool LensLight;
 }
 
 public static class Styles
@@ -110,7 +119,8 @@ public static class Styles
         new()
         {
             Id = BodyStyle.Bendy, Key = "Bendy", Label = "BENDY", Blurb = "The dancing demon himself: bow tie, white gloves, and a tail that swishes as you move.",
-            Hands = HandKind.Toon, Sleeves = SleeveKind.Bare, CartoonFeet = true, Remap = Map("toonForearm", "bendyArm", "sleeve", "bendyArm", "sleeveRolled", "bendyArm")
+            Hands = HandKind.Toon, Sleeves = SleeveKind.Bare, CartoonFeet = true, Remap = Map("toonForearm", "bendyArm", "sleeve", "bendyArm", "sleeveRolled", "bendyArm"),
+            ArchiveModel = "ConceptBendy", DrawnHead = true, DrawnHeadScale = 2.1f
         },
         new()
         {
@@ -141,7 +151,7 @@ public static class Styles
             Id = BodyStyle.Projectionist, Key = "Projectionist", Label = "THE PROJECTIONIST", Blurb = "Norman Polk, the projectionist: a projector for a head, and its lens throws light where you look.",
             Hands = HandKind.Lifelike, Sleeves = SleeveKind.Rolled, ArmBulk = 1.12f, Drips = 0.8f,
             Remap = Inky("norman", "sleeve", "normanSleeve", "sleeveRolled", "normanSleeveRolled"),
-            GameModel = "gameplay/characters/ai_projectionist"
+            GameModel = "gameplay/characters/ai_projectionist", LensLight = true
         },
         new()
         {

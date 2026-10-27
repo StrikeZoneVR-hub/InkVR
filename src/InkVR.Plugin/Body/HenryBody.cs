@@ -75,6 +75,8 @@ public sealed partial class HenryBody
 
         // A style with the game's own model wears it; Henry's skeleton (never drawn) still does the standing and stepping.
         if (def.GameModel != null || def.ArchiveModel != null) _character = CharacterSkin.TryCreate(def, parent, 0);
+        if (_character != null) Stains.AddRange(_character.Stains);
+        if (_character != null && def.DrawnHead) BuildHead(material);
         if (_character == null)
         {
             if (style == BodyStyle.Toon) BuildToon();
@@ -451,7 +453,11 @@ public sealed partial class HenryBody
     public void Pose(Vector3 eye, Quaternion headRot, float k, Vector3? handLeft, Vector3? handRight, Func<Vector3, float> groundAt, float dt)
     {
         _root.localScale = Vector3.one * k;
-        if (_headRoot != null) _headRoot.SetPositionAndRotation(eye, headRot);
+        if (_headRoot != null)
+        {
+            _headRoot.SetPositionAndRotation(eye, headRot);
+            if (_character != null) _headRoot.localScale = Vector3.one * Def.DrawnHeadScale;
+        }
         _eye = eye;
         _headRot = headRot;
         _k = k;

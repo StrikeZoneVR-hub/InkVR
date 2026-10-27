@@ -176,6 +176,16 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo("ARCHMODEL " + InkVR.Body.GameModels.Describe(go));
                 break;
             }
+            case "skinhide":
+            {
+                // skinhide <part name> : switch a part of the worn model off/on (dev)
+                var ch = InkVR.Body.Hands.Body?.Character;
+                if (ch == null) break;
+                foreach (var r in ch.Root.GetComponentsInChildren<Renderer>(true))
+                    if (r.name == arg)
+                        r.gameObject.SetActive(!r.gameObject.activeSelf);
+                break;
+            }
             case "skinwhole":
                 // skinwhole 1|0: a worn game model drawn whole (head too) for every camera, for bodyshot pictures
                 InkVR.Body.CharacterSkin.DevWhole = arg == "1";

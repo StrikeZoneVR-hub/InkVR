@@ -35,6 +35,9 @@ public static class ArchiveModels
                 original = Build(statue);
                 GameFile.CloseAll();
                 if (original == null) return null;
+                // a statue without a skeleton (the concept Bendy) gets one made from its shape
+                if (original.GetComponentInChildren<SkinnedMeshRenderer>(true) == null && !StatueRig.Rig(original))
+                    Plugin.L.LogWarning($"Archive model '{statue}' couldn't be rigged");
                 Built[statue] = original;
                 Plugin.L.LogInfo($"Archive model '{statue}' read from the game's files in {clock.ElapsedMilliseconds} ms");
             }

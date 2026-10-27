@@ -184,8 +184,17 @@ public partial class HandModel
         _upperArm = new GameObject("UpperArm").transform;
         _upperArm.SetParent(_arm, false);
         var upper = new MeshBuilder();
-        upper.Tube(new[] { Vector3.zero, new Vector3(0, 0, UpperArmLength) }, bare ? new[] { 0.047f * bulk, 0.042f * bulk } : new[] { 0.055f * bulk, 0.050f * bulk }, Vector3.up, 16, true, false, new Vector2(1f, 0.9f));
+        // flared at the top, so it grows out of the shoulder rather than starting at a ball
+        upper.Tube(new[] { Vector3.zero, new Vector3(0, 0, 0.05f), new Vector3(0, 0, UpperArmLength) },
+            bare ? new[] { 0.056f * bulk, 0.049f * bulk, 0.042f * bulk } : new[] { 0.066f * bulk, 0.058f * bulk, 0.050f * bulk }, Vector3.up, 16, true, false, new Vector2(1f, 0.9f));
         Part("UpperSleeve", _upperArm, upper, material("sleeve"), bare && !lifelike ? 0.003f : 0.0026f, stain: true, sleeve: true);
+
+        // the deltoid: the top of the shoulder goes up with the arm (the torso's own shoulder stays), so a raised arm
+        // looks like a shoulder moving, not a doll's arm turning in a socket
+        var deltoid = new MeshBuilder();
+        var dr = bare ? 0.058f * bulk : 0.068f * bulk;
+        deltoid.Ellipsoid(new Vector3(0, 0.008f, 0.03f), new Vector3(dr, dr * 0.92f, dr * 1.2f), Quaternion.identity, 16, 10);
+        Part("Deltoid", _upperArm, deltoid, material("sleeve"), bare && !lifelike ? 0.003f : 0.0026f, stain: true, sleeve: true);
 
         // The watch on the left wrist, its hands following your real clock (Watches.cs).
         _watchFrom = _renderers.Count;

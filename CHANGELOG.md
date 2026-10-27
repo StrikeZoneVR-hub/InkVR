@@ -1,6 +1,28 @@
 # Changelog
 
-## InkVR 1.0.1
+## InkVR 1.1: The Characters Update
+
+### New
+
+- **Be the characters themselves.** Eight styles are now the game's own character models, head to toe: the Ink
+  Demon, Sammy Lawrence, the Projectionist, a Searcher, Boris, Alice Angel (as Chapter 3 shows her, halo and all),
+  Brute Boris and Bendy. Each is one connected body moved by yours: it stands, crouches and steps where you do, its
+  arms reach your hands, its own fingers close when you grip, and your watch sits on its wrist. In first person you
+  see its own arms, gloves and body; the mirror in the theatre's lobby and your shadow show all of it.
+- **Read from your own game.** The models come from your installation as the game starts (some from the game's own
+  files, the rest from the statues in its Archives). Nothing from the game ships with InkVR.
+- **Bendy** is the studio's concept model of him (the Archives' statue), given a skeleton, with InkVR's drawn head:
+  the statue's own head is a cutaway showing the works inside.
+- **Ink gets onto them too:** wade through ink as Sammy and his trouser legs come out black.
+- **The Projectionist's lens** throws light where you look, flickering like a projector.
+
+### Quality of life
+
+- **Point at the mirror's arrows.** In the theatre lobby, point either hand at the brass panel beside the mirror: a
+  laser shows where you're pointing, and the arrow under it sinks a little. Pull that hand's trigger to change your
+  style or your watch. Pressing the arrows with a finger still works.
+- **Henry's shoulders.** The drawn styles (Henry, Toon Henry, Wally Franks, Joey Drew) have shoulders that move
+  with the arms, so a raised arm grows out of the body instead of turning in a doll's socket.
 
 ### Bug fixes
 
@@ -11,15 +33,9 @@
 - **Sharper text everywhere.** The game's menus, HUD and notes are drawn at 4K (they were 1440p), so a tape's note
   has about 1100 x 1450 pixels of its own, more than the page needs. The laser clicks just as before.
 
-### Quality of life
-
-- **Point at the mirror's arrows.** In the theatre lobby, point either hand at the brass panel beside the mirror: a
-  laser shows where you're pointing, and the arrow under it sinks a little. Pull that hand's trigger to change your
-  style or your watch. Pressing the arrows with a finger still works.
-
 ### Install or update
 
-Download **InkVR-v1.0.1.zip** below, unzip it, and run `InkVR Launcher.exe`. It updates an existing install by
+Download **InkVR-v1.1.0.zip** below, unzip it, and run `InkVR Launcher.exe`. It updates an existing install by
 itself. Your settings are kept.
 
 ## InkVR 1.0

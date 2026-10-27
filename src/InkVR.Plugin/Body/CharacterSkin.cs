@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using InkVR.Rendering;
 using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 
@@ -52,7 +53,124 @@ public sealed class CharacterSkin
     private readonly List<int> _order = new();
 
     // what's drawn: the copies without the head for your eyes, the whole model for mirrors and your shadow
-    private readonly List<Renderer> _eyes = new(), _whole = new();
+    private readonly List<Renderer> _eyes = new(), _whole = new(), _always = new();
+
+    // the skinned meshes ink paints (and the copy that shares its stained material)
+    private readonly List<(SkinnedMeshRenderer smr, SkinnedMeshRenderer twin)> _paint = new();
+
+    /// <summary>The model's paintable pieces: ink from the world gets onto them as onto Henry.</summary>
+    public readonly List<StainPart> Stains = new();
+
+    private const int MaxInkVertices = 25000;
+
+    /// <summary>Each skinned mesh with a picture of its own becomes a stain piece (its first material).</summary>
+    private void RegisterInk()
+    {
+        foreach (var (smr, twin) in _paint)
+        {
+            var mesh = smr.sharedMesh;
+            if (mesh == null || !mesh.isReadable || mesh.vertexCount > MaxInkVertices) continue;
+            var weights = TopTwo(mesh);
+            if (weights == null) continue;
+            // the first material with a picture of its own (Brute Boris's first is a plain ink layer)
+            var sub = -1;
+            var mats0 = smr.sharedMaterials;
+            for (var m = 0; m < mats0.Length && m < mesh.subMeshCount; m++)
+            {
+                var mat = mats0[m];
+                if (mat == null) continue;
+                var slot = mat.HasProperty("_MainTexture") ? "_MainTexture" : "_MainTex";
+                if (mat.HasProperty(slot) && mat.GetTexture(slot) != null)
+                {
+                    sub = m;
+                    break;
+                }
+            }
+
+            if (sub < 0) continue;
+            var verts = mesh.vertices;
+            var tris = mesh.GetTriangles(sub);
+            var ok = true;
+            foreach (var t in tris)
+                if (t < 0 || t >= verts.Length)
+                {
+                    ok = false;
+                    break;
+                }
+
+            if (!ok || weights.Length != verts.Length) continue;
+            var mb = MeshBuilder.FromArrays(verts, mesh.normals, mesh.uv, tris);
+            var src = smr.bones;
+            var bones = new Transform[src.Length];
+            for (var i = 0; i < bones.Length; i++) bones[i] = src[i];
+            var part = InkStains.RegisterModel(smr, sub, mb, weights, bones, mesh.bindposes, InkRegion.Torso);
+            if (part == null) continue;
+            Stains.Add(part);
+            if (twin != null)
+            {
+                var mats = twin.sharedMaterials;
+                mats[sub] = part.Mat;
+                twin.sharedMaterials = mats;
+            }
+        }
+
+        if (Stains.Count > 0) Plugin.L.LogInfo($"Body: {Def.Label} takes ink ({Stains.Count} piece{(Stains.Count > 1 ? "s" : "")})");
+    }
+
+    /// <summary>Each vertex's two heaviest bones (the ink's own skinning).</summary>
+    private static SkinWeight[] TopTwo(Mesh mesh)
+    {
+        if (!ReadWeights(mesh, out var per, out var wt, out var bi)) return null;
+        var n = per.Length;
+        var w = new SkinWeight[n];
+        var k = 0;
+        for (var v = 0; v < n; v++)
+        {
+            var c = per[v];
+            if (c == 0 || k + c > wt.Length)
+            {
+                w[v] = SkinWeight.Rigid(0);
+                k += c;
+                continue;
+            }
+
+            if (c == 1 || wt[k] + wt[k + 1] <= 1e-5f) w[v] = SkinWeight.Rigid(bi[k]);
+            else w[v] = SkinWeight.Blend(bi[k], bi[k + 1], wt[k + 1] / (wt[k] + wt[k + 1]));
+            k += c;
+        }
+
+        return w;
+    }
+
+    /// <summary>
+    /// A mesh's skin: bones per vertex, and the weight records (heaviest first) one after another. The game's build
+    /// stripped Mesh.boneWeights; the engine's own calls hand back raw pointers into the mesh's data, read here.
+    /// </summary>
+    private static bool ReadWeights(Mesh mesh, out byte[] per, out float[] weight, out int[] bone)
+    {
+        per = Array.Empty<byte>();
+        weight = Array.Empty<float>();
+        bone = Array.Empty<int>();
+        if (mesh == null || !mesh.HasBoneWeights()) return false;
+        var n = mesh.vertexCount;
+        var total = mesh.GetAllBoneWeightsArraySize();
+        var perPtr = mesh.GetBonesPerVertexArray();
+        var allPtr = mesh.GetAllBoneWeightsArray();
+        if (n <= 0 || total <= 0 || perPtr == IntPtr.Zero || allPtr == IntPtr.Zero) return false;
+        per = new byte[n];
+        System.Runtime.InteropServices.Marshal.Copy(perPtr, per, 0, n);
+        var raw = new byte[total * 8];
+        System.Runtime.InteropServices.Marshal.Copy(allPtr, raw, 0, raw.Length);
+        weight = new float[total];
+        bone = new int[total];
+        for (var i = 0; i < total; i++)
+        {
+            weight[i] = BitConverter.ToSingle(raw, i * 8);
+            bone[i] = BitConverter.ToInt32(raw, i * 8 + 4);
+        }
+
+        return true;
+    }
     private readonly HashSet<IntPtr> _headBones = new();
     private bool _headShown, _shadows = true, _low;
 
@@ -91,6 +209,15 @@ public sealed class CharacterSkin
         }
 
         skin.Root.SetParent(parent, true);
+        try
+        {
+            skin.RegisterInk();
+        }
+        catch (Exception e)
+        {
+            Plugin.L.LogWarning($"Body: {def.Label}'s ink couldn't be set up ({e.Message}) {e.StackTrace}");
+        }
+
         Plugin.L.LogInfo($"Body: {def.Label} is the game's own model ({skin._all.Count} bones, eyes {skin._restEyeY:F2} up; {spawned} + {clock.ElapsedMilliseconds - spawned} ms)");
         return skin;
     }
@@ -250,7 +377,8 @@ public sealed class CharacterSkin
         var face = HeadBounds();
         _devFace += $" face {face.min:F2}..{face.max:F2} neck {(_role[(int)R.Neck] >= 0 ? _rp[_role[(int)R.Neck]] : Vector3.zero):F2} chest {_rp[_role[(int)R.Chest]]:F2} top {HeadTop():F2}";
         if (EyeBones(out var between)) _restEye = between;
-        else if (face.size.y > 1e-4f) _restEye = new Vector3(_rp[head].x, _faceMedianY, Mathf.Lerp(_faceMedianZ, face.max.z, 0.5f));
+        // (the middle by vertices, or by height if a dense lower face drags that down: a cartoon head's eyes are high)
+        else if (face.size.y > 1e-4f) _restEye = new Vector3(_rp[head].x, Mathf.Max(_faceMedianY, face.min.y + face.size.y * 0.45f), Mathf.Lerp(_faceMedianZ, face.max.z, 0.5f));
         else
         {
             var eyeT = GameModels.Find(Root, "Eye_Position");
@@ -503,9 +631,25 @@ public sealed class CharacterSkin
             }
 
             smr.updateWhenOffscreen = true;
+            if (Def.DrawnHead)
+            {
+                // the drawn head stands in for the model's: the headless copy is the body everyone sees
+                var body = WithoutHead(smr);
+                smr.enabled = false;
+                smr.gameObject.SetActive(false);
+                if (body != null)
+                {
+                    _always.Add(body);
+                    _paint.Add((body, null));
+                }
+
+                continue;
+            }
+
             _whole.Add(smr);
             var fp = WithoutHead(smr);
             if (fp != null) _eyes.Add(fp);
+            _paint.Add((smr, fp));
         }
     }
 
@@ -612,14 +756,6 @@ public sealed class CharacterSkin
         return (v - _rp[_role[(int)R.Head]]).magnitude < _nearHead;
     }
 
-    /// <summary>Unity's BoneWeight1 (stripped from the game's build): a weight and the bone it's for.</summary>
-    private struct WeightRecord
-    {
-#pragma warning disable CS0649
-        public float weight;
-        public int boneIndex;
-#pragma warning restore CS0649
-    }
 
     /// <summary>
     /// How much of each vertex the head moves (0..1), and the head bone moving it most (or -1). The game's build
@@ -630,26 +766,20 @@ public sealed class CharacterSkin
         var n = mesh.vertexCount;
         var share = new float[n];
         top = new int[n];
-        var perPtr = mesh.GetBonesPerVertexArray();
-        var allPtr = mesh.GetAllBoneWeightsArray();
-        if (perPtr == IntPtr.Zero || allPtr == IntPtr.Zero) return Array.Empty<float>();
-        var per = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<byte>(perPtr);
-        var all = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<WeightRecord>(allPtr);
-        if (per.Length == 0) return Array.Empty<float>();
+        if (!ReadWeights(mesh, out var per, out var wt, out var bi)) return Array.Empty<float>();
         var k = 0;
         for (var v = 0; v < n && v < per.Length; v++)
         {
             top[v] = -1;
             var best = 0f;
-            for (var j = 0; j < per[v] && k < all.Length; j++, k++)
+            for (var j = 0; j < per[v] && k < wt.Length; j++, k++)
             {
-                var bw = all[k];
-                if (!IsHead(bones, bw.boneIndex)) continue;
-                share[v] += bw.weight;
-                if (bw.weight > best)
+                if (!IsHead(bones, bi[k])) continue;
+                share[v] += wt[k];
+                if (wt[k] > best)
                 {
-                    best = bw.weight;
-                    top[v] = bw.boneIndex;
+                    best = wt[k];
+                    top[v] = bi[k];
                 }
             }
         }
@@ -694,6 +824,13 @@ public sealed class CharacterSkin
         foreach (var r in _eyes)
             if (r != null)
                 r.enabled = !_low && !whole;
+        foreach (var r in _always)
+        {
+            if (r == null) continue;
+            r.enabled = !_low;
+            var cast = _shadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
+            if (r.shadowCastingMode != cast) r.shadowCastingMode = cast;
+        }
         foreach (var r in _whole)
         {
             if (r == null) continue;
@@ -878,7 +1015,29 @@ public sealed class CharacterSkin
 
         Fingers(0, left);
         Fingers(1, right);
+
+        // the projector's beam: from the lens, where you look, with a projector's flicker
+        if (Def.LensLight)
+        {
+            if (_lens == null)
+            {
+                var go = new GameObject("InkVR_LensLight");
+                go.transform.SetParent(Root, false);
+                _lens = go.AddComponent<Light>();
+                _lens.type = LightType.Spot;
+                _lens.spotAngle = 38f;
+                _lens.color = new Color(1f, 0.93f, 0.78f);
+                _lens.shadows = LightShadows.None;
+            }
+
+            _lens.transform.SetPositionAndRotation(p.Eye + p.HeadRot * Vector3.forward * (0.12f * p.K), p.HeadRot);
+            _lens.range = 6f * p.K;
+            _lens.intensity = 1.0f + 0.15f * Mathf.PerlinNoise(Time.unscaledTime * 12f, 0.3f);
+            _lens.enabled = !_low;
+        }
     }
+
+    private Light _lens;
 
     private void Target(int i, Vector3 pos, Quaternion rot)
     {

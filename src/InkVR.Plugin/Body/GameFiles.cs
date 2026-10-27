@@ -16,14 +16,19 @@ public sealed class GameFile
     public readonly string Path;
     public readonly List<string> Externals = new();
     private readonly Dictionary<long, (long Offset, uint Size, int ClassId)> _objects = new();
-    private readonly byte[] _data;
+    private readonly FileStream _stream;
     private readonly long _dataOffset;
 
     private GameFile(string path)
     {
         Path = path;
-        _data = File.ReadAllBytes(path);
-        var r = new Bin(_data) { BigEndian = true };
+        // only the header and the object table are read now; each object is read from disk when it's wanted
+        _stream = File.OpenRead(path);
+        var head = ReadAt(0, 48);
+        var hr = new Bin(head) { BigEndian = true, Pos = 20 };
+        var metaSize = (int)hr.U32();
+        var meta = ReadAt(0, 48 + metaSize);
+        var r = new Bin(meta) { BigEndian = true };
         r.Pos = 8;
         var version = r.U32();
         if (version < 22) throw new NotSupportedException($"serialized file version {version}");
@@ -93,8 +98,27 @@ public sealed class GameFile
         return f;
     }
 
-    /// <summary>Let go of the files (they're large): after a model is built.</summary>
-    public static void CloseAll() => Open.Clear();
+    /// <summary>Let go of the files: after a model is built.</summary>
+    public static void CloseAll()
+    {
+        foreach (var f in Open.Values) f._stream.Dispose();
+        Open.Clear();
+    }
+
+    private byte[] ReadAt(long offset, int size)
+    {
+        var buf = new byte[size];
+        _stream.Position = offset;
+        var read = 0;
+        while (read < size)
+        {
+            var n = _stream.Read(buf, read, size - read);
+            if (n <= 0) break;
+            read += n;
+        }
+
+        return buf;
+    }
 
     public int ClassOf(long pathId) => _objects.TryGetValue(pathId, out var o) ? o.ClassId : -1;
 
@@ -111,7 +135,7 @@ public sealed class GameFile
         if (!_objects.TryGetValue(pathId, out var o)) return null;
         var nodes = TypeTrees.Of(o.ClassId);
         if (nodes == null) return null;
-        var r = new Bin(_data) { Pos = (int)(_dataOffset + o.Offset) };
+        var r = new Bin(ReadAt(_dataOffset + o.Offset, (int)o.Size));
         var i = 0;
         return (Dictionary<string, object>)TypeTrees.Read(nodes, ref i, r);
     }

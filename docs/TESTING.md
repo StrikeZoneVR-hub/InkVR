@@ -1,6 +1,25 @@
 # Testing InkVR
 
-## Current build: 1.0.1 (tape notes up close and sharp, a laser for the mirror)
+## Current build: 1.1.0, the Characters Update (with 1.0.1's tape notes and mirror laser)
+
+1.0 is on GitHub; 1.1.0 is local and installed in your game. Nothing goes up until you've tried it.
+
+### The characters (you: "a complete realism and everything connected overhaul ... as close as possible to the actual characters")
+- **Eight styles are the game's own models**, loaded from your install when they're picked: the Ink Demon, Sammy, the Projectionist and a Searcher (the game keeps these ready to load), and Boris, Chapter 3's Alice Angel, Brute Boris and Bendy (read from the statues in the game's Archives scene; I wrote a reader for the game's files so the mod can take them from your copy).
+- **How they move:** Henry's body still does the standing, crouching, stepping and stairs, invisibly. Each character is fitted to it: scaled so its eyes are at yours, its torso hung from your neck the way Henry's is (it drops back when you look down, so your view stays clear), its legs reaching the planted feet, its arms reaching your hands (elbows down and back), its own fingers closing as you grip, your watch on its wrist.
+- **What you see:** your own view shows the body without its head; the lobby mirror and your shadow show the whole character.
+- **Bendy:** the game only has him as a T-posed concept statue in the Archives, so InkVR gives it a skeleton as it loads. The statue's head is a cutaway (a slice taken out to show the gears inside), so he wears InkVR's drawn Bendy head, made bigger to suit his body.
+- **Ink:** the game models take ink like Henry (wading, drips, splashes); tested wading as Sammy.
+- **Still drawn, as you chose:** Henry, Toon Henry, Wally and Joey; their shoulders now move with the arms. Beast Bendy stays drawn for now too.
+- **Checked on the test runtime:** every game-model style from the front, without its head (your view), and looking down; open hands and fists; the watch on Sammy's and the Projectionist's wrists; Sammy in Chapter 1; the axe in Boris's fist in Chapter 2; ink wading as Sammy (about 0.7 ms a frame). Your save is unchanged and your settings were put back.
+
+### What to try (1.1.0)
+1. In the lobby mirror, step through the styles with the laser and look at each one: hands up, crouch, turn round.
+2. In a chapter, pick a few: do the arms and hands feel like yours? Is anything in your view when you look down or forward?
+3. Pick up the axe and swing as Boris or Brute Boris (Brute Boris's hands are as big as the game makes them).
+4. A tape note (from 1.0.1): does the page come up, and can you read it?
+
+## Previous build: 1.0.1 (folded into 1.1.0) (tape notes up close and sharp, a laser for the mirror)
 
 1.0 is on GitHub. 1.0.1 is local and installed in your game; it goes on GitHub once you've tried it.
 

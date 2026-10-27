@@ -266,17 +266,57 @@ public static class InkStains
         return p;
     }
 
-    private static StainPart Make(Transform t, Renderer r, Material shared, MeshBuilder mb, InkRegion region, int bands = 1)
+    /// <summary>
+    /// A piece of one of the game's own character models (<see cref="CharacterSkin"/>): its picture is read back from
+    /// the GPU once (at most <paramref name="maxSize"/> across) to paint ink into, and it keeps its other materials.
+    /// </summary>
+    public static StainPart RegisterModel(SkinnedMeshRenderer r, int sub, MeshBuilder mb, SkinWeight[] weights, Transform[] bones, Matrix4x4[] bind, InkRegion region, int maxSize = 512)
+    {
+        var shared = r.sharedMaterials.Length > sub ? r.sharedMaterials[sub] : null;
+        if (shared == null) return null;
+        var slot = shared.HasProperty("_MainTexture") ? "_MainTexture" : "_MainTex";
+        var tex = shared.HasProperty(slot) ? shared.GetTexture(slot) : null;
+        if (tex == null) return null;
+        var name = tex.name + "_InkVR";
+        if (!HenryTextures.Pixels.ContainsKey(name))
+        {
+            var w = Mathf.Min(maxSize, tex.width);
+            var h = Mathf.Max(1, Mathf.RoundToInt((float)tex.height * w / Mathf.Max(1, tex.width)));
+            var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+            Graphics.Blit(tex, rt);
+            var active = RenderTexture.active;
+            RenderTexture.active = rt;
+            var read = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            read.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+            read.Apply();
+            RenderTexture.active = active;
+            RenderTexture.ReleaseTemporary(rt);
+            HenryTextures.Pixels[name] = (w, h, read.GetPixels32());
+            Object.Destroy(read);
+        }
+
+        var p = Make(r.transform, r, shared, mb, region, 1, name, slot, sub);
+        if (p == null) return null;
+        p.Bones = bones;
+        p.Bind = new M34[bind.Length];
+        for (var i = 0; i < bind.Length; i++) p.Bind[i] = M34.Of(bind[i]);
+        p.Weights = weights;
+        p.Caps = CapsulesSkinned(p);
+        return p;
+    }
+
+    private static StainPart Make(Transform t, Renderer r, Material shared, MeshBuilder mb, InkRegion region, int bands = 1, string baseName = null, string slot = null, int sub = 0)
     {
         var tex = shared?.mainTexture;
-        if (tex == null || !HenryTextures.Pixels.TryGetValue(tex.name, out var basePx)) return null;
+        var texName = baseName ?? (tex != null ? tex.name : null);
+        if (texName == null || !HenryTextures.Pixels.TryGetValue(texName, out var basePx)) return null;
 
         var baseTiled = Stack(basePx.Px, bands);
         var verts = mb.VertexArray;
         var normals = mb.NormalArray;
         var p = new StainPart
         {
-            T = t, R = r, BaseName = tex.name, Region = region, W = basePx.W, H = basePx.H * bands, Bands = bands,
+            T = t, R = r, BaseName = texName, Region = region, W = basePx.W, H = basePx.H * bands, Bands = bands,
             Base = baseTiled, Px = (Color32[])baseTiled.Clone(), Uvs = mb.UvArray, Tris = mb.TriangleArray,
             LV = new F3[verts.Length], LN = new F3[normals.Length],
         };
@@ -288,14 +328,21 @@ public static class InkStains
         Tangents(p);
         p.Map = TexelMap.For(p.W, p.H, p.Uvs, p.Tris);
 
-        p.Tex = new Texture2D(p.W, p.H, TextureFormat.RGBA32, false) { name = tex.name + "_Stained", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear };
+        p.Tex = new Texture2D(p.W, p.H, TextureFormat.RGBA32, false) { name = texName + "_Stained", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear };
         p.Tex.hideFlags |= HideFlags.DontUnloadUnusedAsset;
         Object.DontDestroyOnLoad(p.Tex);
         p.Mat = new Material(shared) { name = shared.name + "_" + t.name };
         p.Mat.hideFlags |= HideFlags.DontUnloadUnusedAsset;
         Object.DontDestroyOnLoad(p.Mat);
-        p.Mat.SetTexture("_MainTex", p.Tex);
-        r.sharedMaterial = p.Mat;
+        p.Mat.SetTexture(slot ?? "_MainTex", p.Tex);
+        if (slot == null) r.sharedMaterial = p.Mat;
+        else
+        {
+            // (a game model keeps its other materials: the Ink Demon's ink overlay...)
+            var mats = r.sharedMaterials;
+            mats[sub] = p.Mat;
+            r.sharedMaterials = mats;
+        }
         Upload(p);
         Parts.Add(p);
         return p;
