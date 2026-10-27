@@ -25,8 +25,8 @@ The biggest update yet, and the first full release. Everything since 0.9.1 is in
 - **Throw what you carry.** Let go of anything you're holding mid-swing and it flies: gears, batteries, keys,
   Bacon Soup off the shelf. It lands where it lands.
 - **Use things out of reach.** The gravity pull now works on fixed things too. Point at a valve, a lever, a
-  switch, a button or a tape recorder across the room, then grip and flick: it's used from where you stand. Up
-  close, your hands still do the work.
+  switch, a button or a tape recorder across the room and grip: it's used from where you stand. Up close, your
+  hands still do the work.
 - **Solid weapons.** Your weapon is part of the world now. It stops at walls and floors instead of sinking into
   them: it tips back in your fist the way a real one would, and your controller buzzes against the wall. Swings
   knock loose things about (pool balls, broken bits), but nothing the story needs. WEAPONS in VR SETTINGS turns it off.
