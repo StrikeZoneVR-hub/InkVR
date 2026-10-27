@@ -24,6 +24,7 @@ public static class GravityPull
     private static float CastRadius => ModConfig.SeatedMode.Value ? 0.3f : 0.2f;     // metres either side of where the hand points
     private static float MaxAngle => ModConfig.SeatedMode.Value ? 22f : 16f;         // degrees off the hand's aim
     private const float MinDistance = 0.45f;  // closer than this, you just grip it
+    private const float ReachMin = 0.75f;     // things that stay put (valves, buttons, tapes): only when they're out of reach
     private const float FlickSpeed = 1.2f;    // m/s of the hand back towards you
     private const float HoldToPull = 0.75f;   // or keep gripping this long
 
@@ -31,9 +32,13 @@ public static class GravityPull
     {
         public Interactable Target;
         public PhysicalInteract.Kind Kind;
-        public bool IsWeapon, Locked;
+        public bool IsWeapon, Locked, Reach;
         public float LockedAt, NextDrip, NextTick;
         public LineRenderer Line;
+
+        // a reach: the thread snaps out to what you used, for a moment
+        public float ZapUntil;
+        public Vector3 ZapTo;
     }
 
     private sealed class Flight
@@ -50,7 +55,7 @@ public static class GravityPull
 
     private static readonly HandState[] States = { new(), new() };
     private static readonly List<Flight> Flights = new();
-    private static readonly Dictionary<System.IntPtr, (PhysicalInteract.Kind kind, bool weapon, float at)> KindCache = new();
+    private static readonly Dictionary<System.IntPtr, (PhysicalInteract.Kind kind, bool weapon, bool reach, float at)> KindCache = new();
     private static Il2CppStructArray<RaycastHit> _hits;
     private static Material _inkLine;
     private static string _scene = "";
@@ -127,7 +132,7 @@ public static class GravityPull
     private static void Aim(Hand hand, HandState s)
     {
         var before = s.Target;
-        s.Target = Busy(hand) ? null : Find(hand, out s.Kind, out s.IsWeapon);
+        s.Target = Busy(hand) ? null : Find(hand, out s.Kind, out s.IsWeapon, out s.Reach);
         if (s.Target != null && (before == null || before.Pointer != s.Target.Pointer))
             XrInput.Haptic(hand, 0.08f, 0.015f);
     }
@@ -150,10 +155,11 @@ public static class GravityPull
         return (p, r * Vector3.forward);
     }
 
-    private static Interactable Find(Hand hand, out PhysicalInteract.Kind kind, out bool weapon)
+    private static Interactable Find(Hand hand, out PhysicalInteract.Kind kind, out bool weapon, out bool reach)
     {
         kind = PhysicalInteract.Kind.None;
         weapon = false;
+        reach = false;
         var k = VRRig.ActiveScale;
         var (origin, dir) = AimRay(hand);
         var player = GameManager.Instance?.Player;
@@ -203,14 +209,17 @@ public static class GravityPull
             if (dist < MinDistance * k) continue;
             var angle = Vector3.Angle(dir, to);
             if (angle > MaxAngle + Mathf.Atan2(CastRadius * k, dist) * Mathf.Rad2Deg) continue;
-            if (!Pullable(item, out var kd, out var wp)) continue;
+            if (!Pullable(item, out var kd, out var wp, out var rc)) continue;
+            if (rc && dist < ReachMin * k) continue;
             if (!InSight(origin, centre, item, mask, k)) continue;
-            var score = angle + dist / k * 1.5f;
+            // something to bring to your hand wins over something to use where it is
+            var score = angle + dist / k * 1.5f + (rc ? 10f : 0f);
             if (score >= bestScore) continue;
             bestScore = score;
             best = item;
             kind = kd;
             weapon = wp;
+            reach = rc;
         }
 
         return best;
@@ -231,21 +240,53 @@ public static class GravityPull
         return (hit.point - centre).magnitude < 0.3f * k;
     }
 
-    /// <summary>Something you could pick up: a collectable, a can of soup, a weapon lying about.</summary>
-    private static bool Pullable(Interactable item, out PhysicalInteract.Kind kind, out bool weapon)
+    /// <summary>
+    /// Something you could pick up (a story item, a can of soup, a weapon lying about), or, out of your reach,
+    /// something you use where it is (a valve, a lever, a button, a tape, a switch, a chest...).
+    /// </summary>
+    private static bool Pullable(Interactable item, out PhysicalInteract.Kind kind, out bool weapon, out bool reach)
     {
         if (!KindCache.TryGetValue(item.Pointer, out var c) || Time.unscaledTime - c.at > 5f)
         {
             var w = item.GetComponentInParent<BaseWeapon>();
             var held = GameManager.Instance?.Player?.WeaponGameObject;
-            var isWeapon = w != null && (held == null || !w.transform.IsChildOf(held.transform)) && !w.transform.IsChildOf(GameManager.Instance.Player.transform);
-            c = (isWeapon ? PhysicalInteract.Kind.None : PhysicalInteract.Classify(item), isWeapon, Time.unscaledTime);
+            var inHand = w != null && ((held != null && w.transform.IsChildOf(held.transform)) || w.transform.IsChildOf(GameManager.Instance.Player.transform));
+            var isWeapon = w != null && !inHand;
+            var kd = w != null ? PhysicalInteract.Kind.None : PhysicalInteract.Classify(item);
+            var bring = isWeapon || kd == PhysicalInteract.Kind.Take || kd == PhysicalInteract.Kind.Soup;
+            c = (kd, isWeapon, !bring && w == null && Usable(item), Time.unscaledTime);
             KindCache[item.Pointer] = c;
         }
 
         kind = c.kind;
         weapon = c.weapon;
-        return weapon || kind == PhysicalInteract.Kind.Take || kind == PhysicalInteract.Kind.Soup;
+        reach = c.reach;
+        return weapon || reach || kind == PhysicalInteract.Kind.Take || kind == PhysicalInteract.Kind.Soup;
+    }
+
+    // Never used from afar: doors (yours to push), the hiding cupboards, enemies and Boris, the fairground games and the
+    // carts (they need you there), the melting Tommy gun.
+    private static readonly string[] NotFromAfar =
+    {
+        "BaseDoorController", "DoorController", "CustomDoorController", "CH1EntranceDoor", "CH5SafehouseDoor", "LittleMiracleStationController",
+        "CH4Cart", "CH4CartRide", "CH4AbyssController", "CH3MeltingTommyGun", "PoolBall", "AnimationEventController"
+    };
+
+    private static bool Usable(Interactable item)
+    {
+        if (item.GetComponentInParent<Ai.BaseAiController>() != null) return false;
+        var t = item.transform;
+        for (var up = 0; up < 4 && t != null; up++, t = t.parent)
+            foreach (var c in t.GetComponents<MonoBehaviour>())
+            {
+                var n = c.GetIl2CppType().Name;
+                if (n.StartsWith("Minigame")) return false;
+                foreach (var x in NotFromAfar)
+                    if (n == x)
+                        return false;
+            }
+
+        return true;
     }
 
     private static Vector3 Centre(Interactable item)
@@ -257,11 +298,11 @@ public static class GravityPull
     // ---------------- taking hold ----------------
 
     /// <summary>A grip just closed: if this hand is pointing at something to pull, it takes hold of the thread (the grip isn't an interact).</summary>
-    public static bool TryLock(Hand hand)
+    public static bool TryLock(Hand hand, bool reach)
     {
         if (!ModConfig.GravityPull.Value) return false;
         var s = States[(int)hand];
-        if (s.Target == null || s.Locked) return false;
+        if (s.Target == null || s.Locked || s.Reach != reach) return false;
         s.Locked = true;
         s.LockedAt = Time.unscaledTime;
         XrInput.Haptic(hand, 0.3f, 0.05f);
@@ -302,6 +343,12 @@ public static class GravityPull
         var item = s.Target;
         s.Locked = false;
         s.Target = null;
+        if (s.Reach)
+        {
+            UseFromAfar(hand, s, item);
+            return;
+        }
+
         var f = new Flight { Item = item, Kind = s.Kind, IsWeapon = s.IsWeapon, Hand = hand, Start = Time.unscaledTime, Spin = Random.onUnitSphere };
         var root = new GameObject("InkVR_Pulled_" + item.name).transform;
         f.From = Centre(item);
@@ -319,6 +366,22 @@ public static class GravityPull
             InkDrops.Spawn(f.From, (Random.onUnitSphere + Vector3.up * 0.6f) * (0.8f * VRRig.ActiveScale), Random.Range(0.002f, 0.0045f) * VRRig.ActiveScale);
         LastPull = $"{item.name} ({(f.IsWeapon ? "weapon" : f.Kind.ToString())}) {dist:F1} m into the {hand} hand";
         Plugin.L.LogInfo($"Gravity pull: {LastPull}");
+    }
+
+    /// <summary>A reach: the thread snaps tight to it and it's used where it is, as if you'd reached it (the game's own use).</summary>
+    private static void UseFromAfar(Hand hand, HandState s, Interactable item)
+    {
+        var at = Centre(item);
+        s.ZapTo = at;
+        s.ZapUntil = Time.unscaledTime + 0.3f;
+        XrInput.Haptic(hand, 0.5f, 0.07f);
+        InkPool.InkSound(at, 0.7f);
+        for (var i = 0; i < 6; i++)
+            InkDrops.Spawn(at, (Random.onUnitSphere + Vector3.up * 0.5f) * (0.7f * VRRig.ActiveScale), Random.Range(0.002f, 0.004f) * VRRig.ActiveScale);
+        var used = PhysicalInteract.CaughtFromPull(s.Kind, hand, item, new List<Renderer>());
+        var dist = (HandPos(hand) - at).magnitude / VRRig.ActiveScale;
+        LastPull = $"{item.name} ({s.Kind}) used from {dist:F1} m with the {hand} hand";
+        Plugin.L.LogInfo($"Gravity pull: reached {LastPull}{(used ? "" : " (busy: not used)")}");
     }
 
     private static Vector3 HandPos(Hand hand)
@@ -385,7 +448,8 @@ public static class GravityPull
 
     private static void DrawThread(Hand hand, HandState s)
     {
-        if (s.Target == null)
+        var zap = s.Target == null && Time.unscaledTime < s.ZapUntil;
+        if (s.Target == null && !zap)
         {
             if (s.Line != null && s.Line.enabled) s.Line.enabled = false;
             return;
@@ -406,9 +470,9 @@ public static class GravityPull
 
         var k = VRRig.ActiveScale;
         var (from, _) = AimRay(hand);
-        var to = Centre(s.Target);
-        // the thread sags like a string of ink, and tightens when you take hold of it
-        var sag = (s.Locked ? 0.02f : 0.12f) * (to - from).magnitude;
+        var to = zap ? s.ZapTo : Centre(s.Target);
+        // the thread sags like a string of ink, and tightens when you take hold of it (or reach with it)
+        var sag = (s.Locked || zap ? 0.02f : 0.12f) * (to - from).magnitude;
         var mid = (from + to) * 0.5f + Vector3.down * sag;
         for (var i = 0; i < 20; i++)
         {
@@ -417,13 +481,14 @@ public static class GravityPull
             s.Line.SetPosition(i, p);
         }
 
-        var w = (s.Locked ? 0.024f : 0.013f) * k;
+        var w = (zap ? 0.03f * (s.ZapUntil - Time.unscaledTime) / 0.3f + 0.006f : s.Locked ? 0.024f : 0.013f) * k;
         s.Line.startWidth = w;
         s.Line.endWidth = w * 0.45f;
         var len = (to - from).magnitude / k;
         s.Line.material.mainTextureScale = new Vector2(len * 9f, 1f);
         s.Line.material.mainTextureOffset = new Vector2(-Time.unscaledTime * (s.Locked ? 3.5f : 1.2f), 0); // the ink flows back to your hand
         s.Line.enabled = true;
+        if (zap) return;
 
         // the thing itself weeps ink while you hold it
         var now = Time.unscaledTime;

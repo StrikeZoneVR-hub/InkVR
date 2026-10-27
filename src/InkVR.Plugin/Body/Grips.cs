@@ -58,6 +58,18 @@ public static class Grips
     /// <summary>How closed a hand is round a handle or object of this radius (metres): a fist round a thin handle, open round a can.</summary>
     public static float CurlFor(float radius) => radius <= 0 ? 1f : Mathf.Clamp(1.12f - (radius - 0.013f) * 9f, 0.38f, 1f);
 
+    /// <summary>
+    /// Turns a hand about a point and moves it this frame (the weapon in it was stopped by a wall), from wherever it
+    /// was put.
+    /// </summary>
+    public static void Turn(Hand hand, Vector3 currentPos, Quaternion currentRot, Vector3 pivot, Quaternion turn, Vector3 offset)
+    {
+        var o = Override[(int)hand];
+        var pos = o?.pos ?? currentPos;
+        var rot = o?.rot ?? currentRot;
+        Override[(int)hand] = (pivot + turn * (pos - pivot) + offset, turn * rot);
+    }
+
     public static void BeginFrame()
     {
         Override[0] = Override[1] = null;

@@ -53,6 +53,7 @@ public static class ModConfig
     public static ConfigEntry<bool> InkOnHands;
     public static ConfigEntry<bool> PlayerShadows;
     public static ConfigEntry<bool> NaturalGrips;
+    public static ConfigEntry<bool> SolidWeapons;
     public static ConfigEntry<float> InkFadeMinutes;
 
     // Graphics
@@ -107,7 +108,7 @@ public static class ModConfig
         PhysicalThrow = cfg.Bind("Controls", "PhysicalThrow", true, "Throwing by arm: Ch4's soup cans, Ch1's darts and Ch4's ball toss (hold the trigger, swing, let go), and anything you're carrying: Bacon Soup off the shelf, gears, batteries and the like (let go mid-swing). Off = the trigger throws straight away.");
         TwoHandedGuns = cfg.Bind("Controls", "TwoHandedGuns", true, "Two hands: grip the front of a gun to aim it with both hands, or the axe's handle to swing it with both.");
         Holster = cfg.Bind("Controls", "Holster", true, "Reach over your shoulder and grip to put your weapon away; do it again to draw it.");
-        Backpack = cfg.Bind("Controls", "Backpack", true, "A satchel over your left shoulder: what you pick up stays in your hand until you put it in (or throw it: it comes back); reach over your shoulder and grip to bring the satchel round and take things out; let go of one on what it's for to use it.");
+        Backpack = cfg.Bind("Controls", "Backpack", false, "Optional, off unless you turn it on. A satchel over your left shoulder: what you pick up stays in your hand until you put it away (let go of it behind your left shoulder); reach over your left shoulder and grip to bring the satchel round and take things out; hold one to what it's for and let go to use it, or throw it (it comes back). Off: what you pick up goes into your pockets when you let go of it, as before.");
         GravityPull = cfg.Bind("Controls", "GravityPull", true, "Point a hand at an item, grip, then flick your hand back (or keep holding the grip) and it flies into your hand, trailing ink.");
         WeaponWheel = cfg.Bind("Controls", "WeaponWheel", true, "Click the right stick for a wheel at your hand: draw your weapon, put it away, use the Seeing Tool or see your inventory. Flick the stick to a choice (or point and pull the trigger); B closes it.");
         InventoryButton = cfg.Bind("Controls", "InventoryButton", true, "Y shows your current objective and what you've collected, on a card by your hand.");
@@ -123,6 +124,7 @@ public static class ModConfig
         HeldItemPitch = cfg.Bind("Body", "HeldItemPitch", 0f, "Extra pitch (degrees) applied to held weapons and items.");
         InkOnHands = cfg.Bind("Body", "InkOnHands", true, "Ink from spills, splats, pools, pours, drips and ink bursts gets onto Henry (hands, sleeves, and with the full body his clothes and shoes), and inky shoes leave footprints.");
         PlayerShadows = cfg.Bind("Body", "PlayerShadows", true, "Henry casts a real-time shadow that moves with you: his body, arms and hands, and his head (which you never see).");
+        SolidWeapons = cfg.Bind("Body", "SolidWeapons", true, "The weapon in your hand is part of the world: drawn with it (your fingers close over its handle, walls hide it), stopped by walls and floors instead of sinking into them (your hand stops with it), and its swing knocks loose objects about. Off: drawn over everything, as the game does on a monitor.");
         NaturalGrips = cfg.Bind("Body", "NaturalGrips", true, "Weapons and things you carry sit in your hand by their handle, your fingers closed round them, and your other hand goes onto the axe's handle or the gun's barrel when you take hold of it (off = they follow the controller as before).");
         InkFadeMinutes = cfg.Bind("Body", "InkFadeMinutes", 3f, "How long fresh ink takes to dry and fade back to the chapter's usual stains.");
 

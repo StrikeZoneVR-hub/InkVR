@@ -173,6 +173,14 @@ public class DevTools : MonoBehaviour
 
                 break;
             }
+            case "rb":
+            {
+                // rb <path>: the physics body on it (or above it): kinematic or loose, where, how fast
+                var t = Resolve(arg);
+                var rbd = t != null ? t.GetComponentInParent<Rigidbody>() : null;
+                Plugin.L.LogInfo(rbd == null ? $"RB {arg}: none" : $"RB {PathOf(rbd.transform)} kinematic={rbd.isKinematic} sleeping={rbd.IsSleeping()} pos={rbd.position} vel={rbd.velocity} mass={rbd.mass}");
+                break;
+            }
             case "active": SetActive(arg); break;
             case "click": Click(arg); break;
             case "findc": FindComponent(arg); break;
@@ -1386,8 +1394,17 @@ public class DevTools : MonoBehaviour
                     var kind = InkVR.Input.PhysicalInteract.Classify(it);
                     if (kind == InkVR.Input.PhysicalInteract.Kind.None && arg != "all") continue;
                     var r = it.GetComponentInChildren<Renderer>();
-                    Plugin.L.LogInfo($"KIND {kind} {PathOf(it.transform)} single={it.m_EnableSingleInteraction} size={(r != null ? (r.bounds.size / InkVR.Core.VRRig.ActiveScale).ToString() : "-")} active={it.gameObject.activeInHierarchy}");
-                    if (++n > 200) break;
+                    var owners = new List<string>();
+                    var up = it.transform;
+                    for (var u = 0; u < 3 && up != null; u++, up = up.parent)
+                        foreach (var c in up.GetComponents<MonoBehaviour>())
+                        {
+                            var tn = c.GetIl2CppType().Name;
+                            if (tn != "Interactable" && !owners.Contains(tn)) owners.Add(tn);
+                        }
+
+                    Plugin.L.LogInfo($"KIND {kind} {it.GetIl2CppType().Name}<-{string.Join(",", owners)} {PathOf(it.transform)} single={it.m_EnableSingleInteraction} size={(r != null ? (r.bounds.size / InkVR.Core.VRRig.ActiveScale).ToString() : "-")} active={it.gameObject.activeInHierarchy} enabled={it.enabled}");
+                    if (++n > 3000) break;
                 }
 
                 break;
@@ -1411,6 +1428,8 @@ public class DevTools : MonoBehaviour
                     var ang = Vector3.Angle(root.forward, dir);
                     Plugin.L.LogInfo($"GRIP {h}: handle {(off * 100):F1} cm from the fist's line, {along * 100:F0} cm up from the knob, angle {ang:F0} deg (len {(far - near).magnitude / sc:F2} m) override={InkVR.Body.Grips.HandPose(h, out _, out _)} maxCurl={InkVR.Body.Grips.MaxCurl(h):F2}");
                 }
+
+                Plugin.L.LogInfo($"GRIP wall push {(InkVR.Body.Hands.WallPush.magnitude / sc * 100):F1} cm, tipped {InkVR.Body.Hands.WallTurn:F0} deg");
 
                 break;
             }

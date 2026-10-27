@@ -194,6 +194,8 @@ public static class Footprints
     private static Print Take()
     {
         Build();
+        // Quitting to the menu destroys everything kept between levels, our prints too (all at once): start afresh.
+        if (Prints.Count > 0 && Prints[0].T == null) Prints.Clear();
         if (Prints.Count < Max)
         {
             var go = new GameObject("InkVR_Footprint");

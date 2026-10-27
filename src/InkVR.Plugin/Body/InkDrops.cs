@@ -449,6 +449,7 @@ public static class WorldInk
     public static void Splat(Vector3 point, Vector3 normal, float dropRadius, Vector3 velocity)
     {
         if (!ModConfig.InkOnHands.Value) return;
+        DropDestroyed();
         var scale = VRRig.ActiveScale;
         var size = Mathf.Clamp(dropRadius * 7f, 0.012f * scale, 0.12f * scale);
         if (_madeFrame != Time.frameCount)
@@ -523,6 +524,7 @@ public static class WorldInk
         var now = InkClock.Now;
         if (now < _nextFade) return;
         _nextFade = now + 0.2f;
+        DropDestroyed();
         foreach (var s in Splats)
         {
             if (!s.On) continue;
@@ -530,6 +532,15 @@ public static class WorldInk
             if (age > Life) Off(s);
             else if (age > Life - FadeTime) SetAlpha(s, s.Alpha * (Life - age) / FadeTime);
         }
+    }
+
+    /// <summary>
+    /// Quitting to the menu destroys everything kept between levels, our splats too (all at once). Reusing them
+    /// after that failed natively on every drop, so the pool starts afresh.
+    /// </summary>
+    private static void DropDestroyed()
+    {
+        if (Splats.Count > 0 && Splats[0].T == null) Splats.Clear();
     }
 
     private static void Off(Mark s)

@@ -30,6 +30,13 @@ public static class TheatreToys
     public static void Reset()
     {
         if (!_ready) return;
+        if (_root == null)
+        {
+            // the theatre was destroyed with everything else when the game reset (quit to the menu): set up again
+            _ready = false;
+            return;
+        }
+
         foreach (var g in Grabs)
         {
             g.Hand = -1;
@@ -49,7 +56,7 @@ public static class TheatreToys
     /// <summary>The theatre isn't showing: let go of anything held.</summary>
     public static void Idle()
     {
-        if (!_ready) return;
+        if (!_ready || _root == null) return;
         foreach (var g in Grabs)
             if (g.Hand >= 0)
             {
@@ -60,7 +67,7 @@ public static class TheatreToys
 
     private static bool Setup(Cinema cinema)
     {
-        if (_ready && _cinema == cinema) return true;
+        if (_ready && _cinema == cinema && _root != null) return true;
         _cinema = cinema;
         _t = cinema.Theatre;
         _root = cinema.Root;

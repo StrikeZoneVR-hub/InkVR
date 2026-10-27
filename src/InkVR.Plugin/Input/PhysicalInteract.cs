@@ -178,10 +178,13 @@ public static class PhysicalInteract
         }
 
         // pointing at something further off: take hold of its ink thread (gravity pull)
-        if (GravityPull.TryLock(hand)) return true;
+        if (GravityPull.TryLock(hand, false)) return true;
 
         // a door: take hold of it and swing it yourself
-        return PhysicalDoors.TryGrab(hand);
+        if (PhysicalDoors.TryGrab(hand)) return true;
+
+        // pointing at something out of reach that stays put (a valve, a button, a tape): its thread, to use it from here
+        return GravityPull.TryLock(hand, true);
     }
 
     private static float Grip(Hand hand)
@@ -250,20 +253,28 @@ public static class PhysicalInteract
         "inkjar", "valve", "crank", "wheel", "record", "reel", "nut", "fuse", "plug", "ticket", "token", "coin", "wrench", "spoon", "doll", "book", "film", "tool"
     };
 
+    // Story items the game collects even though it lets them be used more than once (Chapter 3's ink hearts, for one).
+    private static readonly string[] AlwaysPickup =
+        { "heart", "collect", "battery", "key", "spoon", "reel", "record", "book", "doll", "pickup", "pick_up", "core", "thickink", "thick_ink", "ink_jar", "inkjar", "wrench", "fuse", "ticket", "token", "coin" };
+
+    // Where a pickup goes, not the pickup: Chapter 1's invisible battery slots, Chapter 5's empty pipe and reel spots...
+    private static readonly string[] NotAPickup =
+        { "invis", "empty", "slot", "socket", "placeholder", "pedestal", "panel", "station", "machine", "container", "door", "lever", "switch", "button" };
+
+    private static bool Has(string name, string[] words)
+    {
+        foreach (var w in words)
+            if (name.Contains(w))
+                return true;
+        return false;
+    }
+
     /// <summary>A small thing the game collects in one go (it disappears into your inventory): you take it in your hand.</summary>
     private static bool Takeable(Interactable item)
     {
-        if (!item.m_EnableSingleInteraction) return false;
         var name = item.name.ToLowerInvariant();
-        var named = false;
-        foreach (var w in PickupWords)
-            if (name.Contains(w))
-            {
-                named = true;
-                break;
-            }
-
-        if (!named || name.Contains("door") || name.Contains("panel") || name.Contains("lever") || name.Contains("switch") || name.Contains("button")) return false;
+        if (!Has(name, PickupWords) || Has(name, NotAPickup)) return false;
+        if (!item.m_EnableSingleInteraction && !Has(name, AlwaysPickup)) return false;
         if (item.GetComponentInParent<MeleeWeapon>() != null || item.GetComponentInParent<GunWeapon>() != null || item.GetComponentInParent<ThrowWeapon>() != null) return false;
         // Things that stay where they are (you work them, they don't come with you): valves you turn, the lift's
         // buttons, tape recorders, instruments, switches, lids and drawers.
@@ -637,7 +648,7 @@ public static class PhysicalInteract
                     }
                 }
 
-                if (Grip(t.Hand) < 0.35f) t.ShrinkFrom = now;
+                if (Grip(t.Hand) < 0.35f && t.CheckAt <= 0) t.ShrinkFrom = now; // (once it's sure the game took it)
                 continue;
             }
 

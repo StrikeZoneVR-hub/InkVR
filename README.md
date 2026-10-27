@@ -46,11 +46,12 @@
 
 Also included:
 - Every chapter playable from start to finish, and the Archives.
-- A satchel over your left shoulder: what you pick up stays in your hand until you put it in. Reach back to take it out, hold it to what it's for to use it, or throw it (it comes back).
+- **Optional:** a satchel over your left shoulder (off unless you turn it on: SATCHEL in VR SETTINGS or the launcher). With it on, what you pick up stays in your hand until you let go of it behind your left shoulder, which puts it in; reach over your shoulder and grip to bring the satchel round and take things out, hold one to what it's for and let go to use it, or throw it (it comes back).
 - Natural grips: the axe, the tools and what you carry sit in your hand by their handles, and your fingers close round them.
+- Solid weapons: the weapon in your hand stops at walls and floors (it tips back in your fist like a real one), your fingers close over its handle, and swings knock loose things about.
 - Your shadow: Henry's body, arms and hands cast a real-time shadow under the game's lights.
 - Tape notes come up close in front of you to read.
-- Reach without walking: point at an item, grip and flick, and it flies to your hand on an ink thread.
+- Reach without walking: point at an item, grip and flick, and it flies to your hand on an ink thread. Things that stay put (valves, levers, buttons, tape recorders) are used from where you stand.
 - A weapon wheel (click the right stick) and an inventory card in your hand (hold Y), or the game's own buttons.
 - Snap or smooth turning; seated or standing play.
 - World size: AUTO makes Henry's eyes your eyes, or set it yourself.

@@ -1,6 +1,52 @@
 # Testing InkVR
 
-## Current build: 0.10.0 (walk the theatre, a satchel, natural grips, a quiet axe)
+## Current build: 0.10.1 (pull and reach story items, solid weapons, the satchel optional)
+
+From your 0.10.0 test: "all the story objects and other stuff does not let me pick up with the gravity pull... for most puzzle stuff I have to bend down, reach up or move very far", "weapons when held look like the hand is see-through and not very physics based", "the backpack can be off by default". Plus three bugs found in your log.
+
+### Fixed in 0.10.1: story items you couldn't pull
+- **Cause:** the pull only took things the mod recognised as pickups, by their name and by the game marking them "use once". Many story items aren't marked that way (Chapter 3's ink hearts, for one), so the pull ignored them. Your whole session's log has only one pull in it (a book).
+- **Fix:** story items count by their name even without that mark (hearts, keys, batteries, books, records, reels, spoons, dolls, gears, cores, thick ink...). Empty slots and placeholders never count (Chapter 1's invisible battery slots, Chapter 5's empty reel and pipe spots).
+- **Checked:** a Chapter 3 heart pulled 2 m into the hand. A pull the game doesn't accept (an errand that hasn't started yet, say) puts nothing in your satchel or pocket: the thing stays where it was.
+
+### New in 0.10.1: use things out of reach
+- Point at something that stays put (a valve, a lever, a switch, a button, a tape recorder, a chest, a toilet, a punch clock...), grip and flick back (or keep gripping): the ink thread snaps to it and it's used where it is, as if you'd reached it. So the puzzle bits up high, down low or across the room no longer need you to bend, stretch or walk over.
+- Only when it's out of arm's reach (over 75 cm). Closer than that, your hands work it as before (turn the valve yourself, and so on).
+- Something you can pick up wins over something to use, when both are where you point. Doors stay yours to push, and the hiding cupboards, enemies, the fairground games and the carts are never used from afar.
+- **Checked:** a Chapter 2 tape recorder used from 2.2 m (Sammy's note came up).
+
+### Fixed in 0.10.1: the hand looking see-through round a weapon
+- **Cause:** the game draws the weapon in your hand with a camera of its own, after everything else, so on a monitor it never pokes into walls. In VR that painted it over Henry's fingers and wrist, and over walls.
+- **Fix:** the weapon is now drawn with the world. Your fingers and wrist close over the handle, and a wall hides what's in it. The game's brightness setting still applies (its weapon camera is also where that happens, so it stays on, drawing nothing).
+- **Checked:** the same view with this on and off: off, the handle is painted over the forearm; on, the wrist is in front of it.
+
+### New in 0.10.1: solid weapons
+- The weapon in your hand stops at walls and floors instead of sinking into them. First it tips back in your fist, the way a wrist gives (rest the axe's head on the floor and it stays on the floor, your hand where your hand is). Only past 50° does your hand get held back too. The controller buzzes against the wall.
+- Only solid, unmoving things stop it. Enemies, planks and everything else it can hit are left to your swing.
+- A swing knocks loose things about, but only things the game already lets roll and fly (pool balls, broken bits): nothing it holds still is moved, so nothing the story needs can be knocked out of place.
+- WEAPONS in VR SETTINGS (Henry) puts back the game's way: drawn over everything.
+- **Checked:** the axe held pointing down tips 13° about the fist instead of pushing your hand up; held level, nothing changes.
+
+### Changed in 0.10.1: the satchel is optional, and off unless you turn it on
+- SATCHEL in VR SETTINGS (Controls) or SATCHEL (OPTIONAL) in the launcher. The launcher's controls page and the README say how it works.
+- **Your own settings still have it on** (0.10.0 added it switched on). Switch it off there if you'd rather not have it.
+
+### Fixed in 0.10.1: errors after quitting to the menu (from your log)
+- **Ink splashes:** after you quit to the menu and went back into Chapter 3, every ink drop that landed failed (about 109,000 errors in your log, through Chapters 3 and 4). Quitting destroys what InkVR keeps between levels, and the splash pool kept reusing its destroyed splashes. It now starts afresh.
+- **Footprints:** the same, about 350 times.
+- **The theatre's toys** and Henry's head lookup tripped once each on the same reset.
+- **Checked:** ink bursts, quit to the menu, back into a chapter, more ink bursts: no errors.
+- Your Chapter 3 frame rate (60 to 75 fps) was the chapter itself, not these errors: it was the same before they started.
+
+### Noticed in your settings
+- WALK THE THEATRE is off. If that wasn't on purpose, switch it back on in VR SETTINGS (Controls).
+
+### What to try (0.10.1)
+1. Pull story items in Chapter 3 and 4 from a few metres (hearts, gears, whatever the errand wants). Point at a valve or lever up high and grip-flick it.
+2. Hold the axe and look at your hand on the handle; rest it on the floor; push it into a wall.
+3. Swing at a pool table's balls in Chapter 2's break room (if they're there in your save).
+
+## Previous build: 0.10.0 (walk the theatre, a satchel, natural grips, a quiet axe)
 
 From your tester's report (a backpack on the left shoulder, throwing, a more natural axe, a main menu to walk round and explore, seated gravity pull) and your own notes (hands in the shadow, natural grips for everything, blurry tape notes, the loud axe).
 

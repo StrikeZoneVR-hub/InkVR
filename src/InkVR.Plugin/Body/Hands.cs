@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using InkVR.Core;
 using InkVR.Input;
 using InkVR.Rendering;
@@ -109,9 +110,9 @@ public static class Hands
     /// </summary>
     private static void PutHandsOnWhatTheyHold(float scale)
     {
-        if (!ModConfig.NaturalGrips.Value || !HoldingWeapon()) return;
+        if (!HoldingWeapon()) return;
         var off = ControllerBindings.OffHand;
-        if ((WeaponHandling.OffHandOnMelee || WeaponHandling.OffHandOnGun) && Grips.WeaponLine(out var near, out var far))
+        if (ModConfig.NaturalGrips.Value && (WeaponHandling.OffHandOnMelee || WeaponHandling.OffHandOnGun) && Grips.WeaponLine(out var near, out var far))
         {
             var dev = off == Hand.Right ? DevRight : DevLeft;
             var c = XrInput.Get(off);
@@ -487,7 +488,11 @@ public static class Hands
         // Natural grip: a tool's handle through your fist (along both hands, with two on it).
         var held = p.WeaponGameObject != null ? p.WeaponGameObject.GetComponent<BaseWeapon>() : null;
         Vector3? twoHandDir = WeaponHandling.TwoHandMelee(out var both) ? both : null;
-        if (HoldingWeapon() && Grips.PlaceWeapon(_handContainer, held, gripWorld, gripRotWorld, rot, twoHandDir)) return;
+        if (HoldingWeapon() && Grips.PlaceWeapon(_handContainer, held, gripWorld, gripRotWorld, rot, twoHandDir))
+        {
+            StopAtWalls(held, gripWorld);
+            return;
+        }
 
         // Two hands on the axe: its handle lies along both hands, still held at the dominant one.
         if (WeaponHandling.TwoHandMelee(out var along) && MeleeSwing.HandleLine(out var near, out var far))
@@ -496,6 +501,118 @@ public static class Hands
             rot = fix * rot;
             _handContainer.rotation = rot;
             _handContainer.position = gripWorld - rot * Vector3.Scale(_handRestPos, _handContainer.lossyScale);
+        }
+
+        if (HoldingWeapon()) StopAtWalls(held, gripWorld);
+    }
+
+    // ---------------- a solid weapon ----------------
+
+    private static Vector3 _wallPush;
+    private static Quaternion _wallRot = Quaternion.identity;
+
+    /// <summary>How far the weapon (and the hand holding it) is being held back out of a wall this frame.</summary>
+    public static Vector3 WallPush => _wallPush;
+
+    /// <summary>How far the weapon is tipped back about your fist by a wall or the floor this frame (degrees).</summary>
+    public static float WallTurn => Quaternion.Angle(Quaternion.identity, _wallRot);
+
+    private const float MaxWallTurn = 50f;
+    private static float _nextWallBuzz;
+    private static Il2CppStructArray<RaycastHit> _wallHits;
+
+    /// <summary>
+    /// The weapon in your hand doesn't go through walls and floors. Swept from your hand along it, whatever it would
+    /// sink into first tips it back about your fist, the way a wrist gives (rest the axe on the floor and its head
+    /// stays on the floor, your hand where your hand is); only past that does it push your hand back too. The
+    /// controller buzzes against it. Touching two surfaces at once (a table top and its rail), the one it's deepest
+    /// in decides, and the correction eases in and out rather than snapping, so it never flickers between them.
+    /// Only solid, unmoving things stop it: enemies, planks and anything else it can hit are left to the swing, and
+    /// loose objects are knocked about instead.
+    /// </summary>
+    private static void StopAtWalls(BaseWeapon held, Vector3 gripWorld)
+    {
+        var k = VRRig.ActiveScale;
+        var wantTurn = 0f;
+        var wantAxis = Vector3.right;
+        var wantPush = Vector3.zero;
+        var touching = false;
+        if (ModConfig.SolidWeapons.Value && held != null && Grips.WeaponLine(out var near, out var far))
+        {
+            var along = far - near;
+            var tip = far + along.normalized * (0.03f * k);
+            var to = tip - gripWorld;
+            var len = to.magnitude;
+            if (len > 0.05f * k)
+            {
+                var dir = to / len;
+                var radius = 0.03f * k;
+                var margin = radius * 0.5f;
+                var player = GameManager.Instance.Player.transform;
+                var mask = ~held.m_IgnoreLayers.value & ~(1 << VRLayers.UI) & Physics.DefaultRaycastLayers;
+                _wallHits ??= new Il2CppStructArray<RaycastHit>(16);
+                var n = Physics.SphereCastNonAlloc(gripWorld, radius, dir, _wallHits, len, mask, QueryTriggerInteraction.Ignore);
+                var bestScore = 0f;
+                for (var i = 0; i < n; i++)
+                {
+                    var h = _wallHits[i];
+                    var c = h.collider;
+                    if (c == null || h.distance <= 0f) continue;
+                    if (c.transform.IsChildOf(player) || c.transform.IsChildOf(held.transform)) continue;
+                    var rb = c.attachedRigidbody;
+                    if (rb != null && !rb.isKinematic) continue; // loose: knocked about, not a wall
+                    if (Hittable.Is(c) || c.GetComponentInParent<Ai.BaseAiController>() != null) continue;
+
+                    var nrm = h.normal;
+                    var depth = margin - Vector3.Dot(tip - h.point, nrm); // how far the end is in (with a hair to spare)
+                    if (depth <= 0f || depth > 0.6f * k) continue;
+                    touching = true;
+
+                    // tip it about your fist until its end is out, as far as a wrist would give
+                    var turn = 0f;
+                    var axis = wantAxis;
+                    var handOut = Vector3.Dot(gripWorld - h.point, nrm);
+                    var cross = Vector3.Cross(dir, nrm);
+                    if (cross.sqrMagnitude > 1e-6f && handOut > margin)
+                    {
+                        axis = cross.normalized;
+                        var now = Mathf.Asin(Mathf.Clamp(Vector3.Dot(dir, nrm), -1f, 1f));
+                        var need = Mathf.Asin(Mathf.Clamp((margin - handOut) / len, -1f, 1f));
+                        turn = Mathf.Clamp((need - now) * Mathf.Rad2Deg, 0f, MaxWallTurn);
+                        var turned = gripWorld + Quaternion.AngleAxis(turn, axis) * (tip - gripWorld);
+                        depth = margin - Vector3.Dot(turned - h.point, nrm);
+                    }
+
+                    // and whatever's still in, your hand is held back out of it
+                    var push = depth > 0f && depth < 0.35f * k ? nrm * depth : Vector3.zero;
+                    var score = turn + push.magnitude / k * 100f;
+                    if (score <= bestScore) continue;
+                    bestScore = score;
+                    wantTurn = turn;
+                    wantAxis = axis;
+                    wantPush = push;
+                }
+            }
+        }
+
+        // quickly in (barely a frame inside the wall), gently out
+        var target = Quaternion.AngleAxis(wantTurn, wantAxis);
+        var ease = 1f - Mathf.Exp(-Time.unscaledDeltaTime * 12f);
+        _wallRot = Quaternion.Slerp(_wallRot, target, wantTurn > WallTurn ? 0.7f : ease);
+        _wallPush = Vector3.Lerp(_wallPush, wantPush, wantPush.sqrMagnitude > _wallPush.sqrMagnitude ? 0.7f : ease);
+        if (WallTurn < 0.05f) _wallRot = Quaternion.identity;
+        if (_wallPush.sqrMagnitude < 1e-8f) _wallPush = Vector3.zero;
+        if (_wallRot == Quaternion.identity && _wallPush == Vector3.zero) return;
+
+        // the weapon turns about your fist and moves with any push; the hand turns and moves with it
+        _handContainer.SetPositionAndRotation(gripWorld + _wallRot * (_handContainer.position - gripWorld) + _wallPush, _wallRot * _handContainer.rotation);
+        var dom = ControllerBindings.Dominant;
+        var model = dom == Hand.Left ? _left : _right;
+        if (model != null) Grips.Turn(dom, model.Root.position, model.Root.rotation, gripWorld, _wallRot, _wallPush);
+        if (touching && Time.unscaledTime >= _nextWallBuzz)
+        {
+            _nextWallBuzz = Time.unscaledTime + 0.09f;
+            XrInput.Haptic(dom, Mathf.Clamp(0.1f + WallTurn / MaxWallTurn * 0.2f + _wallPush.magnitude / k * 2f, 0.1f, 0.45f), 0.03f);
         }
     }
 }

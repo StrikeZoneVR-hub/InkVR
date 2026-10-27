@@ -300,17 +300,16 @@ namespace InkVR.Launcher
 
             var notes = string.Join("\n", new[]
             {
-                "LOOK AROUND WITH YOUR HEAD. TURNING AND WORLD SIZE ARE IN OPTIONS.",
-                "MENUS: THUMBSTICK MOVES, A SELECTS, B GOES BACK (OR TURN ON THE LASER POINTER).",
-                "SWING THE AXE TO HIT. GUNS FIRE WHERE YOUR HAND POINTS. GRIP EITHER WITH YOUR OTHER HAND TOO FOR TWO HANDS.",
-                "HOLD THE TRIGGER, SWING AND LET GO TO THROW: SOUP CANS, DARTS AND BALLS FLY THE WAY YOUR HAND WENT.",
-                "TURN VALVES AND PULL LEVERS BY HAND. TAKE SOUP, PULL ITS LID OFF WITH YOUR OTHER HAND AND TIP IT TO YOUR MOUTH.",
-                "PUSH DOORS OPEN OR GRIP AND PULL THEM. PRESS BUTTONS AND KEYS WITH A FINGER. REACH OVER YOUR SHOULDER AND GRIP TO HOLSTER.",
-                (pull ? "OUT OF REACH? POINT, GRIP AND FLICK BACK TO PULL IT TO YOU. " : "") + "SITTING DOWN? PLAY: SEATED IN OPTIONS.",
-            });
-            var memo = Look.MemoText(notes, 26, Paint.Ink, 1180, 0.9);
+                "LOOK AROUND WITH YOUR HEAD. MENUS: STICK MOVES, A SELECTS, B GOES BACK.",
+                "SWING THE AXE TO HIT. GUNS FIRE WHERE YOU POINT. GRIP WITH BOTH HANDS TOO.",
+                "HOLD THE TRIGGER, SWING, LET GO TO THROW. TURN VALVES, PULL LEVERS BY HAND.",
+                "PUSH OR PULL DOORS. PRESS BUTTONS WITH A FINGER. OVER YOUR SHOULDER: HOLSTER.",
+                pull ? "OUT OF REACH? POINT, GRIP, FLICK BACK: IT FLIES TO YOU, OR WORKS FROM THERE." : "",
+                "SEATED PLAY AND AN OPTIONAL SATCHEL (LEFT SHOULDER) ARE IN OPTIONS.",
+            }.Where(l => l.Length > 0));
+            var memo = Look.MemoText(notes, 23, Paint.Ink, 1300, 0.9);
             memo.TextAlignment = TextAlignment.Center;
-            sheet.Children.Add(memo.At((SheetW - 1180) / 2, 735));
+            sheet.Children.Add(memo.At((SheetW - 1300) / 2, 770));
         }
 
         // ------------------------------------------------------------------ VR CHECK
@@ -581,7 +580,7 @@ namespace InkVR.Launcher
             Row("THROWING", new[] { "SWING & LET GO", "BUTTON" }, has && !cfg.GetBool("Controls", "PhysicalThrow", true) ? 1 : 0, i => cfg.Set("Controls", "PhysicalThrow", i == 0), has);
             Row("TWO-HANDED", new[] { "GUNS & AXE", "OFF" }, has && !cfg.GetBool("Controls", "TwoHandedGuns", true) ? 1 : 0, i => cfg.Set("Controls", "TwoHandedGuns", i == 0), has);
             Row("HOLSTER", new[] { "OVER THE SHOULDER", "OFF" }, has && !cfg.GetBool("Controls", "Holster", true) ? 1 : 0, i => cfg.Set("Controls", "Holster", i == 0), has);
-            Row("SATCHEL", new[] { "LEFT SHOULDER", "OFF" }, has && !cfg.GetBool("Controls", "Backpack", true) ? 1 : 0, i => cfg.Set("Controls", "Backpack", i == 0), has);
+            Row("SATCHEL (OPTIONAL)", new[] { "OFF", "LEFT SHOULDER" }, has && cfg.GetBool("Controls", "Backpack", false) ? 1 : 0, i => cfg.Set("Controls", "Backpack", i == 1), has);
             Row("GRIPS", new[] { "NATURAL", "AS THE GAME" }, has && !cfg.GetBool("Body", "NaturalGrips", true) ? 1 : 0, i => cfg.Set("Body", "NaturalGrips", i == 0), has);
 
             var memo = Look.MemoText(has

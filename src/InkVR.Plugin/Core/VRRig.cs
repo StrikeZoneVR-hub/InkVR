@@ -49,7 +49,7 @@ public static partial class VRRig
     public static bool InGame => _player != null && _origin != null;
     public static bool CinemaActive => _cinemaActive;
     public static Camera GameCamera => InGame ? _gameCam : null;
-    public static Transform Head => _cinemaActive ? _cinemaCam?.transform : InGame ? _gameCam.transform : null;
+    public static Transform Head => _cinemaActive ? (_cinemaCam != null ? _cinemaCam.transform : null) : InGame && _gameCam != null ? _gameCam.transform : null;
     public static Transform ActiveOrigin => _cinemaActive || !InGame ? _cinemaOrigin : _origin;
     /// <summary>
     /// Game units per real metre right now. It only changes when a level starts or when you come back from
@@ -179,6 +179,7 @@ public static partial class VRRig
             if (CutsceneActive) MotionSmoothing.Remove();
             else MotionSmoothing.Apply(_origin);
             PlaceGamePanel();
+            DrawWeaponWithWorld();
             NoteReader.Update(_origin, _gameCam.transform, _cinemaActive ? null : _gamePanel);
             HurtVisor.Update(_uiCam);
             Rendering.VRGraphics.Update(_gameCam);
@@ -464,6 +465,44 @@ public static partial class VRRig
     }
 
     /// <summary>Turn the theatre so its screen is straight ahead of where you are looking.</summary>
+    private static Camera _weaponCam, _weaponCamOf;
+    private static int _weaponLayers;
+
+    /// <summary>
+    /// The game draws the weapon in your hand with a camera of its own (WeaponCam), after the world, so on a monitor
+    /// it never pokes into walls. In VR that put it over Henry's fingers (the hand looked see-through round the
+    /// handle) and through walls. With SolidWeapons it's drawn with the world instead: fingers close over the handle,
+    /// walls hide what's in them.
+    /// </summary>
+    private static void DrawWeaponWithWorld()
+    {
+        if (_gameCam == null) return;
+        if (_weaponCamOf != _gameCam)
+        {
+            _weaponCamOf = _gameCam;
+            _weaponCam = null;
+            foreach (var cam in _gameCam.GetComponentsInChildren<Camera>(true))
+                if (cam.name == "WeaponCam")
+                {
+                    _weaponCam = cam;
+                    _weaponLayers = cam.cullingMask;
+                }
+        }
+
+        if (_weaponCam == null || _weaponLayers == 0) return;
+        // (WeaponCam stays on, drawing nothing: it's also where the game applies its brightness setting to the frame)
+        if (ModConfig.SolidWeapons.Value)
+        {
+            if (_weaponCam.cullingMask != 0) _weaponCam.cullingMask = 0;
+            if ((_gameCam.cullingMask & _weaponLayers) != _weaponLayers) _gameCam.cullingMask |= _weaponLayers;
+        }
+        else
+        {
+            if (_weaponCam.cullingMask != _weaponLayers) _weaponCam.cullingMask = _weaponLayers;
+            if ((_gameCam.cullingMask & _weaponLayers) != 0) _gameCam.cullingMask &= ~_weaponLayers;
+        }
+    }
+
     /// <summary>The theatre (built once the cinema is first needed).</summary>
     public static Cinema Cinema => _cinema;
 

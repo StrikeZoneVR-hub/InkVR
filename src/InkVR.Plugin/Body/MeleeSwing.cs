@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HarmonyLib;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using InkVR.Core;
@@ -88,6 +89,7 @@ public static class MeleeSwing
         }
 
         HandSpeed = c.PoseValid ? (c.GripPosition - _prevGrip).magnitude / dt : 0f;
+        KnockLoose(dt);
 
         var vel = (headTracking - _prevHeadTracking) / dt;
         Speed = vel.magnitude;
@@ -194,6 +196,44 @@ public static class MeleeSwing
         }
 
         Remember(headTracking, c.GripPosition);
+    }
+
+    private static Il2CppReferenceArray<Collider> _near;
+    private static readonly Dictionary<System.IntPtr, float> Knocked = new();
+
+    /// <summary>
+    /// The weapon knocks loose things about as it goes through them, as hard as it's moving. Only things the game
+    /// already lets roll and fly (pool balls, broken bits of plank, buckets...): nothing it holds still is touched,
+    /// so nothing the story needs can be knocked out of place.
+    /// </summary>
+    private static void KnockLoose(float dt)
+    {
+        if (!ModConfig.SolidWeapons.Value || GameManager.Instance?.Player == null) return;
+        var k = VRRig.ActiveScale;
+        var now = Time.unscaledTime;
+        var player = GameManager.Instance.Player.transform;
+        var mask = ~_weapon.m_IgnoreLayers.value & ~(1 << VRLayers.UI) & Physics.DefaultRaycastLayers;
+        _near ??= new Il2CppReferenceArray<Collider>(16);
+        for (var p = 0; p < Now.Length; p++)
+        {
+            var v = (Now[p] - Prev[p]) / dt; // world units a second
+            if (v.magnitude < 0.6f * k || v.magnitude > MaxSpeed * k) continue;
+            var n = Physics.OverlapSphereNonAlloc(Now[p], HeadRadius * k * (p == 0 ? 1.4f : 0.8f), _near, mask, QueryTriggerInteraction.Ignore);
+            for (var i = 0; i < n; i++)
+            {
+                var c = _near[i];
+                var rb = c != null ? c.attachedRigidbody : null;
+                if (rb == null || rb.isKinematic || c.transform.IsChildOf(player) || c.transform.IsChildOf(_model)) continue;
+                if (c.GetComponentInParent<Ai.BaseAiController>() != null) continue;
+                if (Knocked.TryGetValue(rb.Pointer, out var at) && now - at < 0.35f) continue;
+                Knocked[rb.Pointer] = now;
+                var push = Vector3.ClampMagnitude(v, 7f * k) * 0.8f;
+                rb.AddForceAtPosition(push * rb.mass, c.ClosestPoint(Now[p]), ForceMode.Impulse);
+                XrInput.Haptic(ControllerBindings.Dominant, 0.2f, 0.03f);
+            }
+        }
+
+        if (Knocked.Count > 64) Knocked.Clear();
     }
 
     private static void Remember(Vector3 headTracking, Vector3 grip)
@@ -471,7 +511,7 @@ public static class MeleeSwing
         XrInput.DevRightAim = (path - rot * HeadInAim.Value, rot);
         XrInput.ApplyDev();
         if (_devChops == 1 && since > -0.05f && since < 0.35f)
-            Plugin.L.LogInfo($"SWINGF t={since:F3} speed={Speed:F2} swinging={_swinging} head={(_model != null ? _model.TransformPoint(PointsLocal[0]) : Vector3.zero)} aim={XrInput.Get(Hand.Right).AimPosition} valid={XrInput.Get(Hand.Right).PoseValid} dom={ControllerBindings.Dominant} melee={ModConfig.PhysicalMelee.Value} locked={GameManager.Instance?.Player?.isMoveLocked} gameSwing={Time.unscaledTime < _gameSwingUntil} gameSwings={GameSwings}");
+            Plugin.L.LogInfo($"SWINGF t={since:F3} speed={Speed:F2} swinging={_swinging} wall={Hands.WallTurn:F0}/{Hands.WallPush.magnitude / VRRig.ActiveScale * 100f:F0}cm head={(_model != null ? _model.TransformPoint(PointsLocal[0]) : Vector3.zero)} aim={XrInput.Get(Hand.Right).AimPosition} valid={XrInput.Get(Hand.Right).PoseValid} dom={ControllerBindings.Dominant} melee={ModConfig.PhysicalMelee.Value} locked={GameManager.Instance?.Player?.isMoveLocked} gameSwing={Time.unscaledTime < _gameSwingUntil} gameSwings={GameSwings}");
         if (since > (_devChops * 2 - 1) * 0.25f + 0.35f)
         {
             Plugin.L.LogInfo($"SWING done: chops={_devChops} swings={Swings} hits={Hits} (this test {Hits - _devHitsAtStart}) peak={PeakSpeed:F1} m/s last=[{LastHit}]");

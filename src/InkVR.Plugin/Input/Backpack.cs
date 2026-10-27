@@ -253,6 +253,7 @@ public static class Backpack
         }
 
         if (gripping) return;
+        if (held.CheckAt > 0) return; // let go at once: first see whether the game really took it
 
         // let go: into the satchel, thrown, used on something, or off home by itself
         Held[(int)held.Hand] = null;
