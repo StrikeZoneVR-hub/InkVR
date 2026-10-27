@@ -506,6 +506,9 @@ public static partial class VRRig
     /// <summary>The theatre (built once the cinema is first needed).</summary>
     public static Cinema Cinema => _cinema;
 
+    /// <summary>The camera the theatre is drawn with (null until it opens).</summary>
+    public static Camera CinemaCamera => _cinemaCam;
+
     /// <summary>The theatre is up (the main menu, a loading screen, or paused).</summary>
     public static bool CinemaShowing => _cinemaOrigin != null && _cinemaOrigin.gameObject.activeInHierarchy;
 

@@ -7,15 +7,6 @@ using Object = UnityEngine.Object;
 
 namespace InkVR.Body;
 
-public enum BodyStyle
-{
-    /// <summary>Same style as the hands: chunky, rounded, cartoon shoes, red braces.</summary>
-    Toon,
-
-    /// <summary>Lifelike proportions, clothes (waistcoat, tie, pinstripes, boots) and hands, still inked.</summary>
-    Lifelike
-}
-
 /// <summary>
 /// Henry's body below the head, for full-body VR. A skinned mesh on a ten-bone skeleton (pelvis, spine,
 /// chest, neck, and thigh/shin/foot per leg), built procedurally in the game's ink style, posed every frame
@@ -24,10 +15,11 @@ public enum BodyStyle
 ///   bending the knees as you crouch;
 /// - the arms (the existing <see cref="HandModel"/> arms) reach from its shoulders to your controllers;
 /// - the feet plant on the ground (stairs and ramps included) and step when you move or turn.
-/// There is no head: you are looking out of it.
+/// Its head (each style's own) is never drawn for you, since you look out of it: it casts your shadow and shows in
+/// the theatre's mirrors (HenryBody.Styles.cs, with the other ten bodies).
 /// Model space is metres, facing +z, with the eyes 1.62 m up; the whole body scales to your eye height.
 /// </summary>
-public sealed class HenryBody
+public sealed partial class HenryBody
 {
     public const float EyeHeight = 1.62f;
 
@@ -57,15 +49,17 @@ public sealed class HenryBody
     private static readonly float ThighLen = (HipJ(1) - Knee(1)).magnitude, ShinLen = (Knee(1) - Ankle(1)).magnitude;
 
     public readonly BodyStyle Style;
+    public readonly StyleDef Def;
     private readonly Transform _root;
     private readonly Transform[] _bones = new Transform[BoneCount];
     private readonly Vector3[] _head = new Vector3[BoneCount], _tail = new Vector3[BoneCount];
     private readonly List<Renderer> _renderers = new();
 
-    public HenryBody(BodyStyle style, Transform parent, Func<string, Material> material)
+    public HenryBody(StyleDef def, Transform parent, Func<string, Material> material)
     {
-        Style = style;
-        _root = new GameObject(style == BodyStyle.Toon ? "InkVR_HenryBody_Toon" : "InkVR_HenryBody_Lifelike").transform;
+        Def = def;
+        var style = Style = def.Id;
+        _root = new GameObject("InkVR_HenryBody_" + def.Key).transform;
         _root.SetParent(parent, false);
 
         Rest(B.Pelvis, HipC, Waist, Vector3.forward);
@@ -80,8 +74,12 @@ public sealed class HenryBody
         Rest(B.RFoot, Ankle(1), Toe(1), Vector3.up);
 
         if (style == BodyStyle.Toon) BuildToon();
-        else BuildLifelike();
+        else if (style == BodyStyle.Lifelike) BuildLifelike();
+        else BuildStyled();
         Assemble(material);
+        BuildHead(material);
+        BuildTail(material);
+        ApplyShadows(ModConfig.PlayerShadows.Value);
     }
 
     private void Rest(B b, Vector3 head, Vector3 tail, Vector3 up)
@@ -268,30 +266,21 @@ public sealed class HenryBody
 
         if (outline != null) _renderers.Add(outline);
 
-        // Your shadow: the clothes cast it (the ink outline doesn't, it would only thicken it), and a head the size of
-        // Henry's casts it above the collar, drawn only into the shadow (you look out of it). YOUR SHADOW switches it live.
+        // Your shadow: the clothes cast it (the ink outline doesn't, it would only thicken it), and the style's head casts
+        // it above the collar, drawn only into the shadow (you look out of it). YOUR SHADOW switches it live.
         foreach (var piece in pieces) _casters.Add(piece.Renderer);
-        var head = new GameObject("InkVR_HenryHeadShadow");
-        head.transform.SetParent(_root, false);
-        head.AddComponent<MeshFilter>().sharedMesh = Blob(new Vector3(0, 0.03f, -0.08f), new Vector3(0.085f, 0.115f, 0.105f), 14, 8).ToMesh("InkVR_HenryHeadShadow");
-        var hr = head.AddComponent<MeshRenderer>();
-        hr.sharedMaterial = pieces.Count > 0 ? pieces[0].Renderer.sharedMaterial : null;
-        hr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
-        hr.receiveShadows = false;
-        _headShadow = head.transform;
-        ApplyShadows(ModConfig.PlayerShadows.Value);
     }
 
-    private Transform _headShadow;
     private readonly System.Collections.Generic.List<Renderer> _casters = new();
 
-    /// <summary>YOUR SHADOW on or off: the clothes cast (or not), and the shadow-only head is there (or not).</summary>
+    /// <summary>YOUR SHADOW on or off: the body casts (or not), and so does its head.</summary>
     public void ApplyShadows(bool on)
     {
         foreach (var r in _casters)
             if (r != null)
                 r.shadowCastingMode = on ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
-        if (_headShadow != null && _headShadow.gameObject.activeSelf != on) _headShadow.gameObject.SetActive(on);
+        _headShadowOn = on;
+        ShowHead(_headShown);
     }
 
     private static InkRegion? RegionOf(string material) => material switch
@@ -299,7 +288,7 @@ public sealed class HenryBody
         "toonShirt" or "studioShirt" or "vest" or "tie" or "braces" => InkRegion.Torso,
         "toonHips" or "studioHips" or "toonTrousers" or "studioTrousers" or "belt" => InkRegion.Legs,
         "toonShoe" or "studioBoot" => InkRegion.Feet,
-        _ => null // gold buttons and buckles stay shiny
+        _ => StyledRegion(material) // gold buttons and buckles stay shiny
     };
 
     public void SetVisible(bool on)
@@ -311,6 +300,12 @@ public sealed class HenryBody
     public void SetLayer(int layer)
     {
         foreach (var r in _renderers)
+            if (r != null && r.gameObject.layer != layer)
+                r.gameObject.layer = layer;
+        foreach (var r in _headRenderers)
+            if (r != null && r.gameObject.layer != layer)
+                r.gameObject.layer = layer;
+        foreach (var r in _headOutlines)
             if (r != null && r.gameObject.layer != layer)
                 r.gameObject.layer = layer;
     }
@@ -357,7 +352,7 @@ public sealed class HenryBody
     public void Pose(Vector3 eye, Quaternion headRot, float k, Vector3? handLeft, Vector3? handRight, Func<Vector3, float> groundAt, float dt)
     {
         _root.localScale = Vector3.one * k;
-        if (_headShadow != null) _headShadow.SetPositionAndRotation(eye, headRot);
+        if (_headRoot != null) _headRoot.SetPositionAndRotation(eye, headRot);
 
         // --- facing: follow the head, a little towards where the hands are working ---
         var headFwd = headRot * Vector3.forward;
@@ -402,6 +397,11 @@ public sealed class HenryBody
         foreach (var r in _renderers)
             if (r != null && r.enabled == low)
                 r.enabled = !low;
+        if (low != _low)
+        {
+            _low = low;
+            ShowHead(_headShown);
+        }
 
         var spineLen = (NeckB - HipC).magnitude * k;
         var stand = floorY + HipC.y * k;
@@ -479,6 +479,8 @@ public sealed class HenryBody
             Set(i == 0 ? B.LShin : B.RShin, knee, ankle, footFwd);
             Set(i == 0 ? B.LFoot : B.RFoot, ankle, toe, up);
         }
+
+        if (dt > 0) Animate(dt, _yaw, _velocity, k);
     }
 
     private static float Smooth(float t) => t * t * (3f - 2f * t);

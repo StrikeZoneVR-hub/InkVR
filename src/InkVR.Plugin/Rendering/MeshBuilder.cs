@@ -319,6 +319,31 @@ public class MeshBuilder
         _t.Add(i1);
     }
 
+    /// <summary>
+    /// A flat disc facing <c>Cross(up, right)</c>, like <see cref="FlatQuad"/>: <paramref name="right"/> and
+    /// <paramref name="up"/> are radii, and the texture maps flat across it (its top along <paramref name="up"/>).
+    /// </summary>
+    public void Disc(Vector3 center, Vector3 right, Vector3 up, int segments = 32)
+    {
+        var n = Vector3.Cross(up, right).normalized;
+        var c = Vert(center, n, new Vector2(0.5f, 0.5f));
+        var first = _v.Count;
+        for (var i = 0; i <= segments; i++)
+        {
+            var a = (float)i / segments * Mathf.PI * 2;
+            var x = Mathf.Cos(a);
+            var y = Mathf.Sin(a);
+            Vert(center + right * x + up * y, n, new Vector2(0.5f + x * 0.5f, 0.5f + y * 0.5f));
+        }
+
+        for (var i = 0; i < segments; i++)
+        {
+            _t.Add(c);
+            _t.Add(first + i + 1);
+            _t.Add(first + i);
+        }
+    }
+
     /// <summary>A box with flat faces (each face carries the whole texture).</summary>
     public void Box(Vector3 center, Vector3 size, Quaternion rotation)
     {

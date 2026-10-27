@@ -12,7 +12,7 @@ namespace InkVR.Body;
 /// Canonical hand frame: wrist at the origin, fingers along +Z, palm facing -Y, thumb towards -X on
 /// the right hand (+X on the left). Fingers are rigid jointed segments curled about their local X.
 /// </summary>
-public class HandModel
+public partial class HandModel
 {
     private struct Finger
     {
@@ -29,7 +29,7 @@ public class HandModel
     private readonly Transform _forearm, _upperArm, _elbow;
     private readonly Finger[] _fingers = new Finger[4];
     private readonly Finger _thumb;
-    private readonly Transform _hourHand, _minuteHand;
+    private Transform _hourHand, _minuteHand;
     private readonly List<Renderer> _renderers = new();
     private readonly List<Renderer> _casters = new(); // the parts that cast your shadow (not the ink outlines)
 
@@ -45,6 +45,11 @@ public class HandModel
     /// <summary>Lifelike hands: one smooth skinned mesh per hand. Toon: the original jointed cartoon hands.</summary>
     public readonly bool Lifelike;
 
+    /// <summary>Whose hands and arms these are (STYLE), and the watch on the left wrist (WATCH).</summary>
+    public readonly StyleDef Style;
+
+    public readonly WatchKind Watch;
+
     // The hand's joint layout (wrist space), shared by both styles.
     private static readonly float[] FingerX = { -0.030f, -0.0095f, 0.0105f, 0.0285f };
     private static readonly float[] FingerZ = { 0.090f, 0.093f, 0.090f, 0.082f };
@@ -54,11 +59,15 @@ public class HandModel
     private static readonly float[] ThumbLength = { 0.040f, 0.032f, 0.026f };
     private static readonly float[] ThumbRadius = { 0.0128f, 0.0108f, 0.0099f };
 
-    public HandModel(bool left, Transform parent, Func<string, Material> material, bool lifelike = false)
+    public HandModel(bool left, Transform parent, Func<string, Material> baseMaterial, StyleDef style, WatchKind watch)
     {
         IsLeft = left;
-        Lifelike = lifelike;
+        Style = style;
+        Watch = watch;
+        var lifelike = Lifelike = style.Hands == HandKind.Lifelike;
         _side = left ? -1f : 1f;
+        // the style's own skin, gloves and sleeves stand in for Henry's
+        Material material(string key) => baseMaterial(Styles.MapKey(style, key));
 
         Root = new GameObject(left ? "InkVR_HenryHand_L" : "InkVR_HenryHand_R").transform;
         Root.SetParent(parent, false);
@@ -110,74 +119,76 @@ public class HandModel
         if (lifelike) BuildLifelike(material, thumbPos, thumbDir, thumbUp);
         else BuildToon(material);
 
-        // Henry's wedding band (Linda), on the left ring finger (not over a cartoon glove).
-        if (left && lifelike)
+        // Henry's wedding band (Linda), on the left ring finger (not over a cartoon glove); Joey's gold signet ring on his right.
+        if (left && lifelike && style.WeddingBand)
         {
             var ring = new MeshBuilder();
-            var r = lifelike ? FingerRadius[2] * 1.1f + 0.0011f : FingerRadius[2] + 0.0017f;
-            ring.Torus(new Vector3(0, 0, 0.012f), Vector3.forward, r, 0.0025f, 24, 10);
+            ring.Torus(new Vector3(0, 0, 0.012f), Vector3.forward, FingerRadius[2] * 1.1f + 0.0011f, 0.0025f, 24, 10);
             Part("WeddingBand", _fingers[2].Joints[0], ring, material("gold"), 0.0007f);
         }
 
-        // Arm: forearm (skin + rolled sleeve) and upper arm (sleeve), posed by IK in world space.
+        if (!left && lifelike && style.Id == BodyStyle.Joey)
+        {
+            var ring = new MeshBuilder();
+            ring.Torus(new Vector3(0, 0, 0.011f), Vector3.forward, FingerRadius[2] * 1.1f + 0.0012f, 0.0027f, 24, 10);
+            ring.Box(new Vector3(0, FingerRadius[2] * 1.1f + 0.0034f, 0.011f), new Vector3(0.0085f, 0.0026f, 0.0075f), Quaternion.identity);
+            Part("SignetRing", _fingers[2].Joints[0], ring, material("gold"), 0.0007f);
+        }
+
+        // Bigger hands for the bigger characters (Brute Boris most of all).
+        var handScale = Mathf.Lerp(1f, style.ArmBulk, 0.45f);
+        if (handScale > 1.001f) _wrist.localScale = Vector3.one * handScale;
+
+        // Arm: forearm (skin, a sleeve rolled up it or a jacket's sleeve down it, or bare) and upper arm, posed by IK in world space.
         _arm = new GameObject(left ? "InkVR_HenryArm_L" : "InkVR_HenryArm_R").transform;
         _arm.SetParent(parent, false);
         _forearm = new GameObject("Forearm").transform;
         _forearm.SetParent(_arm, false);
+        var bulk = style.ArmBulk;
         var fore = new MeshBuilder();
         fore.Tube(new[] { Vector3.zero, new Vector3(0, 0, ForearmLength * 0.5f), new Vector3(0, 0, ForearmLength) },
-            new[] { 0.040f, 0.034f, 0.026f }, Vector3.up, 16, false, false, new Vector2(1f, 0.82f));
+            new[] { 0.040f * bulk, 0.034f * bulk, 0.026f * Mathf.Lerp(1f, bulk, 0.6f) }, Vector3.up, 16, false, false, new Vector2(1f, 0.82f));
         Part("ForearmSkin", _forearm, fore, material(lifelike ? "lifeForearm" : "toonForearm"), lifelike ? 0.0014f : 0.003f, stain: true);
-        var sleeve = new MeshBuilder();
-        var cuff = ForearmLength * 0.48f;
-        sleeve.Tube(new[] { new Vector3(0, 0, -0.01f), new Vector3(0, 0, cuff * 0.6f), new Vector3(0, 0, cuff - 0.03f), new Vector3(0, 0, cuff - 0.012f), new Vector3(0, 0, cuff) },
-            new[] { 0.050f, 0.047f, 0.046f, 0.052f, 0.049f }, Vector3.up, 18, false, false, new Vector2(1f, 0.85f));
-        Part("RolledSleeve", _forearm, sleeve, material("sleeveRolled"), 0.0026f, stain: true, sleeve: true);
+        var bare = style.Sleeves == SleeveKind.Bare;
+        if (style.Sleeves == SleeveKind.Rolled)
+        {
+            var sleeve = new MeshBuilder();
+            var cuff = ForearmLength * 0.48f;
+            sleeve.Tube(new[] { new Vector3(0, 0, -0.01f), new Vector3(0, 0, cuff * 0.6f), new Vector3(0, 0, cuff - 0.03f), new Vector3(0, 0, cuff - 0.012f), new Vector3(0, 0, cuff) },
+                new[] { 0.050f * bulk, 0.047f * bulk, 0.046f * bulk, 0.052f * bulk, 0.049f * bulk }, Vector3.up, 18, false, false, new Vector2(1f, 0.85f));
+            Part("RolledSleeve", _forearm, sleeve, material("sleeveRolled"), 0.0026f, stain: true, sleeve: true);
+        }
+        else if (style.Sleeves == SleeveKind.Full)
+        {
+            // a jacket's sleeve down to just above the wrist, the shirt's white cuff showing under it, a gold cufflink
+            var end = ForearmLength - 0.045f;
+            var sleeve = new MeshBuilder();
+            sleeve.Tube(new[] { new Vector3(0, 0, -0.01f), new Vector3(0, 0, end * 0.5f), new Vector3(0, 0, end - 0.004f), new Vector3(0, 0, end) },
+                new[] { 0.05f, 0.045f, 0.04f, 0.038f }, Vector3.up, 18, false, false, new Vector2(1f, 0.86f));
+            Part("JacketSleeve", _forearm, sleeve, material("sleeve"), 0.0026f, stain: true, sleeve: true);
+            var shirt = new MeshBuilder();
+            shirt.Tube(new[] { new Vector3(0, 0, end - 0.01f), new Vector3(0, 0, end + 0.016f) }, new[] { 0.034f, 0.033f }, Vector3.up, 18, false, false, new Vector2(1f, 0.86f));
+            Part("ShirtCuff", _forearm, shirt, material("shirtCuff"), 0.0016f, stain: true, sleeve: true);
+            var link = new MeshBuilder();
+            link.Ellipsoid(new Vector3(0.033f * 0.98f * -_side, 0, end + 0.008f), new Vector3(0.0022f, 0.0045f, 0.0045f), Quaternion.identity, 10, 6);
+            Part("Cufflink", _forearm, link, material("gold"), 0.0005f);
+        }
 
         _elbow = new GameObject("Elbow").transform;
         _elbow.SetParent(_arm, false);
         var elbow = new MeshBuilder();
-        elbow.Ellipsoid(Vector3.zero, new Vector3(0.05f, 0.048f, 0.05f), Quaternion.identity, 14, 8);
-        Part("ElbowSleeve", _elbow, elbow, material("sleeve"), 0.0026f, stain: true, sleeve: true);
+        var er = bare ? 0.042f * bulk : 0.05f * bulk;
+        elbow.Ellipsoid(Vector3.zero, new Vector3(er, er * 0.96f, er), Quaternion.identity, 14, 8);
+        Part("ElbowSleeve", _elbow, elbow, material("sleeve"), bare && !lifelike ? 0.003f : 0.0026f, stain: true, sleeve: true);
 
         _upperArm = new GameObject("UpperArm").transform;
         _upperArm.SetParent(_arm, false);
         var upper = new MeshBuilder();
-        upper.Tube(new[] { Vector3.zero, new Vector3(0, 0, UpperArmLength) }, new[] { 0.055f, 0.050f }, Vector3.up, 16, true, false, new Vector2(1f, 0.9f));
-        Part("UpperSleeve", _upperArm, upper, material("sleeve"), 0.0026f, stain: true, sleeve: true);
+        upper.Tube(new[] { Vector3.zero, new Vector3(0, 0, UpperArmLength) }, bare ? new[] { 0.047f * bulk, 0.042f * bulk } : new[] { 0.055f * bulk, 0.050f * bulk }, Vector3.up, 16, true, false, new Vector2(1f, 0.9f));
+        Part("UpperSleeve", _upperArm, upper, material("sleeve"), bare && !lifelike ? 0.003f : 0.0026f, stain: true, sleeve: true);
 
-        // Wristwatch on the left wrist, its hands following your real clock: a 1930s tank watch, a gilt
-        // rectangular case on a leather strap, cream dial with an inked minute track and 12/3/6/9 numerals.
-        // As on a real watch, 12 and 6 point along the strap (round the wrist), 3 and the crown towards the hand.
-        if (left)
-        {
-            var band = new MeshBuilder();
-            band.Tube(new[] { new Vector3(0, 0, -0.032f), new Vector3(0, 0, -0.009f) }, new[] { 0.0296f, 0.0296f }, Vector3.up, 20, false, false, new Vector2(1f, 0.84f));
-            Part("WatchStrap", _wrist, band, material("strap"), 0.0009f, stain: true);
-            var face = new GameObject("WatchFace").transform;
-            face.SetParent(_wrist, false);
-            face.localPosition = new Vector3(0, 0.0246f, -0.0205f);
-            face.localRotation = Quaternion.Euler(0, -90f, 0); // local +Z = 12 o'clock (the little-finger side), +X = 3 (the fingers)
-
-            var caseMb = new MeshBuilder();
-            caseMb.Box(new Vector3(0, 0.003f, 0), new Vector3(0.024f, 0.006f, 0.032f), Quaternion.identity);
-            foreach (var z in new[] { -1f, 1f })
-            foreach (var x in new[] { -1f, 1f })
-                caseMb.Box(new Vector3(0.0072f * x, 0.0022f, 0.0175f * z), new Vector3(0.0036f, 0.0032f, 0.0052f), Quaternion.identity);
-            Part("WatchCase", face, caseMb, material("gold"), 0.0006f);
-            var crown = new MeshBuilder();
-            crown.Tube(new[] { new Vector3(0.0118f, 0.003f, 0), new Vector3(0.0152f, 0.003f, 0) }, new[] { 0.0021f, 0.0021f }, Vector3.up, 10, false, false);
-            crown.FlatQuad(new Vector3(0.0152f, 0.003f, 0), new Vector3(0, 0, 0.0021f), new Vector3(0, 0.0021f, 0));
-            Part("WatchCrown", face, crown, material("gold"), 0.0004f);
-            var dial = new MeshBuilder();
-            dial.FlatQuad(new Vector3(0, 0.00615f, 0), new Vector3(0.0098f, 0, 0), new Vector3(0, 0, 0.0136f));
-            Part("WatchDial", face, dial, material("dial"), 0);
-            _hourHand = WatchHand(face, 0.0072f, 0.0022f, material("ink"));
-            _minuteHand = WatchHand(face, 0.0112f, 0.0015f, material("ink"));
-            var pin = new MeshBuilder();
-            pin.Ellipsoid(new Vector3(0, 0.0072f, 0), new Vector3(0.0016f, 0.0006f, 0.0016f), Quaternion.identity, 10, 5);
-            Part("WatchPin", face, pin, material("gold"), 0);
-        }
+        // The watch on the left wrist, its hands following your real clock (Watches.cs).
+        if (left) BuildWatch(watch, material);
     }
 
     /// <summary>
@@ -388,11 +399,11 @@ public class HandModel
         if (ink != null) _renderers.Add(ink);
     }
 
-    private Transform WatchHand(Transform face, float length, float width, Material m)
+    private Transform WatchHand(Transform face, float length, float width, Material m, float y = 0.0066f)
     {
         var pivot = new GameObject("WatchHand").transform;
         pivot.SetParent(face, false);
-        pivot.localPosition = new Vector3(0, 0.0066f, 0);
+        pivot.localPosition = new Vector3(0, y, 0);
         var mb = new MeshBuilder();
         mb.Box(new Vector3(0, 0, length * 0.42f), new Vector3(width, 0.0004f, length * 1.16f), Quaternion.identity);
         mb.Box(new Vector3(0, 0, length * 0.92f), new Vector3(width * 0.55f, 0.0004f, length * 0.2f), Quaternion.identity);
@@ -471,6 +482,8 @@ public class HandModel
             _minuteHand.localRotation = Quaternion.Euler(0, (now.Minute + now.Second / 60f) * 6f, 0);
             _hourHand.localRotation = Quaternion.Euler(0, (now.Hour % 12 + now.Minute / 60f) * 30f, 0);
         }
+
+        _watchTick?.Invoke(dt);
     }
 
     private static void Curl(Finger f, float t)

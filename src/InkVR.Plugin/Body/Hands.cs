@@ -18,7 +18,7 @@ public static class Hands
 {
     private static Transform _root;
     private static HandModel _left, _right;
-    private static HenryBody _toonBody, _studioBody;
+    private static HenryBody _body;
     private static readonly Dictionary<string, Material> Materials = new();
     private static int _chapter = -1;
     private static bool _usingFallbackShader;
@@ -66,7 +66,7 @@ public static class Hands
         }
 
         Ensure();
-        if (_left != null && _left.Lifelike != ModConfig.Lifelike) Rebuild();
+        if (_left != null && (_left.Style != Styles.Current || _left.Watch != Styles.CurrentWatch)) Rebuild();
         if (_shadows != ModConfig.PlayerShadows.Value) ApplyShadows();
         UpdateChapterInk();
         if (_usingFallbackShader && Time.unscaledTime > _nextShaderCheck) TryUseGameShader();
@@ -74,6 +74,7 @@ public static class Hands
         var scale = VRRig.ActiveScale;
         var layer = VRRig.CinemaActive || !VRRig.InGame ? VRLayers.UI : 0;
         PoseBoth(scale, layer, Time.unscaledDeltaTime);
+        Drip(Time.unscaledDeltaTime);
     }
 
     /// <summary>Re-pose with the newest controller poses just before rendering (no animation step).</summary>
@@ -202,8 +203,7 @@ public static class Hands
         var on = ModConfig.PlayerShadows.Value;
         _left?.ApplyShadows(on);
         _right?.ApplyShadows(on);
-        _toonBody?.ApplyShadows(on);
-        _studioBody?.ApplyShadows(on);
+        _body?.ApplyShadows(on);
         if (_shadows.HasValue) Plugin.L.LogInfo($"Your shadow {(on ? "on" : "off")}");
         _shadows = on;
     }
@@ -213,8 +213,7 @@ public static class Hands
         _left?.SetVisible(on, on);
         _right?.SetVisible(on, on);
         if (on) return;
-        _toonBody?.SetVisible(false);
-        _studioBody?.SetVisible(false);
+        _body?.SetVisible(false);
         Body = null;
     }
 
@@ -224,21 +223,31 @@ public static class Hands
     {
         // (cutscenes and scripted moments too: the body stands under your view and stays yours; lying on the floor,
         // HenryBody.Pose has it step aside until you're up)
-        var want = !ModConfig.FullBody ? (BodyStyle?)null : ModConfig.Lifelike ? BodyStyle.Lifelike : BodyStyle.Toon;
+        var want = ModConfig.FullBody ? Styles.Current : null;
         var head = VRRig.Head;
         if (want == null || head == null)
         {
-            _toonBody?.SetVisible(false);
-            _studioBody?.SetVisible(false);
+            _body?.SetVisible(false);
             Body = null;
             return;
         }
 
-        if (want == BodyStyle.Toon) _toonBody ??= new HenryBody(BodyStyle.Toon, _root, Mat);
-        else _studioBody ??= new HenryBody(BodyStyle.Lifelike, _root, Mat);
-        (want == BodyStyle.Toon ? _toonBody : _studioBody).ApplyShadows(ModConfig.PlayerShadows.Value);
-        Body = want == BodyStyle.Toon ? _toonBody : _studioBody;
-        (want == BodyStyle.Toon ? _studioBody : _toonBody)?.SetVisible(false);
+        if (_body != null && _body.Def != want)
+        {
+            // STYLE changed: the old body goes (its ink with it) and the new one is built
+            InkStains.Forget(_body.Stains);
+            _body.Destroy();
+            _body = null;
+            Plugin.L.LogInfo($"Body style: {want.Label}");
+        }
+
+        if (_body == null)
+        {
+            _body = new HenryBody(want, _root, Mat);
+            InkStains.PurgeDestroyed();
+        }
+
+        Body = _body;
         Body.SetVisible(true);
         Body.SetLayer(layer);
 
@@ -273,17 +282,15 @@ public static class Hands
     private static void Ensure()
     {
         if (_root != null) return;
-        if (_left != null || _toonBody != null || _studioBody != null)
+        if (_left != null || _body != null)
         {
             // The game's reset (quitting to the main menu) destroyed everything kept between scenes, Henry included:
             // let go of the old pieces and build him again from scratch.
             foreach (var model in new[] { _left, _right })
                 if (model != null)
                     InkStains.Forget(model.Stains);
-            foreach (var body in new[] { _toonBody, _studioBody })
-                if (body != null)
-                    InkStains.Forget(body.Stains);
-            _toonBody = _studioBody = null;
+            if (_body != null) InkStains.Forget(_body.Stains);
+            _body = null;
             Body = null;
             _handContainer = null;
             _gameHand = null;
@@ -295,12 +302,13 @@ public static class Hands
         Object.DontDestroyOnLoad(go);
         _root = go.transform;
         BuildMaterials(InkLevel());
-        _left = new HandModel(true, _root, Mat, ModConfig.Lifelike);
-        _right = new HandModel(false, _root, Mat, ModConfig.Lifelike);
+        HandModel.StudioInk = InkLevel();
+        _left = new HandModel(true, _root, Mat, Styles.Current, Styles.CurrentWatch);
+        _right = new HandModel(false, _root, Mat, Styles.Current, Styles.CurrentWatch);
         Plugin.L.LogInfo($"Henry's hands built ({(_usingFallbackShader ? "fallback shader until a chapter loads" : "game shader")})");
     }
 
-    /// <summary>STYLE changed: rebuild both hands in the other style (their ink stains go with them).</summary>
+    /// <summary>STYLE or WATCH changed: rebuild both hands (their ink stains go with them).</summary>
     private static void Rebuild()
     {
         foreach (var model in new[] { _left, _right })
@@ -309,9 +317,10 @@ public static class Hands
             model.Destroy();
         }
 
-        _left = new HandModel(true, _root, Mat, ModConfig.Lifelike);
-        _right = new HandModel(false, _root, Mat, ModConfig.Lifelike);
-        Plugin.L.LogInfo($"Henry's hands rebuilt ({(ModConfig.Lifelike ? "lifelike" : "toon")})");
+        _left = new HandModel(true, _root, Mat, Styles.Current, Styles.CurrentWatch);
+        _right = new HandModel(false, _root, Mat, Styles.Current, Styles.CurrentWatch);
+        _shadows = null; // (the new hands follow YOUR SHADOW on the next update)
+        Plugin.L.LogInfo($"Hands rebuilt: {Styles.Current.Label}, watch {Styles.CurrentWatch}");
     }
 
     private static Material Mat(string key)
@@ -339,7 +348,7 @@ public static class Hands
         "lifeNail" => HenryTextures.LifelikeNail(33),
         "lifeForearm" => HenryTextures.LifelikeForearm(ink, 34),
         "tie" => BodyTextures.Tie(),
-        _ => HenryTextures.Flat(Color.magenta, "InkVR_Missing_" + key)
+        _ => StyleTextures.Paint(key) ?? HenryTextures.Flat(Color.magenta, "InkVR_Missing_" + key)
     };
 
     private static readonly string[] HandKeys = { "finger", "tip", "palm", "forearm", "sleeve", "sleeveRolled", "strap", "dial", "gold", "ink", "glove", "glovePalm", "gloveCuff", "toonForearm" };
@@ -442,7 +451,49 @@ public static class Hands
             InkStains.Rebase();
         }
 
+        HandModel.StudioInk = InkLevel();
+
         _chapter = ch;
+    }
+
+    // ---------------- the ink creatures drip ----------------
+
+    private static float _dripDue;
+    private static readonly System.Random DripRng = new(4242);
+
+    /// <summary>
+    /// The ink creatures (the Ink Demon, a Searcher, Sammy, the Projectionist, Brute Boris) drip as they go: drops off
+    /// the hands and the body that land as real ink. Ink-footed ones (the Demon, a Searcher) leave a print every step.
+    /// </summary>
+    private static void Drip(float dt)
+    {
+        var style = Styles.Current;
+        if (style.Drips <= 0 || !ModConfig.InkOnHands.Value || !VRRig.InGame || VRRig.CinemaActive || _left == null) return;
+        if (Body != null && (style.Id == BodyStyle.InkDemon || style.Id == BodyStyle.Searcher)) Footprints.WetBoth(0.8f);
+        _dripDue -= dt;
+        if (_dripDue > 0) return;
+        _dripDue = (0.5f + (float)DripRng.NextDouble()) / style.Drips;
+        var scale = VRRig.ActiveScale;
+        var pick = DripRng.Next(Body != null ? 3 : 2);
+        Vector3 from;
+        int group;
+        if (pick < 2)
+        {
+            var model = pick == 0 ? _left : _right;
+            if (!model.Root.gameObject.activeInHierarchy) return;
+            // off the fingertips or the heel of the hand
+            from = model.Wrist.TransformPoint(new Vector3(0, -0.015f, DripRng.NextDouble() < 0.6 ? 0.1f : 0.02f));
+            group = pick + 1;
+        }
+        else
+        {
+            var p = Body.Pelvis;
+            var a = (float)(DripRng.NextDouble() * Mathf.PI * 2);
+            from = p + new Vector3(Mathf.Cos(a) * 0.16f, 0.1f + (float)DripRng.NextDouble() * 0.3f, Mathf.Sin(a) * 0.12f) * scale;
+            group = 3;
+        }
+
+        InkDrops.Spawn(from, Vector3.down * (0.3f * scale), (0.003f + (float)DripRng.NextDouble() * 0.002f) * scale, group);
     }
 
     // ---------------- held items ----------------

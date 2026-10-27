@@ -142,8 +142,8 @@ public static class Footprints
         Load[foot] *= 0.8f;
         var print = Take();
         var fwd = Vector3.ProjectOnPlane(Quaternion.Euler(0, yaw, 0) * Vector3.forward, hit.normal).normalized;
-        var studio = Hands.Body == null || Hands.Body.Style == BodyStyle.Lifelike;
-        var size = studio ? new Vector3(0.12f, 1f, 0.31f) : new Vector3(0.17f, 1f, 0.36f);
+        var cartoon = Hands.Body != null && Hands.Body.Def.CartoonFeet;
+        var size = cartoon ? new Vector3(0.17f, 1f, 0.36f) : new Vector3(0.12f, 1f, 0.31f);
         print.T.SetPositionAndRotation(hit.point + hit.normal * (0.003f * k), Quaternion.LookRotation(fwd, hit.normal));
         print.T.localScale = size * k;
         print.T.GetComponent<MeshFilter>().sharedMesh = foot == 0 ? _left : _right;

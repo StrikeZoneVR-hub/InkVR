@@ -37,6 +37,7 @@ public static class ModConfig
     // Body
     public static ConfigEntry<string> BodyMode;
     public static ConfigEntry<string> BodyStyle;
+    public static ConfigEntry<string> Watch;
 
     /// <summary>A full body is shown.</summary>
     public static bool FullBody => BodyMode.Value == "Full";
@@ -47,8 +48,6 @@ public static class ModConfig
     /// <summary>Any of Henry is shown.</summary>
     public static bool HandsShown => BodyMode.Value != "None";
 
-    /// <summary>Lifelike hands and body (else the toon ones).</summary>
-    public static bool Lifelike => BodyStyle.Value != "Toon";
     public static ConfigEntry<float> HeldItemPitch;
     public static ConfigEntry<bool> InkOnHands;
     public static ConfigEntry<bool> PlayerShadows;
@@ -119,8 +118,11 @@ public static class ModConfig
             "How much of Henry you see: Full (full body), Arms (arms and hands), Hands (hands only), None.",
             new AcceptableValueList<string>("Full", "Arms", "Hands", "None")));
         BodyStyle = cfg.Bind("Body", "Style", "Lifelike", new ConfigDescription(
-            "How Henry looks: Lifelike (real hands, lifelike body in waistcoat and tie) or Toon (cartoon hands, chunky body with braces and big shoes).",
-            new AcceptableValueList<string>("Lifelike", "Toon")));
+            "Who you are, head to toe (the head shows in the theatre's mirrors and in your shadow): Lifelike (Henry: real hands, waistcoat and tie), Toon (Henry as a cartoon: braces, big shoes, white gloves), Bendy, Boris, Alice, InkDemon, Sammy, Projectionist, BruteBoris, Searcher, Joey or Wally.",
+            new AcceptableValueList<string>(Body.Styles.Keys)));
+        Watch = cfg.Bind("Body", "Watch", "Tank", new ConfigDescription(
+            "The watch on your left wrist, keeping your real time: Tank (Henry's), Bendy (his character watch), Studio (gold, the studio's), Gauge (an ink-machine gauge whose vial fills chapter by chapter), Angel (Alice's, a halo floating over it), Demon (dripping), or None.",
+            new AcceptableValueList<string>("Tank", "Bendy", "Studio", "Gauge", "Angel", "Demon", "None")));
         HeldItemPitch = cfg.Bind("Body", "HeldItemPitch", 0f, "Extra pitch (degrees) applied to held weapons and items.");
         InkOnHands = cfg.Bind("Body", "InkOnHands", true, "Ink from spills, splats, pools, pours, drips and ink bursts gets onto Henry (hands, sleeves, and with the full body his clothes and shoes), and inky shoes leave footprints.");
         PlayerShadows = cfg.Bind("Body", "PlayerShadows", true, "Henry casts a real-time shadow that moves with you: his body, arms and hands, and his head (which you never see).");

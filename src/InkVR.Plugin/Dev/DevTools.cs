@@ -44,6 +44,7 @@ public class DevTools : MonoBehaviour
 
     private void Update()
     {
+        if (EyeWatchFrames > 0) EyeWatchFrames--;
         if (Time.unscaledTime >= _nextPoll)
         {
             _nextPoll = Time.unscaledTime + 0.25f;
@@ -215,6 +216,23 @@ public class DevTools : MonoBehaviour
             case "laserstate":
                 Plugin.L.LogInfo($"LASER onScreen={InkVR.UI.LaserPointer.OnScreen} last=[{InkVR.UI.LaserPointer.LastClick}]");
                 break;
+            case "eyewatch":
+            {
+                // eyewatch <frames>: log every camera pre-render (name, eye) for a few frames: is each eye its own pass?
+                EyeWatchFrames = int.Parse(arg);
+                if (_eyeWatch == null)
+                {
+                    _eyeWatch = Il2CppInterop.Runtime.DelegateSupport.ConvertDelegate<Camera.CameraCallback>(new System.Action<Camera>(cam =>
+                    {
+                        if (EyeWatchFrames <= 0) return;
+                        Plugin.L.LogInfo($"EYEPASS f={Time.frameCount} {cam.name} eye={cam.stereoActiveEye} stereo={cam.stereoEnabled} target={(cam.targetTexture != null ? cam.targetTexture.name : "-")}");
+                    }));
+                    var existing = Camera.onPreRender;
+                    Camera.onPreRender = existing == null ? _eyeWatch : Il2CppSystem.Delegate.Combine(existing, _eyeWatch).Cast<Camera.CameraCallback>();
+                }
+
+                break;
+            }
             case "rb":
             {
                 // rb <path>: the physics body on it (or above it): kinematic or loose, where, how fast
@@ -1325,11 +1343,49 @@ public class DevTools : MonoBehaviour
                 break;
             }
             case "body":
-                // body full|arms|hands|none (what you see) or lifelike|toon (how it looks)
-                var word = char.ToUpperInvariant(arg[0]) + arg.Substring(1).ToLowerInvariant();
-                if (word == "Lifelike" || word == "Toon") ModConfig.BodyStyle.Value = word;
-                else ModConfig.BodyMode.Value = word;
+            {
+                // body full|arms|hands|none (what you see) or a style's key, any case (lifelike, toon, bendy, inkdemon...)
+                var style = Array.Find(InkVR.Body.Styles.Keys, k => k.Equals(arg, StringComparison.OrdinalIgnoreCase));
+                if (style != null) ModConfig.BodyStyle.Value = style;
+                else ModConfig.BodyMode.Value = char.ToUpperInvariant(arg[0]) + arg.Substring(1).ToLowerInvariant();
                 Plugin.L.LogInfo($"body: {ModConfig.BodyMode.Value}, {ModConfig.BodyStyle.Value}");
+                break;
+            }
+            case "watch":
+            {
+                var kind = Array.Find(new[] { "Tank", "Bendy", "Studio", "Gauge", "Angel", "Demon", "None" }, k => k.Equals(arg, StringComparison.OrdinalIgnoreCase));
+                if (kind != null) ModConfig.Watch.Value = kind;
+                Plugin.L.LogInfo($"watch: {ModConfig.Watch.Value}");
+                break;
+            }
+            case "glass":
+            {
+                // glass x y z yaw w h: a test mirror in the theatre (theatre metres, facing yaw), or "glass state"
+                if (arg == "state")
+                {
+                    Plugin.L.LogInfo("MIRROR " + InkVR.UI.Mirror.Describe());
+                    break;
+                }
+
+                if (arg == "dump" || arg == "render")
+                {
+                    InkVR.UI.Mirror.DevDump(Path.Combine(Plugin.DataDir, "shots"), arg == "render");
+                    Plugin.L.LogInfo("MIRROR dumped");
+                    break;
+                }
+
+                var m = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                float N(int i) => float.Parse(m[i], System.Globalization.CultureInfo.InvariantCulture);
+                var root = InkVR.Core.VRRig.Cinema?.Root;
+                if (root == null) break;
+                new InkVR.UI.Mirror(root, new Vector3(N(0), N(1), N(2)), Quaternion.Euler(0, N(3), 0), N(4), N(5), new Color(0.9f, 0.9f, 0.92f));
+                Plugin.L.LogInfo("mirror placed");
+                break;
+            }
+            case "headshow":
+                // headshow 1|0: draw your head as a mirror would see it (for checking each style's head)
+                InkVR.Body.Hands.Body?.ShowHead(arg == "1");
+                Plugin.L.LogInfo($"head shown: {arg == "1"}");
                 break;
             case "bodystate":
             {
@@ -2136,6 +2192,9 @@ public class DevTools : MonoBehaviour
     /// <summary>Render one picture from a temporary camera (not the headset's) and save it to shots/.</summary>
     /// <summary>Dev: shots include layer 10 (the held weapon).</summary>
     private static bool ShotWeapons;
+
+    private static int EyeWatchFrames;
+    private static Camera.CameraCallback _eyeWatch;
 
     /// <summary>Dev: the fill flash on dev pictures (off to judge shadows).</summary>
     private static bool ShotFlash = true;
