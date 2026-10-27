@@ -114,7 +114,8 @@ public static class PhysicalInteract
     private static readonly bool[] WasGripping = new bool[2];
     private static int _claimFrame = -1;
 
-    private const float HoldToComplete = 4f;
+    // Keep gripping this long and it's done, however your hand moved: the motion is the fun way, never the only way.
+    private const float HoldToComplete = 1.5f;
 
     /// <summary>
     /// Called where the controllers become the game's buttons, before a grip can press "interact": a grip that
@@ -166,7 +167,8 @@ public static class PhysicalInteract
             return _g.Hand == hand;
         }
 
-        if (ModConfig.PhysicalInteractions.Value)
+        // a motion control only for something your hand is on (pointed at from further off, the grip just uses it)
+        if (ModConfig.PhysicalInteractions.Value && InteractionAim.HoverNear)
         {
             var item = InteractionAim.Hovered;
             var kind = InteractionAim.HoverHand == hand && item != null ? Classify(item) : Kind.None;
@@ -177,13 +179,19 @@ public static class PhysicalInteract
             }
         }
 
-        // pointing at something further off: take hold of its ink thread (gravity pull)
-        if (GravityPull.TryLock(hand, false)) return true;
+        // what this hand points at (or, if neither hand points at anything, what you look at), within the game's
+        // reach: the grip uses it (it presses interact), and nothing further off steals the grip
+        var pointed = (InteractionAim.HoverHand == hand || InteractionAim.HoverHand == null) && !InteractionAim.HoverNear ? InteractionAim.Hovered : null;
+
+        // pointing at something to bring to your hand: take hold of its ink thread (gravity pull), unless the hand
+        // points at something else nearer
+        if ((pointed == null || GravityPull.Aims(hand, pointed)) && GravityPull.TryLock(hand, false)) return true;
 
         // a door: take hold of it and swing it yourself
         if (PhysicalDoors.TryGrab(hand)) return true;
+        if (pointed != null) return false;
 
-        // pointing at something out of reach that stays put (a valve, a button, a tape): its thread, to use it from here
+        // pointing at something beyond reach that stays put (a valve, a button, a tape): its thread, to use it from here
         return GravityPull.TryLock(hand, true);
     }
 
@@ -518,12 +526,12 @@ public static class PhysicalInteract
                     XrInput.Haptic(g.Hand, 0.25f, 0.02f); // the ratchet of the valve
                 }
 
-                if (g.Turned >= 110f)
+                if (g.Turned >= 90f)
                 {
                     ValveProgress.Remove(g.Item.Pointer);
                     Complete("turned");
                 }
-                else if (Time.unscaledTime - g.StillSince > HoldToComplete) Complete("held");
+                else if (Time.unscaledTime - g.Started > HoldToComplete) Complete("held");
 
                 break;
             }
@@ -538,7 +546,7 @@ public static class PhysicalInteract
 
                 var pulled = (pos - g.StartHand).magnitude / scale;
                 if (g.Swings) Swing(g, pos);
-                var progress = g.Swings ? g.Swung / 45f : pulled / 0.12f;
+                var progress = g.Swings ? g.Swung / 35f : pulled / 0.1f;
                 if (progress * 100f > g.NextTick)
                 {
                     g.NextTick += 12f;
@@ -550,7 +558,7 @@ public static class PhysicalInteract
                     SpringBack(g); // the game's own animation throws it from where it started
                     Complete("pulled");
                 }
-                else if (Time.unscaledTime - g.StillSince > HoldToComplete)
+                else if (Time.unscaledTime - g.Started > HoldToComplete)
                 {
                     SpringBack(g);
                     Complete("held");
@@ -575,7 +583,7 @@ public static class PhysicalInteract
                     DropHeld(g);
                     Complete("placed");
                 }
-                else if (Time.unscaledTime - g.StillSince > HoldToComplete)
+                else if (Time.unscaledTime - g.StillSince > HoldToComplete * 2f)
                 {
                     DropHeld(g);
                     Complete("held");

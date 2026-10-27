@@ -36,6 +36,11 @@ The biggest update yet, and the first full release. Everything since 0.9.1 is in
 
 ### Quality of life
 
+- **Point at it, or look at it, to use it.** Point at something with either hand, or just look at it, and the
+  game's own highlight and prompt appear; grip or X uses it. No more walking right up to things before the prompt
+  shows. With your hand on something, the hands-on way still works.
+- **Motion controls are never required.** Keep gripping a valve or a lever for a moment and it's done, however
+  your hand moved. Pulling something to your hand starts as soon as you grip (no flick needed).
 - **Laser pointer on by default** for the main menu, the pause menu, Options and VR SETTINGS. The stick and A still
   work, and the laser is steadier: it holds still as you squeeze the trigger. Point and click works in every menu,
   even after you've used the stick.
@@ -56,6 +61,11 @@ The biggest update yet, and the first full release. Everything since 0.9.1 is in
 
 ### Bug fixes
 
+- **Chapter 4's vent wouldn't let you in.** The flashlight inside it only answered a hand right on it, and a grip
+  went to the trunk across the room instead. Now point at it or look at it, grip (or X), and in you go.
+- **Prompts only showed with your hand on things**, so reaching Chapter 4's bridge lever meant walking up to it in
+  real life. Fixed (see *Point at it, or look at it*).
+- **The weapon wheel sometimes wouldn't open** in Chapter 4 (an error in the log each time). Fixed.
 - **The laser clicked the wrong thing, or nothing.** Once you'd moved the stick in a menu, the game switched to
   controller mode: pointing stopped moving the highlight, and a click went to whatever the stick picked last (a click
   on OPTIONS could even quit the game). Now, while the laser is on the screen, the game treats it as a mouse, so a

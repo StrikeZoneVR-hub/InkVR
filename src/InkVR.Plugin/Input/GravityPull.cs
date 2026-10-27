@@ -26,7 +26,7 @@ public static class GravityPull
     private const float MinDistance = 0.45f;  // closer than this, you just grip it
     private const float ReachMin = 0.75f;     // things that stay put (valves, buttons, tapes): only when they're out of reach
     private const float FlickSpeed = 1.2f;    // m/s of the hand back towards you
-    private const float HoldToPull = 0.75f;   // or keep gripping this long
+    private const float HoldToPull = 0.15f;   // or just grip (a moment, so a brush of the grip doesn't)
 
     private sealed class HandState
     {
@@ -140,7 +140,7 @@ public static class GravityPull
     /// <summary>The hand is already doing something: holding a weapon, gripping a valve or a door, or right over something it can grip.</summary>
     private static bool Busy(Hand hand)
     {
-        if (InteractionAim.HoverHand == hand && InteractionAim.Hovered != null) return true;
+        if (InteractionAim.HoverHand == hand && InteractionAim.HoverNear && InteractionAim.Hovered != null) return true;
         if (PhysicalInteract.Active != PhysicalInteract.Kind.None) return true;
         var player = GameManager.Instance?.Player;
         var weapon = player?.WeaponGameObject;
@@ -296,6 +296,9 @@ public static class GravityPull
     }
 
     // ---------------- taking hold ----------------
+
+    /// <summary>This hand's thread is on that item.</summary>
+    public static bool Aims(Hand hand, Interactable item) => States[(int)hand].Target != null && item != null && States[(int)hand].Target.Pointer == item.Pointer;
 
     /// <summary>A grip just closed: if this hand is pointing at something to pull, it takes hold of the thread (the grip isn't an interact).</summary>
     public static bool TryLock(Hand hand, bool reach)

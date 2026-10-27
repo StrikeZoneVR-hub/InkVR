@@ -218,10 +218,10 @@ namespace InkVR.Launcher
                         return dominant
                             ? (turn, wheel ? "CLICK IT: WEAPON WHEEL" : snap ? "OR SMOOTH TURN IN OPTIONS" : "OR SNAP TURN IN OPTIONS")
                             : ("MOVE", "CLICK IT TO RUN");
-                    case QuestPart.Primary: return dominant ? ("JUMP", null) : ("INTERACT", null);
+                    case QuestPart.Primary: return dominant ? ("JUMP", null) : ("INTERACT", "POINT OR LOOK AT IT");
                     case QuestPart.Secondary: return dominant ? ("BACK", "IN MENUS") : inventory ? ("INVENTORY", "HOLD IT") : (null, null);
                     case QuestPart.Menu: return ("PAUSE", null);
-                    case QuestPart.Grip: return ("GRAB / USE", "EITHER HAND");
+                    case QuestPart.Grip: return ("GRAB / USE", "POINT OR TOUCH IT");
                     default: return (null, null);
                 }
             }
@@ -301,10 +301,10 @@ namespace InkVR.Launcher
             var notes = string.Join("\n", new[]
             {
                 "MENUS: POINT THE LASER AND PULL THE TRIGGER (OR STICK AND A). B GOES BACK.",
-                "SWING THE AXE TO HIT. GUNS FIRE WHERE YOU POINT. GRIP WITH BOTH HANDS TOO.",
-                "HOLD THE TRIGGER, SWING, LET GO TO THROW. TURN VALVES, PULL LEVERS BY HAND.",
-                "PUSH OR PULL DOORS. PRESS BUTTONS WITH A FINGER. OVER YOUR SHOULDER: HOLSTER.",
-                pull ? "OUT OF REACH? POINT, GRIP, FLICK BACK: IT FLIES TO YOU, OR WORKS FROM THERE." : "",
+                "USE THINGS: POINT AT THEM (EITHER HAND) OR LOOK AT THEM, THEN GRIP OR X.",
+                "HANDS ON: WIND VALVES, PULL LEVERS, OR JUST KEEP GRIPPING. PUSH DOORS.",
+                "SWING THE AXE TO HIT. GUNS FIRE WHERE YOU POINT. HOLD, SWING, LET GO: THROW.",
+                pull ? "FAR OFF? POINT AND GRIP: IT FLIES TO YOU. OVER YOUR SHOULDER: HOLSTER." : "PRESS BUTTONS WITH A FINGER. OVER YOUR SHOULDER: HOLSTER.",
                 "SEATED PLAY AND AN OPTIONAL SATCHEL (LEFT SHOULDER) ARE IN OPTIONS.",
             }.Where(l => l.Length > 0));
             var memo = Look.MemoText(notes, 23, Paint.Ink, 1300, 0.9);
@@ -521,7 +521,7 @@ namespace InkVR.Launcher
                     if (i > 0) cfg.Set("VR", "WorldScale", worlds[i - 1]);
                 }, has);
             Row("MAIN HAND", new[] { "RIGHT", "LEFT" }, has && cfg.GetBool("Controls", "LeftHanded", false) ? 1 : 0, i => cfg.Set("Controls", "LeftHanded", i == 1), has);
-            Row("INTERACT", new[] { "HAND HOVER", "LOOK AT IT" }, has && !cfg.GetBool("Controls", "InteractWithHand", true) ? 1 : 0, i => cfg.Set("Controls", "InteractWithHand", i == 0), has);
+            Row("INTERACT", new[] { "POINT OR TOUCH", "LOOK AT IT" }, has && !cfg.GetBool("Controls", "InteractWithHand", true) ? 1 : 0, i => cfg.Set("Controls", "InteractWithHand", i == 0), has);
             Row("GRAVITY PULL", new[] { "ON", "OFF" }, has && !cfg.GetBool("Controls", "GravityPull", true) ? 1 : 0, i => cfg.Set("Controls", "GravityPull", i == 0), has);
             var wheel = !has || cfg.GetBool("Controls", "WeaponWheel", true);
             var inventory = !has || cfg.GetBool("Controls", "InventoryButton", true);

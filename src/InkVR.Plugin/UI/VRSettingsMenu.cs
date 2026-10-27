@@ -60,7 +60,7 @@ public static class VRSettingsMenu
         Toggle("WEAPONS", ModConfig.SolidWeapons, "SOLID", "OVER EVERYTHING"),
         Category("CONTROLS"),
         Toggle("DOMINANT HAND", ModConfig.LeftHanded, "LEFT", "RIGHT"),
-        Toggle("INTERACT", ModConfig.InteractWithHand, "HAND HOVER", "LOOK AT IT"),
+        Toggle("INTERACT", ModConfig.InteractWithHand, "POINT OR TOUCH", "LOOK AT IT"),
         Toggle("MELEE", ModConfig.PhysicalMelee, "SWING YOUR ARM", "BUTTON ONLY"),
         Toggle("GUN AIM", ModConfig.AimGunsWithHand, "HAND", "HEAD"),
         MotionControls(),

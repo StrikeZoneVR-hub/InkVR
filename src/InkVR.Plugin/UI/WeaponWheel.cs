@@ -114,7 +114,9 @@ public static class WeaponWheel
     {
         Slots.Clear();
         var weapon = WeaponHandling.WeaponName;
-        var holding = GameManager.Instance?.Player?.WeaponGameObject is { activeInHierarchy: true } && !WeaponHandling.Holstered;
+        // (the weapon object can be a destroyed one the game still points at: Unity's own null check catches that, ?. doesn't)
+        var held = GameManager.Instance != null && GameManager.Instance.Player != null ? GameManager.Instance.Player.WeaponGameObject : null;
+        var holding = held != null && held.activeInHierarchy && !WeaponHandling.Holstered;
         if (weapon != null)
             Slots.Add(new Slot { Label = Pretty(weapon) + (holding ? "\n<size=60%>IN HAND</size>" : ""), Act = () => WeaponHandling.Draw() });
         Slots.Add(new Slot { Label = "HANDS", Act = () => WeaponHandling.PutAway("with the wheel") });

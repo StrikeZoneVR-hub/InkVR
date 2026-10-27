@@ -99,7 +99,7 @@ public static class ModConfig
         SnapTurnAngle = cfg.Bind("Comfort", "SnapTurnAngle", 45f, "Degrees per snap turn.");
         SmoothTurnSpeed = cfg.Bind("Comfort", "SmoothTurnSpeed", 120f, "Degrees per second for smooth turning.");
         LeftHanded = cfg.Bind("Controls", "LeftHanded", false, "Swap the controller roles (move on the right stick, attack with the left trigger).");
-        InteractWithHand = cfg.Bind("Controls", "InteractWithHand", true, "Point at things with your dominant hand to interact (off = look at them, like the flat game).");
+        InteractWithHand = cfg.Bind("Controls", "InteractWithHand", true, "Point at things with either hand, or touch them, to interact (grip or X); with neither hand on or pointing at anything, what you look at. Off = only what you look at, like the flat game.");
         PhysicalMelee = cfg.Bind("Controls", "PhysicalMelee", true, "Swing your arm to hit with melee weapons (the axe, the pipe...). The attack button still swings too.");
         AimGunsWithHand = cfg.Bind("Controls", "AimGunsWithHand", true, "Guns fire where your hand points (off = where you look, like the flat game).");
         PhysicalDoors = cfg.Bind("Controls", "PhysicalDoors", true, "Doors swing by hand: push them, grip and pull them, fling them shut; locked doors rattle (off = they open as the game opens them).");

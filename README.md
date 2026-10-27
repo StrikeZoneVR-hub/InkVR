@@ -53,7 +53,8 @@ Also included:
 - Solid weapons: the weapon in your hand stops at walls and floors (it tips back in your fist like a real one), your fingers close over its handle, and swings knock loose things about.
 - Your shadow: Henry's body, arms and hands cast a real-time shadow under the game's lights.
 - Tape notes come up close in front of you to read.
-- Reach without walking: point at an item, grip and flick, and it flies to your hand on an ink thread. Things that stay put (valves, levers, buttons, tape recorders) are used from where you stand.
+- Use things from where you stand: point at them with either hand, or just look at them, and grip or press X. Further off, point and grip and an item flies to your hand on an ink thread, and things that stay put (valves, levers, buttons, tape recorders) are used from there.
+- Motion controls are never required: keep gripping a valve or a lever for a moment and it's done.
 - A weapon wheel (click the right stick) and an inventory card in your hand (hold Y), or the game's own buttons.
 - Snap or smooth turning; seated or standing play.
 - World size: AUTO makes Henry's eyes your eyes, or set it yourself.

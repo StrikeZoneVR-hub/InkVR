@@ -4,6 +4,13 @@
 
 1.0 is the single update that goes on GitHub once you've tested it: 0.9.2, 0.10.0 and 0.10.1 below, plus these. The release notes are in [CHANGELOG.md](../CHANGELOG.md).
 
+### Fixed in 1.0 (from your second test video): using things, and Chapter 4's vent
+- **What went wrong:** things only answered a hand right on them (within about 40 cm), so prompts didn't show until you walked up to things in real life (the bridge lever). In the Lost Ones' room, the vent's way in is the flashlight lying inside it; your hands never got close enough, and your grip went to the trunk 2.5 m away instead (your log shows it used twice).
+- **Now, three ways find what you use, in this order:** a hand on it; either hand pointing at it, out to the game's own reach (8 units, about 2.4 m, walls stop it); or, with neither hand on or pointing at anything, what you look at. The game's highlight and prompt follow it, and grip (either hand) or X uses it. Something nearer that you point at or look at always wins over a gravity pull further off.
+- **Motion controls made easy:** with your hand on a valve or a lever, keep gripping for 1.5 s and it's done however your hand moved (it was 4 s of holding perfectly still). A valve needs 90 degrees, a lever a shorter pull. A gravity pull starts as soon as you grip.
+- **Also fixed:** the weapon wheel failing to open in Chapter 4 (a destroyed weapon object; four errors in your log).
+- **Checked on the test runtime:** Chapter 1, pointing the right hand at a door 1.4 m away made it the game's target. Chapter 4, standing at the vent: pointing at the flashlight from 1.25 m, then gripping, took it (in your game, that's what sends Henry through the vent); with no hand pointing, just looking at it made it the target, and a grip with the other hand took it. The launcher's controls page explains the new way.
+
 ### Changed in 1.0 (from your test): the theatre is back to how it was
 - The rebuilt theatre (backstage, the cellar, the booth, the Fun Hall, the fan finds, the office) is gone, as you asked: the theatre is the one you walked in 0.10, with the hall, the stage, the lobby, the stairs and the balcony.
 - Kept: your body walks with you, and soft footsteps play on the boards and the carpet.
@@ -30,11 +37,11 @@
 - **Checked:** Chapter 1's wrench, satchel off, thrown at 4.7 m/s.
 
 ### What to try (1.0)
-1. On the title screen, move the stick up and down, then point the laser at a different item and click: it should open what you pointed at. Do the same in Options, VR SETTINGS and the pause menu.
-2. Click quickly and lazily with the laser; quit to the menu from a chapter and click again.
-3. Turn on WALK THE THEATRE, walk into the lobby and find the mirror by the piano. Press the STYLE and WATCH arrows and try every style in the glass.
-4. Walk about the hall, the stairs and the balcony: do your legs step, and are the footsteps quiet enough?
-5. Play a chapter in a few different styles: does the ink look right on each?
+1. Chapter 4: in the Lost Ones' room, point at the flashlight in the vent (or just look at it) and grip or press X.
+2. Anywhere: point at things from a step or two away with either hand, and with neither hand, just look at them. Does the prompt show, and does grip or X use it?
+3. Grip a valve or a lever and just hold the grip: does it finish after a moment?
+4. On the title screen, move the stick up and down, then point the laser at a different item and click: it should open what you pointed at. Same in Options, VR SETTINGS and the pause menu.
+5. The theatre: find the mirror by the piano, try the STYLE and WATCH arrows; walk about (legs and quiet footsteps).
 6. Everything from 0.10.1 below.
 
 ## Previous build: 0.10.1 (pull and reach story items, solid weapons, the satchel optional)

@@ -685,7 +685,7 @@ public class DevTools : MonoBehaviour
             {
                 var ic = GameManager.Instance.Player?.m_Interaction;
                 var it = ic?.Interactable;
-                Plugin.L.LogInfo($"INTERSTATE target={(it != null ? PathOf(it.transform) : "none")} hoverHand={InkVR.Input.InteractionAim.HoverHand?.ToString() ?? "none"} found=[{InkVR.Input.InteractionAim.LastFind}] ignore={ic?.m_IgnoreLayers.value} player={GameManager.Instance.Player.transform.position}");
+                Plugin.L.LogInfo($"INTERSTATE target={(it != null ? PathOf(it.transform) : "none")} hoverHand={InkVR.Input.InteractionAim.HoverHand?.ToString() ?? "none"} near={InkVR.Input.InteractionAim.HoverNear} look={ic?.m_LookDistance} found=[{InkVR.Input.InteractionAim.LastFind}] ignore={ic?.m_IgnoreLayers.value} player={GameManager.Instance.Player.transform.position}");
                 break;
             }
             case "beams":
@@ -719,6 +719,23 @@ public class DevTools : MonoBehaviour
                 }
 
                 Plugin.L.LogInfo($"callall {arg}: {n} instances");
+                break;
+            }
+            case "standat":
+            {
+                // standat <path>: stand right where an object is (on the floor under it), facing the way it faces
+                var t = Resolve(arg);
+                var player = GameManager.Instance.Player;
+                if (t == null || player == null) break;
+                var mask = ~(1 << player.gameObject.layer);
+                var offset = Physics.Raycast(player.transform.position, Vector3.down, out var under, 50f, mask, QueryTriggerInteraction.Ignore) ? player.transform.position.y - under.point.y : 1f;
+                var y = Physics.Raycast(t.position + Vector3.up * 1f, Vector3.down, out var floor, 30f, mask, QueryTriggerInteraction.Ignore) ? floor.point.y + offset : t.position.y;
+                var cc = player.CharacterController;
+                cc.enabled = false;
+                player.transform.position = new Vector3(t.position.x, y, t.position.z);
+                player.transform.rotation = Quaternion.Euler(0, t.eulerAngles.y, 0);
+                cc.enabled = true;
+                Plugin.L.LogInfo($"standat {PathOf(t)}: {player.transform.position} facing {t.eulerAngles.y:F0}");
                 break;
             }
             case "goto2":
@@ -895,6 +912,29 @@ public class DevTools : MonoBehaviour
                 }
 
                 Plugin.L.LogInfo(sb.ToString());
+                break;
+            }
+            case "point":
+            {
+                // point r|l <path> | point off : a dev hand held out in front of you, pointing at an object (its collider's centre)
+                var pa = arg.Split(' ', 2);
+                if (pa[0] == "off")
+                {
+                    InkVR.Body.Hands.DevRight = InkVR.Body.Hands.DevLeft = null;
+                    break;
+                }
+
+                var pt = Resolve(pa[1]);
+                var o = InkVR.Core.VRRig.ActiveOrigin;
+                if (pt == null || o == null) break;
+                var pcol = pt.GetComponent<Collider>();
+                var target = o.InverseTransformPoint(pcol != null ? pcol.bounds.center : pt.position) - Vector3.up * InkVR.Core.VRRig.HeightLift;
+                var left = pa[0].StartsWith("l");
+                var at = new Vector3(left ? -0.2f : 0.2f, 1.25f, 0.3f);
+                var rot = Quaternion.LookRotation(target - at);
+                if (left) InkVR.Body.Hands.DevLeft = (at, rot);
+                else InkVR.Body.Hands.DevRight = (at, rot);
+                Plugin.L.LogInfo($"POINT {pa[0]} at {PathOf(pt)} ({(target - at).magnitude:F2} m away)");
                 break;
             }
             case "grip":
