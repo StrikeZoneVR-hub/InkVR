@@ -16,6 +16,30 @@ public partial class HandModel
     public static float StudioInk = 0.2f;
 
     private Action<float> _watchTick;
+    private Transform _watchRoot;
+
+    /// <summary>The strap's radius round Henry's wrist (metres of hand).</summary>
+    public float WatchRadius { get; private set; } = 0.03f;
+
+    /// <summary>
+    /// The watch onto another wrist (a worn game model's): the wrist joint, its frame (as the hand's: z along the
+    /// fingers, y out of the back of the hand) and how much bigger than Henry's that wrist is.
+    /// </summary>
+    public void PlaceWatch(Vector3 wrist, Quaternion frame, float bigger)
+    {
+        if (_watchRoot == null) return;
+        _watchRoot.SetPositionAndRotation(wrist, frame);
+        _watchRoot.localScale = Vector3.one * bigger;
+    }
+
+    /// <summary>Back on Henry's own wrist.</summary>
+    public void ResetWatch()
+    {
+        if (_watchRoot == null) return;
+        _watchRoot.localPosition = Vector3.zero;
+        _watchRoot.localRotation = Quaternion.identity;
+        _watchRoot.localScale = Vector3.one;
+    }
     private Transform _secondHand;
 
     private void BuildWatch(WatchKind kind, Func<string, Material> material)
@@ -35,10 +59,14 @@ public partial class HandModel
         var band = new MeshBuilder();
         if (Lifelike) band.Tube(new[] { new Vector3(0, 0, -0.032f + z), new Vector3(0, 0, -0.009f + z) }, new[] { r, r }, Vector3.up, 20, false, false, new Vector2(1f, 0.84f));
         else band.Tube(new[] { new Vector3(0, 0, -0.022f), new Vector3(0, 0, -0.001f) }, new[] { 0.0457f, 0.0372f }, Vector3.up, 24, false, false, new Vector2(1f, 0.84f)); // follows the cuff's flare
-        Part("WatchStrap", _wrist, band, material(strap), 0.0009f, stain: true);
+        // everything on a root of its own, so a worn game model can have it moved onto its wrist
+        _watchRoot = new GameObject("Watch").transform;
+        _watchRoot.SetParent(_wrist, false);
+        WatchRadius = r;
+        Part("WatchStrap", _watchRoot, band, material(strap), 0.0009f, stain: true);
 
         var face = new GameObject("WatchFace").transform;
-        face.SetParent(_wrist, false);
+        face.SetParent(_watchRoot, false);
         face.localPosition = new Vector3(0, r * 0.84f - 0.0003f, -0.0205f + z);
         face.localRotation = Quaternion.Euler(0, -90f, 0); // local +Z = 12 o'clock (the little-finger side), +X = 3 (the fingers)
 

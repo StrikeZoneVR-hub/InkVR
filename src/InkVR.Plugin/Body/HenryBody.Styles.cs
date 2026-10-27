@@ -559,6 +559,7 @@ public sealed partial class HenryBody
     /// </summary>
     public void ShowHead(bool on)
     {
+        _character?.ShowHead(on);
         _headShown = on;
         var drawn = on && !_low;
         var shadow = _headShadowOn && !_low;

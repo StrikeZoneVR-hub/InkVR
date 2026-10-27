@@ -188,8 +188,28 @@ public partial class HandModel
         Part("UpperSleeve", _upperArm, upper, material("sleeve"), bare && !lifelike ? 0.003f : 0.0026f, stain: true, sleeve: true);
 
         // The watch on the left wrist, its hands following your real clock (Watches.cs).
+        _watchFrom = _renderers.Count;
         if (left) BuildWatch(watch, material);
     }
+
+    private readonly int _watchFrom;
+    private bool _drawn = true;
+
+    /// <summary>The hand and arm drawn, or not (a style worn as one of the game's models has its own); the watch stays.</summary>
+    public void SetDrawn(bool on)
+    {
+        if (_drawn == on) return;
+        _drawn = on;
+        for (var i = 0; i < _watchFrom && i < _renderers.Count; i++)
+            if (_renderers[i] != null)
+                _renderers[i].enabled = on;
+    }
+
+    /// <summary>How far the fingers are curled now (0 open, 1 a fist): the index, the other three, the thumb.</summary>
+    public float IndexCurl => _indexCurl;
+
+    public float GripCurl => _gripCurl;
+    public float ThumbCurl => _thumbCurl;
 
     /// <summary>
     /// Toon: a white cartoon glove, rubber-hose style like the studio's own characters wear. A puffy hand with the

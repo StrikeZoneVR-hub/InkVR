@@ -73,13 +73,84 @@ public sealed partial class HenryBody
         Rest(B.RShin, Knee(1), Ankle(1), Vector3.forward);
         Rest(B.RFoot, Ankle(1), Toe(1), Vector3.up);
 
-        if (style == BodyStyle.Toon) BuildToon();
-        else if (style == BodyStyle.Lifelike) BuildLifelike();
-        else BuildStyled();
-        Assemble(material);
-        BuildHead(material);
-        BuildTail(material);
+        // A style with the game's own model wears it; Henry's skeleton (never drawn) still does the standing and stepping.
+        if (def.GameModel != null || def.ArchiveModel != null) _character = CharacterSkin.TryCreate(def, parent, 0);
+        if (_character == null)
+        {
+            if (style == BodyStyle.Toon) BuildToon();
+            else if (style == BodyStyle.Lifelike) BuildLifelike();
+            else BuildStyled();
+            Assemble(material);
+            BuildHead(material);
+            BuildTail(material);
+        }
+
         ApplyShadows(ModConfig.PlayerShadows.Value);
+    }
+
+    private readonly CharacterSkin _character;
+
+    /// <summary>This body is one of the game's own character models.</summary>
+    public bool Worn => _character != null;
+
+    public CharacterSkin Character => _character;
+
+    private Vector3 _eye;
+    private Quaternion _headRot = Quaternion.identity;
+    private float _k = 1f;
+
+    /// <summary>
+    /// After the hands are placed: the game's model takes this frame's pose (Henry's skeleton for the body, the hands'
+    /// wrists and curls for the arms and fingers).
+    /// </summary>
+    public void Wear(HandModel left, HandModel right)
+    {
+        if (_character == null || !_init) return;
+        var p = new CharacterSkin.Pose
+        {
+            Eye = _eye,
+            HeadRot = _headRot,
+            K = _k,
+            Pelvis = _bones[(int)B.Pelvis].rotation,
+            Spine = _bones[(int)B.Spine].rotation,
+            Chest = _bones[(int)B.Chest].rotation,
+            Neck = _bones[(int)B.Neck].rotation,
+            NeckBase = _bones[(int)B.Neck].position,
+            HipL = _bones[(int)B.LThigh].position,
+            HipR = _bones[(int)B.RThigh].position,
+            KneeL = _bones[(int)B.LShin].position,
+            KneeR = _bones[(int)B.RShin].position,
+            AnkleL = _bones[(int)B.LFoot].position,
+            AnkleR = _bones[(int)B.RFoot].position,
+            FootL = _bones[(int)B.LFoot].rotation,
+            FootR = _bones[(int)B.RFoot].rotation,
+            GroundL = FootPos(0).y,
+            GroundR = FootPos(1).y,
+            ElbowHintL = ElbowHintLeft,
+            ElbowHintR = ElbowHintRight,
+            HenryLeg = (ThighLen + ShinLen) * _k,
+            HenryAnkleOffset = Ankle(1) - HipJ(1)
+        };
+        _character.Apply(p, HandPoseOf(left), HandPoseOf(right));
+
+        // the watch onto the model's own left wrist, sized to it
+        if (left != null && _character.Wrist(0, out var wrist, out var frame, out var radius))
+            left.PlaceWatch(wrist, frame, Mathf.Clamp(radius * 1.1f / Mathf.Max(left.WatchRadius * left.Root.lossyScale.x, 1e-5f), 0.5f, 3f));
+    }
+
+    private static CharacterSkin.HandPose HandPoseOf(HandModel m)
+    {
+        if (m == null || !m.Root.gameObject.activeInHierarchy) return default;
+        return new CharacterSkin.HandPose
+        {
+            Valid = true,
+            Wrist = m.Wrist.position,
+            Rot = m.Wrist.rotation,
+            Scale = m.Root.lossyScale.x,
+            Index = m.IndexCurl,
+            Grip = m.GripCurl,
+            Thumb = m.ThumbCurl
+        };
     }
 
     private void Rest(B b, Vector3 head, Vector3 tail, Vector3 up)
@@ -276,6 +347,7 @@ public sealed partial class HenryBody
     /// <summary>YOUR SHADOW on or off: the body casts (or not), and so does its head.</summary>
     public void ApplyShadows(bool on)
     {
+        _character?.ApplyShadows(on);
         foreach (var r in _casters)
             if (r != null)
                 r.shadowCastingMode = on ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -294,11 +366,13 @@ public sealed partial class HenryBody
     public void SetVisible(bool on)
     {
         if (_root.gameObject.activeSelf != on) _root.gameObject.SetActive(on);
+        _character?.SetVisible(on && _init);
         if (!on) _init = false;
     }
 
     public void SetLayer(int layer)
     {
+        _character?.SetLayer(layer);
         foreach (var r in _renderers)
             if (r != null && r.gameObject.layer != layer)
                 r.gameObject.layer = layer;
@@ -310,7 +384,11 @@ public sealed partial class HenryBody
                 r.gameObject.layer = layer;
     }
 
-    public void Destroy() => Object.Destroy(_root.gameObject);
+    public void Destroy()
+    {
+        _character?.Destroy();
+        Object.Destroy(_root.gameObject);
+    }
 
     // =====================================================================================================
     // Posing: torso from the head, legs by IK onto planted feet
@@ -374,6 +452,9 @@ public sealed partial class HenryBody
     {
         _root.localScale = Vector3.one * k;
         if (_headRoot != null) _headRoot.SetPositionAndRotation(eye, headRot);
+        _eye = eye;
+        _headRot = headRot;
+        _k = k;
 
         // --- facing: follow the head, a little towards where the hands are working ---
         var headFwd = headRot * Vector3.forward;
@@ -424,6 +505,8 @@ public sealed partial class HenryBody
             _low = low;
             ShowHead(_headShown);
         }
+
+        _character?.SetLow(low);
 
         var spineLen = (NeckB - HipC).magnitude * k;
         var stand = floorY + HipC.y * k;

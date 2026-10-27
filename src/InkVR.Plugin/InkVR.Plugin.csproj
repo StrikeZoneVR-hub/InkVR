@@ -29,4 +29,7 @@
     <MakeDir Directories="$(BepInExDir)plugins\InkVR" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExDir)plugins\InkVR" />
   </Target>
+  <ItemGroup>
+    <EmbeddedResource Include="Body/UnityTypes.txt" LogicalName="UnityTypes.txt" />
+  </ItemGroup>
 </Project>

@@ -95,6 +95,13 @@ public static class Hands
         Pose(_right, Hand.Right, DevRight, scale, layer, Holds(Hand.Right, holding), gun && ControllerBindings.Dominant == Hand.Right, dt);
         AttachHeldItem();
         PutHandsOnWhatTheyHold(scale);
+
+        // a style worn as the game's own model: its arms and hands are the ones you see, posed from these
+        var worn = Body != null && Body.Worn;
+        _left.SetDrawn(!worn);
+        _right.SetDrawn(!worn);
+        if (worn) Body.Wear(_left, _right);
+        else _left.ResetWatch();
     }
 
     /// <summary>This hand is closed round a weapon: the weapon hand, or the other hand on the axe's handle or the gun's front.</summary>

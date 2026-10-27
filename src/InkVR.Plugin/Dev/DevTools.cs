@@ -144,6 +144,8 @@ public class DevTools : MonoBehaviour
         }
     }
 
+    private static readonly List<GameObject> _models = new();
+
     private void Run(string line)
     {
         var parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
@@ -154,6 +156,71 @@ public class DevTools : MonoBehaviour
             case "dump": DumpHierarchy(arg); break;
             case "cams": DumpCameras(); break;
             case "shot": Screenshot(arg); break;
+            case "skin":
+                Plugin.L.LogInfo("SKIN " + (InkVR.Body.Hands.Body?.Character?.Describe() ?? "none"));
+                break;
+            case "archmodel":
+            {
+                // archmodel <statue>|x y z yaw scale : a statue from the Archives scene read from the game's files, in the theatre
+                var gp = arg.Split('|');
+                var root = InkVR.Core.VRRig.Cinema?.Root;
+                if (root == null) break;
+                var go = InkVR.Body.ArchiveModels.Spawn(gp[0].Trim(), InkVR.UI.VRLayers.UI);
+                if (go == null) break;
+                go.transform.SetParent(root, false);
+                var v = gp.Length > 1 ? gp[1].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(s => float.Parse(s, System.Globalization.CultureInfo.InvariantCulture)).ToArray() : new float[] { 0, 0, 2, 180, 0.338f };
+                go.transform.localPosition = new Vector3(v[0], v[1], v[2]);
+                go.transform.localRotation = Quaternion.Euler(0, v.Length > 3 ? v[3] : 180, 0) * go.transform.localRotation;
+                go.transform.localScale = go.transform.localScale * (v.Length > 4 ? v[4] : 0.338f);
+                _models.Add(go);
+                Plugin.L.LogInfo("ARCHMODEL " + InkVR.Body.GameModels.Describe(go));
+                break;
+            }
+            case "skinwhole":
+                // skinwhole 1|0: a worn game model drawn whole (head too) for every camera, for bodyshot pictures
+                InkVR.Body.CharacterSkin.DevWhole = arg == "1";
+                break;
+            case "skinparts":
+            {
+                // skinparts: every renderer and bone of the worn model, where it is (dev)
+                var ch = InkVR.Body.Hands.Body?.Character;
+                if (ch == null) break;
+                foreach (var r in ch.Root.GetComponentsInChildren<Renderer>(true))
+                {
+                    var smr = r.TryCast<SkinnedMeshRenderer>();
+                    var sb = new StringBuilder($"SKINPART {r.name} on={r.enabled}/{r.gameObject.activeInHierarchy} bounds={r.bounds.center:F2} size={r.bounds.size:F2} parent={(r.transform.parent != null ? r.transform.parent.name : "-")} scale={r.transform.lossyScale:F3}");
+                    if (smr != null)
+                        foreach (var b in smr.bones)
+                            sb.Append($"\n    bone {(b != null ? b.name : "null")} at {(b != null ? b.position.ToString("F2") : "-")} parent={(b != null && b.parent != null ? b.parent.name : "-")} ls={(b != null ? b.localScale.ToString("F2") : "-")}");
+                    Plugin.L.LogInfo(sb.ToString());
+                }
+
+                break;
+            }
+            case "gmodel":
+            {
+                // gmodel <resources path>|x y z yaw scale : one of the game's characters, stripped, standing in the theatre
+                // (theatre metres); gmodel clear
+                if (arg == "clear")
+                {
+                    foreach (var m in _models) if (m != null) Object.Destroy(m);
+                    _models.Clear();
+                    break;
+                }
+
+                var gp = arg.Split('|');
+                var root = InkVR.Core.VRRig.Cinema?.Root;
+                if (root == null) break;
+                var go = InkVR.Body.GameModels.Spawn(gp[0].Trim(), root, InkVR.UI.VRLayers.UI);
+                if (go == null) break;
+                var v = gp.Length > 1 ? gp[1].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(s => float.Parse(s, System.Globalization.CultureInfo.InvariantCulture)).ToArray() : new float[] { 0, 0, 2, 180, 0.338f };
+                go.transform.localPosition = new Vector3(v[0], v[1], v[2]);
+                go.transform.localRotation = Quaternion.Euler(0, v.Length > 3 ? v[3] : 180, 0);
+                go.transform.localScale = Vector3.one * (v.Length > 4 ? v[4] : 0.338f);
+                _models.Add(go);
+                Plugin.L.LogInfo("GMODEL " + InkVR.Body.GameModels.Describe(go));
+                break;
+            }
             case "noteshot": InkVR.UI.NoteReader.DevSave(Path.Combine(Plugin.DataDir, "shots")); break;
             case "find": Find(arg); break;
             case "inspect": Inspect(arg); break;

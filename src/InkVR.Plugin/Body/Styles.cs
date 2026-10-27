@@ -75,6 +75,15 @@ public sealed class StyleDef
 
     /// <summary>Ink drips off you all the time (drops a second), and your footprints are always inky.</summary>
     public float Drips;
+
+    /// <summary>The game's own character model for this style (a Resources path in the player's game), worn as the body.</summary>
+    public string GameModel;
+
+    /// <summary>Parts of that model left off (a weapon in its hand, a loose prop).</summary>
+    public string[] ModelHide;
+
+    /// <summary>Or a statue in the Archives scene to read the model from (characters only in a chapter's own files).</summary>
+    public string ArchiveModel;
 }
 
 public static class Styles
@@ -106,38 +115,45 @@ public static class Styles
         new()
         {
             Id = BodyStyle.Boris, Key = "Boris", Label = "BORIS", Blurb = "Boris the wolf: overalls, floppy ears and a bushy tail.",
-            Hands = HandKind.Toon, Sleeves = SleeveKind.Bare, CartoonFeet = true, Remap = Map("toonForearm", "borisArm", "sleeve", "borisArm", "sleeveRolled", "borisArm")
+            Hands = HandKind.Toon, Sleeves = SleeveKind.Bare, CartoonFeet = true, Remap = Map("toonForearm", "borisArm", "sleeve", "borisArm", "sleeveRolled", "borisArm"),
+            ArchiveModel = "Boris"
         },
         new()
         {
             Id = BodyStyle.Alice, Key = "Alice", Label = "ALICE ANGEL", Blurb = "Alice Angel: her dress, her bow and a halo that glows over your head.",
-            Hands = HandKind.Toon, Sleeves = SleeveKind.Bare, CartoonFeet = true, Remap = Map("toonForearm", "aliceArm", "sleeve", "aliceArm", "sleeveRolled", "aliceArm")
+            Hands = HandKind.Toon, Sleeves = SleeveKind.Bare, CartoonFeet = true, Remap = Map("toonForearm", "aliceArm", "sleeve", "aliceArm", "sleeveRolled", "aliceArm"),
+            ArchiveModel = "Alice"
         },
         new()
         {
             Id = BodyStyle.InkDemon, Key = "InkDemon", Label = "THE INK DEMON", Blurb = "Bendy as the studio made him: ink drips off you and every step leaves a print.",
-            Hands = HandKind.Lifelike, Sleeves = SleeveKind.Bare, ArmBulk = 1.08f, Drips = 1.5f, Remap = Inky("demon")
+            Hands = HandKind.Lifelike, Sleeves = SleeveKind.Bare, ArmBulk = 1.08f, Drips = 1.5f, Remap = Inky("demon"),
+            GameModel = "gameplay/characters/ai_bendy"
         },
         new()
         {
             Id = BodyStyle.Sammy, Key = "Sammy", Label = "SAMMY LAWRENCE", Blurb = "The prophet: inky overalls, and his Bendy cut-out mask tied on with rope.",
-            Hands = HandKind.Lifelike, Sleeves = SleeveKind.Bare, Drips = 0.6f, Remap = Inky("sammy")
+            Hands = HandKind.Lifelike, Sleeves = SleeveKind.Bare, Drips = 0.6f, Remap = Inky("sammy"),
+            GameModel = "gameplay/characters/ai_sammylawrence", ModelHide = new[] { "Model_SammyMaskPhysics" }
         },
         new()
         {
             Id = BodyStyle.Projectionist, Key = "Projectionist", Label = "THE PROJECTIONIST", Blurb = "Norman Polk, the projectionist: a projector for a head, and its lens throws light where you look.",
             Hands = HandKind.Lifelike, Sleeves = SleeveKind.Rolled, ArmBulk = 1.12f, Drips = 0.8f,
-            Remap = Inky("norman", "sleeve", "normanSleeve", "sleeveRolled", "normanSleeveRolled")
+            Remap = Inky("norman", "sleeve", "normanSleeve", "sleeveRolled", "normanSleeveRolled"),
+            GameModel = "gameplay/characters/ai_projectionist"
         },
         new()
         {
             Id = BodyStyle.BruteBoris, Key = "BruteBoris", Label = "BRUTE BORIS", Blurb = "Boris after the ink: huge arms, a torn vest and one stitched eye.",
-            Hands = HandKind.Lifelike, Sleeves = SleeveKind.Bare, ArmBulk = 1.45f, Drips = 0.5f, Remap = Inky("brute")
+            Hands = HandKind.Lifelike, Sleeves = SleeveKind.Bare, ArmBulk = 1.45f, Drips = 0.5f, Remap = Inky("brute"),
+            ArchiveModel = "BruteBoris"
         },
         new()
         {
             Id = BodyStyle.Searcher, Key = "Searcher", Label = "A SEARCHER", Blurb = "One of the lost ones from the ink: dripping goo and two pale eyes.",
-            Hands = HandKind.Lifelike, Sleeves = SleeveKind.Bare, Drips = 1.2f, Remap = Inky("goo")
+            Hands = HandKind.Lifelike, Sleeves = SleeveKind.Bare, Drips = 1.2f, Remap = Inky("goo"),
+            GameModel = "gameplay/characters/ai_searcher"
         },
         new()
         {
@@ -154,6 +170,8 @@ public static class Styles
         {
             Id = BodyStyle.BeastBendy, Key = "BeastBendy", Label = "BEAST BENDY", Blurb = "The Ink Demon at his most monstrous: a huge chest, great horns, ink pouring off him.",
             Hands = HandKind.Lifelike, Sleeves = SleeveKind.Bare, ArmBulk = 1.55f, Drips = 2.2f, Remap = Inky("demon")
+            // (the game's own model is ready to wear, GameModel = "gameplay/characters/beastbendy_ai"; it stays drawn
+            // until StrikeZoneVR has finished the game: he's a late-chapter character)
         },
     };
 
