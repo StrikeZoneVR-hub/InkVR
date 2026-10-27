@@ -188,7 +188,10 @@ public static class DevRecorder
         }
 
         var scale = VRRig.ActiveScale;
-        _cam.cullingMask = ~UI.VRLayers.UIMask & ~(1 << 10);
+        // in the theatre (the menu, the pause screen) everything's on the UI layer; in a level, leave the UI out
+        _cam.cullingMask = VRRig.CinemaShowing ? UI.VRLayers.UIMask : ~UI.VRLayers.UIMask & ~(1 << 10);
+        _cam.clearFlags = CameraClearFlags.SolidColor;
+        _cam.backgroundColor = new Color(0.018f, 0.014f, 0.01f);
         _cam.nearClipPlane = 0.02f * scale;
         _cam.farClipPlane = 80f * scale;
         Pose(head, scale, out var pos, out var look, out var fov);

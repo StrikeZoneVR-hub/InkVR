@@ -79,7 +79,13 @@ public sealed partial class Theatre
         Lobby,
         Stairs,
         BalconyTop,
-        Balcony
+        Balcony,
+        Cellar,
+        Basement,
+        ProjStair,
+        Booth,
+        Arcade,
+        Office
     }
 
     private readonly struct Slab
@@ -143,13 +149,26 @@ public sealed partial class Theatre
             list.Add(Mirror(8.05f, 8.5f, -13.75f, BalconyZ - 0.5f, FloorKind.Balcony, s));
         }
 
+        RoomSlabs(list);
         return list.ToArray();
     }
 
     private static Slab Mirror(float x0, float x1, float z0, float z1, FloorKind kind, float s) =>
         s > 0 ? new Slab(x0, x1, z0, z1, kind) : new Slab(-x1, -x0, z0, z1, kind);
 
-    private static readonly Blocker[] Blockers =
+    // (built on first use: static fields in other parts of this class may not be set up yet when this one would be)
+    private static Blocker[] _blockers;
+    private static Blocker[] Blockers => _blockers ??= Join(LobbyBlockers, RoomBlockers);
+
+    private static Blocker[] Join(Blocker[] a, Blocker[] b)
+    {
+        var o = new Blocker[a.Length + b.Length];
+        a.CopyTo(o, 0);
+        b.CopyTo(o, a.Length);
+        return o;
+    }
+
+    private static readonly Blocker[] LobbyBlockers =
     {
         new(BoothX - 1.2f, BoothX + 1.2f, LobbyFrontZ, BoothFrontZ + 0.42f, 1.2f),
         new(CounterX - 1.6f, CounterX + 1.6f, LobbyFrontZ, CounterFrontZ + 0.2f, 1.2f),
@@ -169,7 +188,8 @@ public sealed partial class Theatre
         FloorKind.Lobby => LobbyFloor,
         FloorKind.Stairs => StairHeight(z),
         FloorKind.BalconyTop => BalconyTop,
-        _ => BalconyFloorAt(z)
+        FloorKind.Balcony => BalconyFloorAt(z),
+        _ => RoomHeight(kind, x, z)
     };
 
     /// <summary>
@@ -184,6 +204,7 @@ public sealed partial class Theatre
         foreach (var s in Slabs)
         {
             if (x < s.X0 || x > s.X1 || z < s.Z0 || z > s.Z1) continue;
+            if (s.Kind == FloorKind.Office && !OfficeOpen) continue;
             var h = HeightOf(s.Kind, x, z);
             if (h > level + StepUp || (found && h <= floor)) continue;
             floor = h;
@@ -198,11 +219,13 @@ public sealed partial class Theatre
     }
 
     /// <summary>The screen can be seen (and pointed at) from the hall, the stage and the balcony, not the lobby.</summary>
-    public static bool SeesScreen(Vector3 eye) => eye.z > BackZ - 0.1f;
+    public static bool SeesScreen(Vector3 eye) => eye.z > BackZ - 0.1f && RoomOf(eye.x, eye.y, eye.z, 0, 0, 0) == Room.Hall;
 
     /// <summary>The surface something dropped at p comes to rest on (floors, steps, the counter, the balcony rail...).</summary>
     public static float SurfaceUnder(Vector3 p)
     {
+        var room = RoomSurfaceUnder(p);
+        if (!float.IsNaN(room)) return room;
         var best = float.NegativeInfinity;
         void Try(float h)
         {
@@ -228,6 +251,25 @@ public sealed partial class Theatre
     /// <summary>Keeps something thrown inside the rooms: off the walls, through the doorways only.</summary>
     public static void Contain(ref Vector3 p, ref Vector3 v, float r)
     {
+        if (RoomBounds(p, out var min, out var max))
+        {
+            for (var a = 0; a < 3; a++)
+            {
+                if (p[a] < min[a] + r)
+                {
+                    p[a] = min[a] + r;
+                    if (v[a] < 0) v[a] = -v[a] * (a == 1 ? 0.3f : 0.4f);
+                }
+                else if (p[a] > max[a] - r)
+                {
+                    p[a] = max[a] - r;
+                    if (v[a] > 0) v[a] = -v[a] * 0.4f;
+                }
+            }
+
+            return;
+        }
+
         var lobby = p.z < BackZ - WallThick * 0.5f;
         var halfX = (lobby ? LobbyHalf : Half) - r;
         if (Mathf.Abs(p.x) > halfX)
@@ -543,12 +585,18 @@ public sealed partial class Theatre
         var noHoles = new Vector4[0];
         var doors = new List<Vector4> { new(-LobbyDoorHalf, f, LobbyDoorHalf, f + LobbyDoorHeight) };
         doors.AddRange(BalconyDoors(BalconyTop));
+        doors.Add(new Vector4(ProjX0 - 0.1f, ProjFloor - 0.15f, ProjX1 + 0.1f, top + 1f)); // the booth, hung over the doors
         foreach (var (z, n, holes) in new[] { (zf, Vector3.forward, noHoles), (zb, Vector3.back, doors.ToArray()) })
         {
             WallWithHoles(_wood, new Vector3(0, 0, z), Vector3.right, -hx, hx, f, f + 1.1f, n, WoodDark, holes, 1.6f, 1.6f);
             WallWithHoles(_box, new Vector3(0, 0, z + n.z * 0.03f), Vector3.right, -hx, hx, f + 1.1f, f + 1.2f, n, GoldDark, holes, 0, 0);
             WallWithHoles(_wall, new Vector3(0, 0, z), Vector3.right, -hx, hx, f + 1.2f, cornice, n, Paper, holes, 1.2f, 1.2f);
-            Band(_ornament, new Vector3(-hx, cornice, z + n.z * 0.12f), new Vector3(hx, cornice, z + n.z * 0.12f), up, 0.6f, n, Gold, 1.6f);
+            if (z > zb - 0.01f)
+            {
+                Band(_ornament, new Vector3(-hx, cornice, z + n.z * 0.12f), new Vector3(ProjX0 - 0.1f, cornice, z + n.z * 0.12f), up, 0.6f, n, Gold, 1.6f);
+                Band(_ornament, new Vector3(ProjX1 + 0.1f, cornice, z + n.z * 0.12f), new Vector3(hx, cornice, z + n.z * 0.12f), up, 0.6f, n, Gold, 1.6f);
+            }
+            else Band(_ornament, new Vector3(-hx, cornice, z + n.z * 0.12f), new Vector3(hx, cornice, z + n.z * 0.12f), up, 0.6f, n, Gold, 1.6f);
         }
 
         Doorway(new Vector3(0, f, zf + 0.02f), Vector3.left, Vector3.forward, 2.6f, 2.6f);
@@ -573,14 +621,17 @@ public sealed partial class Theatre
         for (var i = 0; i < xs.Length - 1; i++)
         for (var k = 0; k < zs.Length - 1; k++)
             Patch(_coffer, new Vector3(xs[i], top, zs[k]), new Vector3(xs[i + 1], top, zs[k]), new Vector3(xs[i + 1], top, zs[k + 1]), new Vector3(xs[i], top, zs[k + 1]), Vector3.down, Plaster, 3, 3);
+        bool OverBooth(float bx0, float bx1, float bz0, float bz1) => bx1 > ProjX0 - 0.3f && bx0 < ProjX1 + 0.3f && bz1 > ProjBackZ - 0.3f && bz0 < zb + 0.1f;
         foreach (var x in xs)
             if (Mathf.Abs(x) < hx - 0.1f)
                 for (var k = 0; k < zs.Length - 1; k++)
-                    Box(_box, new Vector3(x, top - 0.18f, (zs[k] + zs[k + 1]) * 0.5f), new Vector3(0.28f, 0.36f, zs[k + 1] - zs[k]), GoldDark, 1f, true);
+                    if (!OverBooth(x - 0.14f, x + 0.14f, zs[k], zs[k + 1]))
+                        Box(_box, new Vector3(x, top - 0.18f, (zs[k] + zs[k + 1]) * 0.5f), new Vector3(0.28f, 0.36f, zs[k + 1] - zs[k]), GoldDark, 1f, true);
         foreach (var z in zs)
             if (z > zf + 0.1f && z < zb - 0.1f)
                 for (var i = 0; i < xs.Length - 1; i++)
-                    Box(_box, new Vector3((xs[i] + xs[i + 1]) * 0.5f, top - 0.16f, z), new Vector3(xs[i + 1] - xs[i], 0.32f, 0.28f), GoldDark, 1f, true);
+                    if (!OverBooth(xs[i], xs[i + 1], z - 0.14f, z + 0.14f))
+                        Box(_box, new Vector3((xs[i] + xs[i + 1]) * 0.5f, top - 0.16f, z), new Vector3(xs[i + 1] - xs[i], 0.32f, 0.28f), GoldDark, 1f, true);
         Chandelier(new Vector3(0, 6.9f, -19.1f), top - 0.05f);
 
         foreach (var (at, n) in LobbySconces()) SconceN(at, n);
@@ -888,8 +939,8 @@ public sealed partial class Theatre
     /// <summary>Builds a <see cref="MeshBuilder"/> shape into a part (lit like the rest).</summary>
     private void AddBuilder(Part p, MeshBuilder mb, Color tint)
     {
-        p = Route(p);
         var v = mb.VertexArray;
+        p = Route(p, v.Length > 0 ? v[0] : Vector3.zero, Vector3.zero);
         var nrm = mb.NormalArray;
         var uv = mb.UvArray;
         var start = p.V.Count;
@@ -897,7 +948,7 @@ public sealed partial class Theatre
         {
             p.V.Add(v[i]);
             p.UV.Add(uv[i]);
-            p.C.Add(Lit(v[i], nrm[i], tint, 1f));
+            AddLit(p, v[i], nrm[i], tint, 1f);
         }
 
         foreach (var i in mb.TriangleArray) p.T.Add(start + i);

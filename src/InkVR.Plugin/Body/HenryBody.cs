@@ -327,6 +327,27 @@ public sealed partial class HenryBody
     private bool _init;
     private float _yaw;
     private Vector3 _lastPelvis, _velocity;
+
+    /// <summary>
+    /// How fast the floor under you is moving (world, per second). In the theatre you walk by the theatre moving round
+    /// you, so your body only knows it's walking from this: its feet step to keep up instead of sliding.
+    /// </summary>
+    public Vector3 GroundVelocity;
+
+    /// <summary>The floor moved under the planted feet (the theatre walked or turned round you): they move with it.</summary>
+    public void CarryFeet(Func<Vector3, Vector3> move, float yaw)
+    {
+        if (!_init) return;
+        for (var i = 0; i < 2; i++)
+        {
+            _feet[i].Planted = move(_feet[i].Planted);
+            _feet[i].From = move(_feet[i].From);
+            _feet[i].To = move(_feet[i].To);
+            _feet[i].Yaw += yaw;
+            _feet[i].FromYaw += yaw;
+            _feet[i].ToYaw += yaw;
+        }
+    }
     private int _nextFoot;
 
     /// <summary>Where the arms attach (world), and which way the elbows should point.</summary>
@@ -369,7 +390,8 @@ public sealed partial class HenryBody
             }
         }
 
-        var speed = new Vector3(_velocity.x, 0, _velocity.z).magnitude / Mathf.Max(k, 1e-3f);
+        var rel = _velocity - GroundVelocity; // walking, relative to the floor
+        var speed = new Vector3(rel.x, 0, rel.z).magnitude / Mathf.Max(k, 1e-3f);
         if (!_init) _yaw = target;
         if (dt > 0)
         {
@@ -480,7 +502,7 @@ public sealed partial class HenryBody
             Set(i == 0 ? B.LFoot : B.RFoot, ankle, toe, up);
         }
 
-        if (dt > 0) Animate(dt, _yaw, _velocity, k);
+        if (dt > 0) Animate(dt, _yaw, rel, k);
     }
 
     private static float Smooth(float t) => t * t * (3f - 2f * t);
@@ -510,7 +532,9 @@ public sealed partial class HenryBody
 
         if (_feet[0].Stepping || _feet[1].Stepping) return;
 
-        var lead = new Vector3(_velocity.x, 0, _velocity.z) * 0.22f;
+        var rel = _velocity - GroundVelocity;
+        var lead = new Vector3(rel.x, 0, rel.z) * 0.3f;
+        var stride = 0.2f + 0.1f * Mathf.Min(speed, 2.5f); // longer strides the faster you go
         var best = -1;
         var bestNeed = 0f;
         var targets = new Vector3[2];
@@ -523,7 +547,7 @@ public sealed partial class HenryBody
             var flat = new Vector3(p.x - _feet[i].Planted.x, 0, p.z - _feet[i].Planted.z).magnitude / k;
             var turn = Mathf.Abs(Mathf.DeltaAngle(_feet[i].Yaw, _yaw)) / 40f;
             var height = Mathf.Abs(p.y - _feet[i].Planted.y) / k / 0.2f;
-            var need = Mathf.Max(flat / 0.2f, Mathf.Max(turn, height));
+            var need = Mathf.Max(flat / stride, Mathf.Max(turn, height));
             if (i == _nextFoot) need *= 1.15f; // alternate feet when both want to go
             if (need > 1f && need > bestNeed)
             {
@@ -538,7 +562,7 @@ public sealed partial class HenryBody
         _feet[best].FromYaw = _feet[best].Yaw;
         _feet[best].ToYaw = _yaw;
         _feet[best].T = 0;
-        _feet[best].Duration = Mathf.Clamp(0.32f - speed * 0.06f, 0.16f, 0.32f);
+        _feet[best].Duration = Mathf.Clamp(0.32f - speed * 0.05f, 0.2f, 0.32f);
         _feet[best].Stepping = true;
         _nextFoot = 1 - best;
     }

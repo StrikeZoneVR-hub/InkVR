@@ -249,6 +249,16 @@ public static class Hands
 
         Body = _body;
         Body.SetVisible(true);
+        if (dt > 0)
+        {
+            // walking the theatre: the floor moves round you, so the feet go with it and step to keep up
+            if (VRRig.CinemaShowing)
+            {
+                Body.CarryFeet(UI.TheatreWalk.CarryPoint, UI.TheatreWalk.CarryYaw);
+                Body.GroundVelocity = UI.TheatreWalk.FloorVelocity(head.position, dt);
+            }
+            else Body.GroundVelocity = Vector3.zero;
+        }
         Body.SetLayer(layer);
 
         var bodyScale = Mathf.Clamp(VRRig.StandingEyeHeight / HenryBody.EyeHeight, 0.75f, 1.35f);

@@ -39,7 +39,7 @@ public static class BodyTextures
             for (var y = 0; y < c.H; y++)
             {
                 var p = c.Px[y * c.W + x];
-                c.Px[y * c.W + x] = new Color(p.r * k, p.g * k, p.b * k, 1);
+                c.Mul(y * c.W + x, k, k, k);
             }
         }
     }
@@ -55,7 +55,7 @@ public static class BodyTextures
             for (var y = 0; y < c.H; y++)
             {
                 var p = c.Px[y * c.W + x];
-                c.Px[y * c.W + x] = new Color(p.r * k, p.g * k, p.b * k, 1);
+                c.Mul(y * c.W + x, k, k, k);
             }
         }
     }
@@ -126,7 +126,7 @@ public static class BodyTextures
         for (var x = (int)(c.W * 0.6f); x < (int)(c.W * 0.9f); x++)
         {
             var p = c.Px[y * c.W + x];
-            c.Px[y * c.W + x] = new Color(p.r * 1.35f, p.g * 1.3f, p.b * 1.25f, 1);
+            c.Mul(y * c.W + x, 1.35f, 1.3f, 1.25f);
         }
 
         c.Stroke(c.W * 0.6f, 0, c.W * 0.6f, c.H, 1.6f, Ink, 0.3f);

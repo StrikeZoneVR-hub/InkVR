@@ -11,7 +11,7 @@ namespace InkVR.UI;
 /// bell, knocking, a door rattling and creaking, tin cans, a squeaky doll, ink seeping. Played flat (not 3D, the
 /// game's listener isn't in the theatre) but panned and faded by where they are relative to your head.
 /// </summary>
-public static class TheatreSounds
+public static partial class TheatreSounds
 {
     private const int Rate = 22050;
     private static readonly AudioSource[] Sources = new AudioSource[8];

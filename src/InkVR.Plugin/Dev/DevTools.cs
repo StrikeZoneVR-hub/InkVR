@@ -1358,6 +1358,10 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"watch: {ModConfig.Watch.Value}");
                 break;
             }
+            case "show":
+                // show: start the theatre's opening again (house lights, follow spots, the curtain)
+                InkVR.Core.VRRig.Cinema?.StartShow(true);
+                break;
             case "glass":
             {
                 // glass x y z yaw w h: a test mirror in the theatre (theatre metres, facing yaw), or "glass state"

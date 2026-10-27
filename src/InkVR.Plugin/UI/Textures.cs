@@ -24,73 +24,85 @@ public class InkCanvas
     public float Rand() => (float)_rng.NextDouble();
     public float Rand(float a, float b) => a + (b - a) * Rand();
 
+    // (Plain .NET maths throughout: in this game build every Unity maths call goes through IL2CPP and costs ~100 ns,
+    // and painting makes millions of them.)
+
     public void Blend(int x, int y, Color c, float a)
     {
         if (W == 0) return;
         x = ((x % W) + W) % W; // wrap horizontally (cylindrical UVs)
         if (y < 0 || y >= H || a <= 0) return;
         var i = y * W + x;
-        Px[i] = Color.Lerp(Px[i], c, Mathf.Clamp01(a * c.a));
+        var t = a * c.a;
+        if (t > 1f) t = 1f;
+        var p = Px[i];
+        p.r += (c.r - p.r) * t;
+        p.g += (c.g - p.g) * t;
+        p.b += (c.b - p.b) * t;
+        p.a += (c.a - p.a) * t;
+        Px[i] = p;
     }
 
     /// <summary>A soft disc (anti-aliased).</summary>
     public void Dot(float cx, float cy, float r, Color c, float alpha = 1f)
     {
-        var x0 = Mathf.FloorToInt(cx - r - 1);
-        var x1 = Mathf.CeilToInt(cx + r + 1);
-        var y0 = Mathf.FloorToInt(cy - r - 1);
-        var y1 = Mathf.CeilToInt(cy + r + 1);
+        var x0 = (int)System.MathF.Floor(cx - r - 1);
+        var x1 = (int)System.MathF.Ceiling(cx + r + 1);
+        var y0 = (int)System.MathF.Floor(cy - r - 1);
+        var y1 = (int)System.MathF.Ceiling(cy + r + 1);
         for (var y = y0; y <= y1; y++)
         for (var x = x0; x <= x1; x++)
         {
-            var d = Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
-            Blend(x, y, c, alpha * Mathf.Clamp01(r - d + 0.5f));
+            var d = System.MathF.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+            var k = r - d + 0.5f;
+            if (k <= 0) continue;
+            Blend(x, y, c, alpha * (k > 1f ? 1f : k));
         }
     }
 
     /// <summary>A hand-drawn stroke: tapered ends, slight wobble.</summary>
     public void Stroke(float x0, float y0, float x1, float y1, float width, Color c, float wobble = 0.6f, float alpha = 1f)
     {
-        var len = Mathf.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
-        var steps = Mathf.Max(2, Mathf.CeilToInt(len * 1.5f));
-        var nx = -(y1 - y0) / Mathf.Max(len, 1e-3f);
-        var ny = (x1 - x0) / Mathf.Max(len, 1e-3f);
+        var len = System.MathF.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+        var steps = System.Math.Max(2, (int)System.MathF.Ceiling(len * 1.5f));
+        var nx = -(y1 - y0) / System.Math.Max(len, 1e-3f);
+        var ny = (x1 - x0) / System.Math.Max(len, 1e-3f);
         var phase = Rand(0, 6.28f);
         var freq = Rand(0.05f, 0.12f);
         for (var i = 0; i <= steps; i++)
         {
             var t = (float)i / steps;
-            var taper = Mathf.Sin(t * Mathf.PI) * 0.75f + 0.25f;
-            var off = Mathf.Sin(phase + i * freq) * wobble;
-            Dot(Mathf.Lerp(x0, x1, t) + nx * off, Mathf.Lerp(y0, y1, t) + ny * off, width * 0.5f * taper, c, alpha);
+            var taper = System.MathF.Sin(t * System.MathF.PI) * 0.75f + 0.25f;
+            var off = System.MathF.Sin(phase + i * freq) * wobble;
+            Dot(x0 + (x1 - x0) * t + nx * off, y0 + (y1 - y0) * t + ny * off, width * 0.5f * taper, c, alpha);
         }
     }
 
     /// <summary>Parallel hatching inside a rectangle, at an angle (degrees).</summary>
     public void Hatch(float x, float y, float w, float h, float angle, float spacing, float width, Color c, float alpha)
     {
-        var dir = new Vector2(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad));
-        var n = new Vector2(-dir.y, dir.x);
-        var center = new Vector2(x + w / 2, y + h / 2);
-        var reach = Mathf.Sqrt(w * w + h * h) / 2;
+        var rad = angle * (System.MathF.PI / 180f);
+        float dx = System.MathF.Cos(rad), dy = System.MathF.Sin(rad);
+        float nx = -dy, ny = dx;
+        float cx = x + w / 2, cy = y + h / 2;
+        var reach = System.MathF.Sqrt(w * w + h * h) / 2;
         for (var o = -reach; o <= reach; o += spacing * Rand(0.8f, 1.2f))
         {
-            var p = center + n * o;
-            var a = p - dir * reach;
-            var b = p + dir * reach;
-            // Clip to the rectangle by sampling: cheap and good enough for textures.
-            ClippedStroke(a, b, x, y, w, h, width, c, alpha * Rand(0.6f, 1f));
+            float px = cx + nx * o, py = cy + ny * o;
+            // clip to the rectangle by sampling: cheap and good enough for textures
+            ClippedStroke(px - dx * reach, py - dy * reach, px + dx * reach, py + dy * reach, x, y, w, h, width, c, alpha * Rand(0.6f, 1f));
         }
     }
 
-    private void ClippedStroke(Vector2 a, Vector2 b, float x, float y, float w, float h, float width, Color c, float alpha)
+    private void ClippedStroke(float ax, float ay, float bx, float by, float x, float y, float w, float h, float width, Color c, float alpha)
     {
-        var steps = Mathf.CeilToInt(Vector2.Distance(a, b));
+        var steps = (int)System.MathF.Ceiling(System.MathF.Sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)));
         for (var i = 0; i <= steps; i++)
         {
-            var p = Vector2.Lerp(a, b, (float)i / steps);
-            if (p.x < x || p.x > x + w || p.y < y || p.y > y + h) continue;
-            Dot(p.x, p.y, width * 0.5f, c, alpha);
+            var t = (float)i / steps;
+            float px = ax + (bx - ax) * t, py = ay + (by - ay) * t;
+            if (px < x || px > x + w || py < y || py > y + h) continue;
+            Dot(px, py, width * 0.5f, c, alpha);
         }
     }
 
@@ -103,7 +115,7 @@ public class InkCanvas
         {
             var ang = Rand(0, 6.28f);
             var d = r * Rand(0.5f, 1.0f);
-            Dot(cx + Mathf.Cos(ang) * d, cy + Mathf.Sin(ang) * d, r * Rand(0.35f, 0.7f), ink);
+            Dot(cx + System.MathF.Cos(ang) * d, cy + System.MathF.Sin(ang) * d, r * Rand(0.35f, 0.7f), ink);
         }
 
         var drops = 2 + _rng.Next(4);
@@ -111,7 +123,7 @@ public class InkCanvas
         {
             var ang = Rand(0, 6.28f);
             var d = r * Rand(1.4f, 2.4f);
-            Dot(cx + Mathf.Cos(ang) * d, cy + Mathf.Sin(ang) * d, r * Rand(0.08f, 0.22f), ink);
+            Dot(cx + System.MathF.Cos(ang) * d, cy + System.MathF.Sin(ang) * d, r * Rand(0.08f, 0.22f), ink);
         }
 
         if (Rand() < 0.6f)
@@ -122,6 +134,28 @@ public class InkCanvas
         }
     }
 
+    /// <summary>Pixel i's colour times (r, g, b), alpha set to a (field by field: no Unity calls).</summary>
+    public void Mul(int i, float r, float g, float b, float a = 1f)
+    {
+        var p = Px[i];
+        p.r *= r;
+        p.g *= g;
+        p.b *= b;
+        p.a = a;
+        Px[i] = p;
+    }
+
+    /// <summary>Set pixel i (field by field: no Unity calls).</summary>
+    public void Set(int i, float r, float g, float b, float a = 1f)
+    {
+        var p = Px[i];
+        p.r = r;
+        p.g = g;
+        p.b = b;
+        p.a = a;
+        Px[i] = p;
+    }
+
     /// <summary>Paper-like value noise multiplied into the colours.</summary>
     public void Grain(float strength)
     {
@@ -129,7 +163,10 @@ public class InkCanvas
         {
             var n = 1f + (Rand() - 0.5f) * strength;
             var p = Px[i];
-            Px[i] = new Color(p.r * n, p.g * n, p.b * n, p.a);
+            p.r *= n;
+            p.g *= n;
+            p.b *= n;
+            Px[i] = p;
         }
     }
 

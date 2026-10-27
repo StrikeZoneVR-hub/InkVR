@@ -32,6 +32,20 @@ public static class TheatreWalk
     /// <summary>The stick is walking you (so the game's menu doesn't get it).</summary>
     public static bool TakesStick => _walking;
 
+    // where the theatre was last frame (world), so things standing on its floor can move with it
+    private static Matrix4x4 _rootWas, _rootNow, _rootStep;
+    private static bool _haveRoot;
+    private static float _rootYawWas, _rootYawStep;
+
+    /// <summary>Where a point on the theatre's floor last frame (world) is now: you walked or turned, the floor moved.</summary>
+    public static Vector3 CarryPoint(Vector3 world) => _haveRoot ? _rootStep.MultiplyPoint3x4(world) : world;
+
+    /// <summary>How far the theatre turned round you since last frame (degrees).</summary>
+    public static float CarryYaw => _haveRoot ? _rootYawStep : 0f;
+
+    /// <summary>How fast the floor under a point is moving (world, per second).</summary>
+    public static Vector3 FloorVelocity(Vector3 world, float dt) => dt > 1e-4f && _haveRoot ? (CarryPoint(world) - world) / dt : Vector3.zero;
+
     /// <summary>Your eye, in the theatre.</summary>
     public static Vector3 Eye { get; private set; } = new(0, 1.6f, 0);
 
@@ -55,6 +69,7 @@ public static class TheatreWalk
         _walking = false;
         WalkMode = false;
         TheatreToys.Reset();
+        TheatreLife.Reset();
     }
 
     /// <summary>Dev: walk with this stick for a while (the mock runtime has no controllers).</summary>
@@ -125,6 +140,7 @@ public static class TheatreWalk
     {
         var root = cinema?.Root;
         if (root == null) return;
+        _stepRoot = root;
         var head = VRRig.HeadLocalPosition;
         var headRot = VRRig.HeadLocalRotation;
         if (!_placed) Seat(head, headRot);
@@ -166,6 +182,16 @@ public static class TheatreWalk
         var inv = Quaternion.Inverse(rot);
         root.localRotation = inv;
         root.localPosition = -(inv * (_offset + Vector3.up * _shownFloor));
+        _rootNow = root.localToWorldMatrix;
+        var yawNow = root.eulerAngles.y;
+        // (a jump, like being put back in your seat, isn't a step)
+        _rootStep = _haveRoot && (_rootNow.GetColumn(3) - _rootWas.GetColumn(3)).sqrMagnitude < 1f ? _rootNow * _rootWas.inverse : Matrix4x4.identity;
+        _rootYawStep = _haveRoot ? Mathf.DeltaAngle(_rootYawWas, yawNow) : 0f;
+        if (Mathf.Abs(_rootYawStep) > 45f) _rootYawStep = 0f;
+        _rootWas = _rootNow;
+        _rootYawWas = yawNow;
+        _haveRoot = true;
+        Footsteps(dt);
         Eye = new Vector3(at.x, head.y + _shownFloor, at.z);
         ScreenVisible = Theatre.SeesScreen(Eye);
     }
@@ -203,6 +229,59 @@ public static class TheatreWalk
 
         // somewhere you can't be (a seat, after a recentre): don't hold you there
         return Theatre.Walkable(from.x, from.z, _floor, out _) ? from : to;
+    }
+
+    // ---------------- footsteps: soft, and on whatever's underfoot ----------------
+
+    private static Body.HenryBody _stepBody;
+    private static Transform _stepRoot;
+    private static Vector3 _stepFrom;
+    private static readonly Vector3[] LastFoot = new Vector3[2];
+    private static float _stepTravel;
+    private static int _stepTake;
+
+    private static void Footsteps(float dt)
+    {
+        // with a body, its feet make the sounds as they come down; without one, a step every stride you go
+        var body = Body.Hands.Body;
+        if (body != _stepBody)
+        {
+            if (_stepBody != null) _stepBody.FootPlanted -= OnFoot;
+            _stepBody = body;
+            if (body != null) body.FootPlanted += OnFoot;
+        }
+
+        var here = new Vector3(Eye.x, 0, Eye.z);
+        var d = (here - _stepFrom).magnitude;
+        _stepFrom = here;
+        if (body != null || d > 1f) return; // (a jump: put back in your seat)
+        _stepTravel += d;
+        if (_stepTravel < 0.62f) return;
+        _stepTravel = 0;
+        PlayStep(new Vector3(Eye.x, _floor, Eye.z), 1f);
+    }
+
+    private static void OnFoot(int foot, Vector3 world, float yaw)
+    {
+        if (!VRRig.CinemaShowing || _stepRoot == null) return;
+        var local = _stepRoot.InverseTransformPoint(world);
+        // a little shuffle in place (turning on the spot) is quieter than a stride
+        var moved = new Vector2(local.x - LastFoot[foot].x, local.z - LastFoot[foot].z).magnitude;
+        LastFoot[foot] = local;
+        PlayStep(local, moved < 0.15f ? 0.5f : 1f);
+    }
+
+    private static void PlayStep(Vector3 at, float k)
+    {
+        var floor = Theatre.FloorSound(at);
+        var volume = floor switch
+        {
+            TheatreSounds.Floor.Carpet => 0.09f,
+            TheatreSounds.Floor.Concrete => 0.14f,
+            TheatreSounds.Floor.Tile => 0.13f,
+            _ => 0.15f
+        };
+        TheatreSounds.Play(TheatreSounds.Step(floor, _stepTake++), at, volume * k, Random.Range(0.94f, 1.06f));
     }
 
     public static string Describe() =>

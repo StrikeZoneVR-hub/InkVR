@@ -20,10 +20,22 @@ public static class HenryTextures
     internal static Texture2D Keep(InkCanvas c, string name)
     {
         var px = new Color32[c.Px.Length];
-        for (var i = 0; i < px.Length; i++) px[i] = c.Px[i];
+        for (var i = 0; i < px.Length; i++)
+        {
+            // (field by field: Color's conversion to Color32 is a Unity call, a hundred-odd nanoseconds a pixel)
+            var p = c.Px[i];
+            var q = default(Color32);
+            q.r = B(p.r);
+            q.g = B(p.g);
+            q.b = B(p.b);
+            q.a = B(p.a);
+            px[i] = q;
+        }
         Pixels[name] = (c.W, c.H, px);
         return c.ToTexture(name);
     }
+    private static byte B(float v) => (byte)(v <= 0f ? 0 : v >= 1f ? 255 : (int)(v * 255f + 0.5f));
+
     private static readonly Color Skin = new(0.82f, 0.58f, 0.33f, 1f);
     private static readonly Color SkinShade = new(0.60f, 0.38f, 0.19f, 1f);
     private static readonly Color Shirt = new(0.94f, 0.87f, 0.66f, 1f);
@@ -213,7 +225,7 @@ public static class HenryTextures
             if (v < 0.5f)
             {
                 // Lower half of the ellipsoid: the brass case.
-                for (var x = 0; x < c.W; x++) c.Px[y * c.W + x] = new Color(0.55f, 0.42f, 0.2f);
+                for (var x = 0; x < c.W; x++) c.Set(y * c.W + x, 0.55f, 0.42f, 0.2f);
             }
         }
 
@@ -321,7 +333,7 @@ public static class HenryTextures
         for (var x = 0; x < c.W; x++)
         {
             var du = Mathf.Abs(Mathf.DeltaAngle(x / (float)c.W * 360f, 90f)) / 180f; // 0 at the fingertip end
-            if (du < 0.22f && y > c.H * 0.35f) c.Px[y * c.W + x] = new Color(0.99f, 0.94f, 0.88f);
+            if (du < 0.22f && y > c.H * 0.35f) c.Set(y * c.W + x, 0.99f, 0.94f, 0.88f);
         }
 
         c.Stroke(c.W * 0.7f, c.H * 0.7f, c.W * 0.8f, c.H * 0.85f, 2f, new Color(1, 1, 1), 0.2f, 0.6f);
@@ -368,7 +380,7 @@ public static class HenryTextures
             var dy = (y - 175.5f) / 176f;
             var k = 1f - 0.12f * Mathf.Clamp01(dx * dx + dy * dy);
             var p = c.Px[y * c.W + x];
-            c.Px[y * c.W + x] = new Color(p.r * k, p.g * k, p.b * k, 1);
+            c.Mul(y * c.W + x, k, k, k);
         }
 
         Rect(c, 5, 6f);
@@ -485,7 +497,12 @@ public static class HenryTextures
             for (var y = 0; y < c.H; y++)
             {
                 var i = y * c.W + x;
-                c.Px[i] = Color.Lerp(c.Px[i], shade, k);
+                var p = c.Px[i];
+                p.r += (shade.r - p.r) * k;
+                p.g += (shade.g - p.g) * k;
+                p.b += (shade.b - p.b) * k;
+                p.a += (shade.a - p.a) * k;
+                c.Px[i] = p;
             }
         }
     }

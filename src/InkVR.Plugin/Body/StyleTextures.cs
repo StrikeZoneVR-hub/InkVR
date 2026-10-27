@@ -24,7 +24,7 @@ public static class StyleTextures
 
     // ---------------- painting helpers ----------------
 
-    private static float Front(float u) => Mathf.Cos((u - 0.25f) * Mathf.PI * 2) * 0.5f + 0.5f; // 1 at the front, 0 at the back
+    private static float Front(float u) => System.MathF.Cos((u - 0.25f) * System.MathF.PI * 2) * 0.5f + 0.5f; // 1 at the front, 0 at the back
 
     /// <summary>Cartoon two-tone: flat colour across the front, a hard step of shadow round the back.</summary>
     private static void Cel(InkCanvas c, float strength, float rim = 0f)
@@ -38,7 +38,11 @@ public static class StyleTextures
             for (var y = 0; y < c.H; y++)
             {
                 var p = c.Px[y * c.W + x];
-                c.Px[y * c.W + x] = new Color(p.r * k + lit, p.g * k + lit, p.b * k + lit, 1);
+                p.r = p.r * k + lit;
+                p.g = p.g * k + lit;
+                p.b = p.b * k + lit;
+                p.a = 1;
+                c.Px[y * c.W + x] = p;
             }
         }
     }
@@ -46,18 +50,19 @@ public static class StyleTextures
     /// <summary>A filled, soft-edged ellipse (rotated by angle, radians).</summary>
     private static void Ellipse(InkCanvas c, float cx, float cy, float rx, float ry, Color col, float alpha = 1f, float angle = 0f)
     {
-        var r = Mathf.Max(rx, ry) + 2;
-        var ca = Mathf.Cos(angle);
-        var sa = Mathf.Sin(angle);
-        for (var y = Mathf.FloorToInt(cy - r); y <= Mathf.CeilToInt(cy + r); y++)
-        for (var x = Mathf.FloorToInt(cx - r); x <= Mathf.CeilToInt(cx + r); x++)
+        var r = System.Math.Max(rx, ry) + 2;
+        var ca = System.MathF.Cos(angle);
+        var sa = System.MathF.Sin(angle);
+        var small = System.Math.Min(rx, ry);
+        for (var y = (int)System.MathF.Floor(cy - r); y <= (int)System.MathF.Ceiling(cy + r); y++)
+        for (var x = (int)System.MathF.Floor(cx - r); x <= (int)System.MathF.Ceiling(cx + r); x++)
         {
             float dx = x - cx, dy = y - cy;
             var lx = dx * ca + dy * sa;
             var ly = -dx * sa + dy * ca;
-            var d = Mathf.Sqrt(lx * lx / (rx * rx) + ly * ly / (ry * ry));
-            var a = Mathf.Clamp01((1f - d) * Mathf.Min(rx, ry) + 0.5f);
-            if (a > 0) c.Blend(x, y, col, a * alpha);
+            var d = System.MathF.Sqrt(lx * lx / (rx * rx) + ly * ly / (ry * ry));
+            var a = (1f - d) * small + 0.5f;
+            if (a > 0) c.Blend(x, y, col, (a > 1f ? 1f : a) * alpha);
         }
     }
 
@@ -65,27 +70,32 @@ public static class StyleTextures
     private static void Poly(InkCanvas c, Vector2[] pts, Color col, float alpha = 1f)
     {
         float minY = float.MaxValue, maxY = float.MinValue;
-        foreach (var p in pts)
+        // (the points copied out once: reading a Vector2's fields is cheap, its methods are not)
+        var px = new float[pts.Length];
+        var py = new float[pts.Length];
+        for (var i = 0; i < pts.Length; i++)
         {
-            minY = Mathf.Min(minY, p.y);
-            maxY = Mathf.Max(maxY, p.y);
+            px[i] = pts[i].x;
+            py[i] = pts[i].y;
+            if (py[i] < minY) minY = py[i];
+            if (py[i] > maxY) maxY = py[i];
         }
 
         var xs = new System.Collections.Generic.List<float>();
-        for (var y = Mathf.FloorToInt(minY); y <= Mathf.CeilToInt(maxY); y++)
+        for (var y = (int)System.MathF.Floor(minY); y <= (int)System.MathF.Ceiling(maxY); y++)
         {
             xs.Clear();
             var sy = y + 0.5f;
-            for (var i = 0; i < pts.Length; i++)
+            for (var i = 0; i < px.Length; i++)
             {
-                var a = pts[i];
-                var b = pts[(i + 1) % pts.Length];
-                if ((a.y <= sy && b.y > sy) || (b.y <= sy && a.y > sy)) xs.Add(a.x + (sy - a.y) / (b.y - a.y) * (b.x - a.x));
+                var j = (i + 1) % px.Length;
+                float ax = px[i], ay = py[i], bx = px[j], by = py[j];
+                if ((ay <= sy && by > sy) || (by <= sy && ay > sy)) xs.Add(ax + (sy - ay) / (by - ay) * (bx - ax));
             }
 
             xs.Sort();
             for (var i = 0; i + 1 < xs.Count; i += 2)
-                for (var x = Mathf.RoundToInt(xs[i]); x <= Mathf.RoundToInt(xs[i + 1]); x++)
+                for (var x = (int)System.MathF.Round(xs[i]); x <= (int)System.MathF.Round(xs[i + 1]); x++)
                     c.Blend(x, y, col, alpha);
         }
     }
@@ -643,9 +653,12 @@ public static class StyleTextures
         {
             var dx = (x - 127.5f) / 128f;
             var dy = (y - 127.5f) / 128f;
-            var k = 1f - 0.14f * Mathf.Clamp01(dx * dx + dy * dy);
+            var k = 1f - 0.14f * System.Math.Min(1f, dx * dx + dy * dy);
             var p = c.Px[y * c.W + x];
-            c.Px[y * c.W + x] = new Color(p.r * k, p.g * k, p.b * k, 1);
+            p.r *= k;
+            p.g *= k;
+            p.b *= k;
+            c.Px[y * c.W + x] = p;
         }
 
         for (var a = 0f; a < Mathf.PI * 2; a += 0.04f)

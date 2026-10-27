@@ -135,6 +135,26 @@ public static class TheatreToys
         }
     }
 
+    // ---- for TheatreLife: the hands, in the theatre ----
+    internal static bool HandOk(int h) => HandValid[h];
+    internal static Vector3 TipOf(int h) => Tip[h];
+    internal static Vector3 PalmOf(int h) => Palm[h];
+    internal static Vector3 PalmVelOf(int h) => PalmVel[h];
+    internal static Vector3 TipVelOf(int h) => TipVel[h];
+    internal static Quaternion HandRotOf(int h) => HandRot[h];
+    internal static bool GripOf(int h) => HandValid[h] && Gripping(h);
+    internal static void BuzzOf(int h, float amp, float sec) => Buzz(h, amp, sec);
+    internal static bool Sees(Vector3 p, float maxAngle, float maxDist) => InView(p, maxAngle, maxDist);
+
+    /// <summary>A hand already holds one of the toys (cans, the doll), so it can't take hold of anything else.</summary>
+    internal static bool Holding(int h)
+    {
+        foreach (var g in Grabs)
+            if (g.Hand == h)
+                return true;
+        return false;
+    }
+
     private static bool Gripping(int h)
     {
         var dev = h == 1 ? Hands.DevRight : Hands.DevLeft;

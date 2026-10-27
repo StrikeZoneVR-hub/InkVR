@@ -82,7 +82,11 @@ public sealed partial class Theatre
             last = now;
         }
 
-        Step("art", LoadArt);
+        Step("art", () =>
+        {
+            LoadArt();
+            LoadRoomArt();
+        });
         Step("lamps", PlanLamps);
         Step("floor", BuildFloor);
         Step("seats", BuildSeats);
@@ -90,16 +94,22 @@ public sealed partial class Theatre
         Step("proscenium", BuildProscenium);
         Step("stage", BuildStage);
         Step("drapes", BuildCurtains);
+        Step("curtain", BuildHouseCurtain);
         Step("ceiling", BuildCeiling);
         Step("chandelier", BuildChandelier);
         Step("balcony", BuildBalcony);
         Step("back", BuildBackWall);
         Step("posters", BuildPosters);
         Step("lobby", BuildLobby);
+        Step("backstage", BuildBackstage);
+        Step("cellar", BuildBasement);
+        Step("booth", BuildProjectionBooth);
         Step("ink", BuildInk);
         Step("meshes", Finish);
         Step("glows", BuildGlows);
         Step("motes", BuildMotes);
+        Step("spots", BuildSpots);
+        Step("drips", BuildDrips);
         Plugin.L.LogInfo("Theatre timing (ms):" + timing);
         var verts = 0;
         foreach (var p in _parts) verts += p.V.Count;
@@ -119,6 +129,7 @@ public sealed partial class Theatre
         public float Spread;
         public bool Under, Lobby;
         public float Reach2;
+        public LampKind Kind;
     }
 
     private readonly List<Lamp> _lamps = new();
@@ -126,13 +137,12 @@ public sealed partial class Theatre
 
     private void AddLamp(Vector3 pos, Color color, float range, Vector3 aim = default, float spread = 0f)
     {
-        _lamps.Add(new Lamp { Pos = pos, Color = color, Range = range, Aim = aim.normalized, Spread = spread, Under = UnderBalcony(pos), Lobby = InLobby(pos, Vector3.zero), Reach2 = range * range * 25f });
-        _lampArray = _lamps.ToArray();
+        _lamps.Add(new Lamp { Pos = pos, Color = color, Range = range, Aim = aim.normalized, Spread = spread, Under = UnderBalcony(pos), Lobby = InLobby(pos, Vector3.zero), Reach2 = range * range * 25f, Kind = _lampKind });
     }
 
     private static bool UnderBalcony(Vector3 p) => p.z < BalconyZ - 0.02f && p.y < SoffitY + 0.02f;
 
-    private Color Lit(Vector3 p, Vector3 n, Color tint, float ao)
+    private Color OldLit(Vector3 p, Vector3 n, Color tint, float ao)
     {
         var height = Mathf.Lerp(1f, 0.55f, Mathf.InverseLerp(3f, CeilingY, p.y));
         var r = 0.16f * height;
@@ -148,9 +158,10 @@ public sealed partial class Theatre
             b = 0.08f;
         }
 
-        for (var i = 0; i < _lampArray.Length; i++)
+        var lamps = _lamps.ToArray();
+        for (var i = 0; i < lamps.Length; i++)
         {
-            ref var l = ref _lampArray[i];
+            ref var l = ref lamps[i];
             if (l.Lobby != lobby) continue;
             var d = l.Pos - p;
             var d2 = d.sqrMagnitude;
@@ -172,14 +183,16 @@ public sealed partial class Theatre
 
     private void PlanLamps()
     {
-        // The screen: a broad warm key light, only towards the audience.
+        // The screen: a broad warm key light, only towards the audience (it follows the picture: SetScreenLight).
+        _lampKind = LampKind.Screen;
         foreach (var x in new[] { -2.2f, 0f, 2.2f })
         foreach (var y in new[] { 1.4f, 3.2f })
-            AddLamp(new Vector3(x, y, ScreenZ - 0.3f), new Color(1f, 0.88f, 0.66f) * 0.6f, 4.5f, Vector3.back, 1f);
+            AddLamp(new Vector3(x, y, ScreenZ - 0.3f), new Color(1f, 0.88f, 0.66f) * 0.75f, 4.8f, Vector3.back, 1f);
 
-        // House lights at half: the booth and the open hall behind you, so the seat backs read.
-        AddLamp(new Vector3(0, 6.5f, -6f), new Color(1f, 0.8f, 0.52f) * 0.45f, 9f);
-        AddLamp(new Vector3(0, 8.2f, -3.5f), new Color(1f, 0.8f, 0.5f) * 1.0f, 4.5f); // chandelier
+        // House lights (they dim for the show: SetHouseLights): the open hall behind you, so the seat backs read.
+        _lampKind = LampKind.House;
+        AddLamp(new Vector3(0, 6.5f, -6f), new Color(1f, 0.8f, 0.52f) * 0.5f, 9f);
+        AddLamp(new Vector3(0, 8.2f, -3.5f), new Color(1f, 0.8f, 0.5f) * 1.1f, 4.5f); // chandelier
 
         // Wall sconces on every pilaster (plus a row at balcony level behind the balcony front).
         foreach (var s in new[] { -1f, 1f })
@@ -188,6 +201,8 @@ public sealed partial class Theatre
             AddLamp(new Vector3(s * (Half - 0.5f), 3.45f, z), new Color(1f, 0.66f, 0.32f) * 1.5f, 1.8f, Vector3.up, 0.5f);
             if (z < BalconyZ) AddLamp(new Vector3(s * (Half - 0.5f), 7.3f, z), new Color(1f, 0.66f, 0.32f) * 1.5f, 1.8f, Vector3.up, 0.5f);
         }
+
+        _lampKind = LampKind.Other;
 
         // Footlights along the apron, lighting the drapes and proscenium from below.
         for (var x = -4.5f; x <= 4.51f; x += 1.8f)
@@ -229,6 +244,12 @@ public sealed partial class Theatre
         public readonly List<Color> C = new();
         public readonly List<int> T = new();
 
+        /// <summary>What each vertex's colour should be (lit by the bake, or as given); and the room it's in.</summary>
+        public readonly List<LightReq> L = new();
+
+        public Room Room;
+        public int ShareStart;
+
         public Part(string name, Texture tex, bool transparent, int queue)
         {
             Name = name;
@@ -265,6 +286,24 @@ public sealed partial class Theatre
         _group = was;
     }
 
+    private readonly Dictionary<(Part, Room), Part> _roomParts = new();
+
+    /// <summary>The part for surfaces at this spot: moving pieces keep their own; everything else goes by room.</summary>
+    private Part Route(Part p, Vector3 at, Vector3 n)
+    {
+        if (_group != null || p.Group != null) return Route(p);
+        var room = RoomOf(at, n);
+        if (room == p.Room) return p;
+        if (!_roomParts.TryGetValue((p, room), out var rp))
+        {
+            rp = new Part(p.Name + "_" + room, p.Tex, p.Transparent, p.Queue) { Room = room };
+            _parts.Add(rp);
+            _roomParts[(p, room)] = rp;
+        }
+
+        return rp;
+    }
+
     private Part Route(Part p)
     {
         if (_group == null || p.Group != null) return p;
@@ -296,7 +335,10 @@ public sealed partial class Theatre
     /// <summary>Where a piece's vertices start and end in its part (for pieces animated vertex by vertex, like the keys).</summary>
     private int VertexCount(Part p) => Route(p).V.Count;
 
-    private static int Sub(float len, float step = 0.9f) => Mathf.Clamp(Mathf.CeilToInt(len / step - 0.01f), 1, 48);
+    /// <summary>How finely big surfaces are cut up for the baked light (finer: shadows and corners read better).</summary>
+    private const float Density = 0.5f;
+
+    private static int Sub(float len, float step = 0.9f) => Mathf.Clamp(Mathf.CeilToInt(len / (step * Density) - 0.01f), 1, 96);
 
     /// <summary>
     /// A quad patch: a-b along the bottom, d-c along the top (as seen from the front), subdivided for lighting.
@@ -305,10 +347,12 @@ public sealed partial class Theatre
     private void Patch(Part p, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 n, Color tint, int su = 1, int sv = 1,
         float tileU = 0, float tileV = 0, float ao = 1f, bool unlit = false, Vector4? uvRect = null, bool flat = false)
     {
-        p = Route(p);
+        var mid = (a + b + c + d) * 0.25f;
+        p = Route(p, mid, n);
+        if (!unlit && !p.Transparent && !_inBox) OccludePatch(a, b, c, d, n);
         su = Mathf.Max(1, su);
         sv = Mathf.Max(1, sv);
-        var flatColor = flat && !unlit ? Lit((a + b + c + d) * 0.25f, n, tint, ao) : tint;
+        var flatIndex = -1;
         var ua = (b - a).normalized;
         var va = (d - a).normalized;
         var start = p.V.Count;
@@ -333,7 +377,15 @@ public sealed partial class Theatre
 
             p.V.Add(pos);
             p.UV.Add(new Vector2(u, v));
-            p.C.Add(unlit || flat ? flatColor : Lit(pos, n, tint, ao));
+            if (unlit) AddUnlit(p, tint);
+            else if (!flat) AddLit(p, pos, n, tint, ao);
+            else if (flatIndex >= 0) AddSame(p, flatIndex);
+            else
+            {
+                // small parts are lit once, at their middle
+                flatIndex = p.L.Count;
+                AddLit(p, mid, n, tint, ao);
+            }
         }
 
         for (var j = 0; j < sv; j++)
@@ -360,14 +412,19 @@ public sealed partial class Theatre
         var ny = rot * Vector3.up;
         var nz = rot * Vector3.forward;
         int sx = Sub(size.x), sy = Sub(size.y), sz = Sub(size.z);
-        var flat = size.x < 0.8f && size.y < 0.8f && size.z < 0.8f; // small parts (seats, trim): light each face once
+        var flat = size.x < 0.12f && size.y < 0.12f && size.z < 0.12f; // tiny parts (bolts, nosings): light each face once
+        if (!unlit && !p.Transparent) OccludeBox(center, size, rot);
+        _inBox = true;
         Patch(p, o + x, o + x + z, o + x + z + y, o + x + y, nx, tint, sz, sy, ao: ao, unlit: unlit, flat: flat);
         Patch(p, o + z, o, o + y, o + z + y, -nx, tint, sz, sy, ao: ao, unlit: unlit, flat: flat);
         Patch(p, o + z + x, o + z, o + z + y, o + z + x + y, nz, tint, sx, sy, ao: ao, unlit: unlit, flat: flat);
         Patch(p, o, o + x, o + x + y, o + y, -nz, tint, sx, sy, ao: ao, unlit: unlit, flat: flat);
         Patch(p, o + y, o + y + x, o + y + x + z, o + y + z, ny, tint, sx, sz, ao: ao, unlit: unlit, flat: flat);
         if (bottom) Patch(p, o, o + x, o + x + z, o + z, -ny, tint, sx, sz, ao: ao, unlit: unlit, flat: flat);
+        _inBox = false;
     }
+
+    private bool _inBox;
 
     private void Box(Part p, Vector3 center, Vector3 size, Color tint, float ao = 1f, bool bottom = false) =>
         Box(p, center, size, Quaternion.identity, tint, ao, bottom);
@@ -383,7 +440,7 @@ public sealed partial class Theatre
     /// <summary>A horizontal ring (tube) around a vertical axis.</summary>
     private void Ring(Part p, Vector3 center, float radius, float tube, Color tint, int seg = 28, int sides = 6, float ao = 1f)
     {
-        p = Route(p);
+        p = Route(p, center, Vector3.zero);
         var start = p.V.Count;
         for (var i = 0; i <= seg; i++)
         {
@@ -396,7 +453,7 @@ public sealed partial class Theatre
                 var pos = center + dir * radius + n * tube;
                 p.V.Add(pos);
                 p.UV.Add(new Vector2((float)i / seg * 6, (float)s / sides));
-                p.C.Add(Lit(pos, n, tint, ao));
+                AddLit(p, pos, n, tint, ao);
             }
         }
 
@@ -406,7 +463,7 @@ public sealed partial class Theatre
     /// <summary>A surface of revolution around a vertical axis; profile points are (radius, height).</summary>
     private void Lathe(Part p, Vector3 center, Vector2[] profile, Color tint, int sides = 20, bool unlit = false, float uRepeat = 4f, float vFrom = 0f, float vTo = 1f)
     {
-        p = Route(p);
+        p = Route(p, center, Vector3.zero);
         var start = p.V.Count;
         for (var k = 0; k < profile.Length; k++)
         {
@@ -423,7 +480,8 @@ public sealed partial class Theatre
                 var n = (dir * nr.x + Vector3.up * nr.y).normalized;
                 p.V.Add(pos);
                 p.UV.Add(new Vector2((float)s / sides * uRepeat, Mathf.Lerp(vFrom, vTo, (float)k / (profile.Length - 1))));
-                p.C.Add(unlit ? tint : Lit(pos, n, tint, 1f));
+                if (unlit) AddUnlit(p, tint);
+                else AddLit(p, pos, n, tint, 1f);
             }
         }
 
@@ -461,7 +519,7 @@ public sealed partial class Theatre
     /// <summary>A glowing deco fan (a sconce's glass), upright, facing along normal.</summary>
     private void Fan(Part p, Vector3 center, Vector3 right, float radius, int wedges, Color color)
     {
-        p = Route(p);
+        p = Route(p, center, Vector3.zero);
         for (var k = 0; k < wedges; k++)
         {
             var a0 = Mathf.PI * k / wedges;
@@ -477,9 +535,9 @@ public sealed partial class Theatre
             p.UV.Add(new Vector2(0.5f, 0.1f));
             p.UV.Add(new Vector2(0.03f, 0.97f));
             p.UV.Add(new Vector2(0.97f, 0.97f));
-            p.C.Add(col);
-            p.C.Add(col);
-            p.C.Add(col);
+            AddUnlit(p, col);
+            AddUnlit(p, col);
+            AddUnlit(p, col);
             p.T.Add(i0);
             p.T.Add(i0 + 1);
             p.T.Add(i0 + 2);
@@ -679,11 +737,13 @@ public sealed partial class Theatre
 
     private void Sconce(Vector3 at, float s)
     {
+        _houseGlows = true;
         var n = new Vector3(-s, 0, 0);
         Box(_box, at + n * 0.06f + Vector3.down * 0.03f, new Vector3(0.12f, 0.06f, 0.2f), Gold);
         Fan(_box, at + n * 0.1f, new Vector3(0, 0, 1), 0.3f, 7, new Color(1f, 0.86f, 0.58f));
         Glow(at + n * 0.2f + Vector3.up * 0.14f, 1.1f, new Color(1f, 0.7f, 0.36f, 0.5f), GlowGroup.Flicker);
         Glow(at + n * 0.14f + Vector3.up * 0.1f, 0.38f, new Color(1f, 0.9f, 0.7f, 0.85f), GlowGroup.Flicker);
+        _houseGlows = false;
     }
 
     private void Doorway(Vector3 bottomCentre, Vector3 right, Vector3 n, float width, float height, bool leaves = true)
@@ -884,6 +944,7 @@ public sealed partial class Theatre
     /// <summary>A grid surface (curtain cloth) with normals from its own shape, facing the audience.</summary>
     private void Surface(Part p, Vector3[] pts, int nu, int nv, Color tint, float uRepeat, float vRepeat)
     {
+        p = Route(p, pts[pts.Length / 2], Vector3.zero);
         var start = p.V.Count;
         for (var j = 0; j <= nv; j++)
         for (var i = 0; i <= nu; i++)
@@ -895,7 +956,7 @@ public sealed partial class Theatre
             if (n.z > 0) n = -n;
             p.V.Add(pos);
             p.UV.Add(new Vector2((float)i / nu * uRepeat, (float)j / nv * vRepeat));
-            p.C.Add(Lit(pos, n, tint, 1f));
+            AddLit(p, pos, n, tint, 1f);
         }
 
         Grid(p, start, nv, nu);
@@ -930,7 +991,12 @@ public sealed partial class Theatre
                     Box(_box, new Vector3((xs[i] + xs[i + 1]) * 0.5f, CeilingY - 0.18f, z), new Vector3(xs[i + 1] - xs[i], 0.36f, 0.3f), GoldDark, 1f, true);
     }
 
-    private void BuildChandelier() => Chandelier(new Vector3(0, 8.4f, -3.5f), CeilingY - 0.4f);
+    private void BuildChandelier()
+    {
+        _houseGlows = true;
+        Chandelier(new Vector3(0, 8.4f, -3.5f), CeilingY - 0.4f);
+        _houseGlows = false;
+    }
 
     private void Chandelier(Vector3 c, float hangFrom)
     {
@@ -1031,9 +1097,11 @@ public sealed partial class Theatre
 
         // Above the balcony: the projection booth.
         var top = BalconyFloor(BalconyRows - 1);
-        var upper = BalconyDoors(top);
-        WallWithHoles(_wood, new Vector3(0, 0, z), Vector3.right, -Half, Half, top, top + 1.1f, n, WoodDark, upper, 1.6f, 1.6f);
-        WallWithHoles(_wall, new Vector3(0, 0, z), Vector3.right, -Half, Half, top + 1.1f, CorniceY, n, Paper * 0.9f, upper, 1.2f, 1.2f);
+        var upper = new List<Vector4>(BalconyDoors(top));
+        upper.AddRange(BoothHoles());
+        WallWithHoles(_wood, new Vector3(0, 0, z), Vector3.right, -Half, Half, top, top + 1.1f, n, WoodDark, upper.ToArray(), 1.6f, 1.6f);
+        WallWithHoles(_wall, new Vector3(0, 0, z), Vector3.right, -Half, Half, top + 1.1f, CorniceY, n, Paper * 0.9f, upper.ToArray(), 1.2f, 1.2f);
+        Doorway(new Vector3(ProjDoorX, ProjFloor, z + 0.02f), Vector3.left, n, ProjDoorHalf * 2, ProjDoorHeight, false);
         foreach (var s in new[] { -1f, 1f })
         {
             Doorway(new Vector3(s * BalconyDoorX, top, z + 0.02f), Vector3.left, n, BalconyDoorHalf * 2, BalconyDoorHeight, false);
@@ -1044,11 +1112,12 @@ public sealed partial class Theatre
         Patch(_wall, new Vector3(-Half, CorniceY + 0.6f, z), new Vector3(Half, CorniceY + 0.6f, z), new Vector3(Half, CeilingY, z), new Vector3(-Half, CeilingY, z), n, Plaster * 0.8f, 12, 1, 1.2f, 1.2f);
         foreach (var x in new[] { -1.7f, 0f, 1.7f })
         {
-            var w = new Vector3(x, Projector.y, z + 0.02f);
-            Box(_box, w, new Vector3(0.86f, 0.62f, 0.1f), GoldDark);
-            Patch(_box, w + new Vector3(-0.33f, -0.22f, 0.06f), w + new Vector3(0.33f, -0.22f, 0.06f), w + new Vector3(0.33f, 0.22f, 0.06f), w + new Vector3(-0.33f, 0.22f, 0.06f), n,
-                x == 0 ? new Color(1f, 0.95f, 0.82f) : new Color(0.45f, 0.32f, 0.2f), 1, 1, unlit: true);
-            Glow(w + Vector3.forward * 0.15f, x == 0 ? 1.4f : 0.7f, x == 0 ? new Color(1f, 0.95f, 0.8f, 0.9f) : new Color(1f, 0.75f, 0.45f, 0.22f), x == 0 ? GlowGroup.Projector : GlowGroup.Steady);
+            // the booth's ports: a gilt frame round each opening (you see into the booth through them)
+            var w = new Vector3(x, Projector.y, z + 0.05f);
+            Box(_box, w + Vector3.up * (PortHalfH + 0.05f), new Vector3(PortHalfW * 2 + 0.2f, 0.1f, 0.1f), GoldDark);
+            Box(_box, w - Vector3.up * (PortHalfH + 0.05f), new Vector3(PortHalfW * 2 + 0.2f, 0.1f, 0.1f), GoldDark);
+            foreach (var sx in new[] { -1f, 1f }) Box(_box, w + Vector3.right * (sx * (PortHalfW + 0.05f)), new Vector3(0.1f, PortHalfH * 2, 0.1f), GoldDark);
+            Glow(w + Vector3.forward * 0.15f, x == 0 ? 1.4f : 0.7f, x == 0 ? new Color(1f, 0.95f, 0.8f, 0.9f) : new Color(1f, 0.75f, 0.45f, 0.18f), x == 0 ? GlowGroup.Projector : GlowGroup.Steady);
         }
     }
 
@@ -1172,6 +1241,7 @@ public sealed partial class Theatre
 
     private void Finish()
     {
+        Bake();
         var depth = new Material(Shader.Find("Hidden/Internal-Colored")) { name = "InkVR_TheatreDepth", renderQueue = 1999 };
         depth.SetInt("_SrcBlend", (int)BlendMode.Zero);
         depth.SetInt("_DstBlend", (int)BlendMode.One);
@@ -1213,6 +1283,14 @@ public sealed partial class Theatre
             r.receiveShadows = false;
             r.lightProbeUsage = LightProbeUsage.Off;
             r.reflectionProbeUsage = ReflectionProbeUsage.Off;
+            if (p.Group == null) _roomMaterials[(int)p.Room].Add(mat);
+
+            // the hall's live light: the house lights and the screen's glow, laid over its surfaces
+            if (p.Group == null && p.Room == Room.Hall && !p.Transparent)
+            {
+                AddDimmer(p, mesh, _houseShare, ref _houseMat, "House", 2440);
+                AddDimmer(p, mesh, _screenShare, ref _screenMat, "Screen", 2445);
+            }
         }
     }
 
@@ -1241,6 +1319,7 @@ public sealed partial class Theatre
         public Color Color;
         public GlowGroup Group;
         public int Index;
+        public bool House; // dims with the house lights
     }
 
     private readonly List<GlowSpec> _glows = new();
@@ -1250,7 +1329,9 @@ public sealed partial class Theatre
     private Vector3 _glowEye = new(0, 1.6f, 0);
 
     private void Glow(Vector3 pos, float size, Color color, GlowGroup group, int index = 0) =>
-        _glows.Add(new GlowSpec { Pos = pos, Size = size, Color = color, Group = group, Index = index });
+        _glows.Add(new GlowSpec { Pos = pos, Size = size, Color = color, Group = group, Index = index, House = _houseGlows });
+
+    private bool _houseGlows;
 
     private void BuildGlows()
     {
@@ -1414,13 +1495,14 @@ public sealed partial class Theatre
                     k = calm ? 1f : 0.88f + 0.12f * Mathf.PerlinNoise(time * 2.5f + i * 0.37f, 0.5f);
                     break;
                 case GlowGroup.Chase:
-                    k = calm ? 0.8f : (((step - g.Index) % 4 + 4) % 4 == 0 ? 1f : 0.42f);
+                    k = !TheatreState.MarqueeOn ? 0.15f : calm ? 0.8f : (((step - g.Index) % 4 + 4) % 4 == 0 ? 1f : 0.42f);
                     break;
                 case GlowGroup.Projector:
                     k = projector;
                     break;
             }
 
+            if (g.House) k *= 0.3f + 0.7f * _houseLevel;
             var c = new Color(g.Color.r, g.Color.g, g.Color.b, g.Color.a * k);
             _glowColors[i * 4] = _glowColors[i * 4 + 1] = _glowColors[i * 4 + 2] = _glowColors[i * 4 + 3] = c;
         }
@@ -1428,5 +1510,6 @@ public sealed partial class Theatre
         if (turn) _glowMesh.SetVertices(_glowVerts);
         _glowMesh.SetColors(_glowColors);
         UpdateMotes(time, eyeLocal);
+        AnimateDrips(time, eyeLocal);
     }
 }
