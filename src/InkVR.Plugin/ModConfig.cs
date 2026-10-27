@@ -118,7 +118,7 @@ public static class ModConfig
             "How much of Henry you see: Full (full body), Arms (arms and hands), Hands (hands only), None.",
             new AcceptableValueList<string>("Full", "Arms", "Hands", "None")));
         BodyStyle = cfg.Bind("Body", "Style", "Lifelike", new ConfigDescription(
-            "Who you are, head to toe (the head shows in the theatre's mirrors and in your shadow): Lifelike (Henry: real hands, waistcoat and tie), Toon (Henry as a cartoon: braces, big shoes, white gloves), Bendy, Boris, Alice, InkDemon, Sammy, Projectionist, BruteBoris, Searcher, Joey or Wally.",
+            "Who you are, head to toe (the head shows in the theatre's mirror and in your shadow): Lifelike (Henry: real hands, waistcoat and tie), Toon (Henry as a cartoon: braces, big shoes, white gloves), Bendy, Boris, Alice, InkDemon, Sammy, Projectionist, BruteBoris, Searcher, Joey, Wally or BeastBendy.",
             new AcceptableValueList<string>(Body.Styles.Keys)));
         Watch = cfg.Bind("Body", "Watch", "Tank", new ConfigDescription(
             "The watch on your left wrist, keeping your real time: Tank (Henry's), Bendy (his character watch), Studio (gold, the studio's), Gauge (an ink-machine gauge whose vial fills chapter by chapter), Angel (Alice's, a halo floating over it), Demon (dripping), or None.",
@@ -138,7 +138,7 @@ public static class ModConfig
         MinRenderScale = cfg.Bind("Graphics", "MinRenderScale", 0.7f, "The lowest DynamicResolution may go.");
         VolumetricLightVR = cfg.Bind("Graphics", "VolumetricLightInVR", true, "The game's light beams through the air, rendered per eye in VR (off saves GPU time).");
         LaserPointer = cfg.Bind("Controls", "LaserPointer", true, "A laser from your hand to point and click in menus: the main menu, the pause menu, Options and VR SETTINGS (in the theatre the move stick can walk you about, so the laser picks). The thumbstick and A still work when you aren't walking.");
-        ExploreTheatre = cfg.Bind("Controls", "ExploreTheatre", true, "In the menu theatre, click the move stick to walk around it (the stage, the lobby, the stairs, the balcony; there are things to find), and click again to use the menu. With the laser on, pushing the stick while you aren't pointing at the screen walks too.");
+        ExploreTheatre = cfg.Bind("Controls", "ExploreTheatre", true, "In the menu theatre, click the move stick to walk around it (the stage, the lobby, the stairs, the balcony; there are things to find, and a mirror in the lobby to change your style and watch), and click again to use the menu. With the laser on, pushing the stick while you aren't pointing at the screen walks too.");
 
         PerfLog = cfg.Bind("Debug", "LogPerformance", true, "Write VR frame timing to the BepInEx log every 5 seconds (helps tuning).");
     }

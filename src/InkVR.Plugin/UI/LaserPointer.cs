@@ -206,6 +206,7 @@ public static class LaserPointer
                     LastClick += $" -> clicked under {target.name}";
                 }
                 else LastClick += " -> let go off it (no click)";
+                Plugin.L.LogInfo("Laser: " + LastClick);
             }
         }
 
@@ -234,9 +235,6 @@ public static class LaserPointer
         if (_dot != null) _dot.Visible = on;
     }
 
-    /// <summary>The ink laser prize is on.</summary>
-    public static bool Inky;
-
     private static void DrawLaser(Vector3 from, Vector3 to, VRPanel panel, float scale)
     {
         if (_line == null)
@@ -260,9 +258,6 @@ public static class LaserPointer
             Object.DontDestroyOnLoad(_dot.GameObject);
         }
 
-        // (the Fun Hall's ink laser: black ink instead of gold)
-        _line.startColor = Inky ? new Color(0.05f, 0.04f, 0.03f, 0.75f) : new Color(0.98f, 0.86f, 0.55f, 0.55f);
-        _line.endColor = Inky ? new Color(0.02f, 0.015f, 0.01f, 1f) : new Color(0.98f, 0.86f, 0.55f, 0.95f);
         _line.startWidth = 0.004f * scale;
         _line.endWidth = 0.0015f * scale;
         _line.SetPosition(0, from);

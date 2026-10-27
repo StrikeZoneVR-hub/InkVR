@@ -216,6 +216,47 @@ public class DevTools : MonoBehaviour
             case "laserstate":
                 Plugin.L.LogInfo($"LASER onScreen={InkVR.UI.LaserPointer.OnScreen} last=[{InkVR.UI.LaserPointer.LastClick}]");
                 break;
+            case "titlestate":
+            {
+                // titlestate: the title menu's own selection (the stick's) against what the laser points at
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<TitleScreenController>()))
+                {
+                    var c = o.Cast<TitleScreenController>();
+                    if (!c.gameObject.activeInHierarchy) continue;
+                    var items = string.Join(" ", c.GetComponentsInChildren<MenuItemButton>(true).Where(b => b.gameObject.activeInHierarchy).Select(b => $"{b.name}{(b.m_IsClicked ? "(clicked)" : "")}{(b.m_Arrows != null && b.m_Arrows.activeSelf ? "(arrows)" : "")}"));
+                    Plugin.L.LogInfo($"TITLE index={c.m_SelectedIndex} current={c.m_CurrentMenuItem} axisY={c.m_ActiveAxisY} items: {items}");
+                }
+
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<CustomInputModule>()))
+                {
+                    var m = o.Cast<CustomInputModule>();
+                    if (m.gameObject.scene.IsValid()) Plugin.L.LogInfo($"TITLE module cursor={m.m_cursorPos} mouse={UnityEngine.Input.mousePosition}");
+                }
+
+                break;
+            }
+            case "uistate":
+            {
+                // uistate: the game's event system, input modules and raycasters (what the laser has to work with)
+                var es = UnityEngine.EventSystems.EventSystem.current;
+                Plugin.L.LogInfo($"UISTATE focused={Application.isFocused} cursor={Cursor.lockState}/{Cursor.visible} es={(es != null ? PathOf(es.transform) + " on=" + es.isActiveAndEnabled + " esFocus=" + es.isFocused + " nav=" + es.sendNavigationEvents + " selected=" + (es.currentSelectedGameObject != null ? PathOf(es.currentSelectedGameObject.transform) : "-") + " module=" + (es.currentInputModule != null ? es.currentInputModule.GetIl2CppType().Name : "-") : "none")}");
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<UnityEngine.EventSystems.BaseInputModule>()))
+                {
+                    var m = o.Cast<UnityEngine.EventSystems.BaseInputModule>();
+                    if (m.gameObject.scene.IsValid()) Plugin.L.LogInfo($"UISTATE module {m.GetIl2CppType().FullName} at {PathOf(m.transform)} on={m.isActiveAndEnabled}");
+                }
+
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<UnityEngine.UI.GraphicRaycaster>()))
+                {
+                    var g = o.Cast<UnityEngine.UI.GraphicRaycaster>();
+                    if (!g.gameObject.scene.IsValid() || !g.gameObject.activeInHierarchy) continue;
+                    var cv = g.GetComponent<Canvas>();
+                    var grp = g.GetComponentInParent<CanvasGroup>();
+                    Plugin.L.LogInfo($"UISTATE raycaster {PathOf(g.transform)} on={g.enabled} mode={cv?.renderMode} cam={(cv != null && cv.worldCamera != null ? cv.worldCamera.name : "-")} order={cv?.sortingOrder} group={(grp != null ? grp.interactable + "/" + grp.blocksRaycasts : "-")}");
+                }
+
+                break;
+            }
             case "eyewatch":
             {
                 // eyewatch <frames>: log every camera pre-render (name, eye) for a few frames: is each eye its own pass?
@@ -1358,31 +1399,6 @@ public class DevTools : MonoBehaviour
                 Plugin.L.LogInfo($"watch: {ModConfig.Watch.Value}");
                 break;
             }
-            case "arcade":
-            {
-                // arcade state | arcade throw <name> vx vy vz [x y z] | arcade progress
-                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                float N(int i) => float.Parse(a[i], System.Globalization.CultureInfo.InvariantCulture);
-                if (a[0] == "throw") Plugin.L.LogInfo("ARCADE " + InkVR.UI.Arcade.DevThrow(a[1], new Vector3(N(2), N(3), N(4)), a.Length > 7 ? new Vector3(N(5), N(6), N(7)) : null));
-                else if (a[0] == "progress") Plugin.L.LogInfo("PROGRESS " + InkVR.UI.Progress.Describe());
-                else if (a[0] == "set") InkVR.UI.Progress.Set(a[1], int.Parse(a[2]));
-                else if (a[0] == "find")
-                {
-                    // arcade find <id>|all : mark fan finds found (a test session keeps them in memory only)
-                    foreach (var f in InkVR.UI.FanFinds.All)
-                        if (a[1] == "all" || a[1] == f.Id)
-                            InkVR.UI.FanFinds.Mark(f.Id);
-                }
-                else Plugin.L.LogInfo("ARCADE " + InkVR.UI.Arcade.Describe());
-                break;
-            }
-            case "sit":
-                InkVR.UI.TheatreWalk.DevSit(arg != "off");
-                break;
-            case "show":
-                // show: start the theatre's opening again (house lights, follow spots, the curtain)
-                InkVR.Core.VRRig.Cinema?.StartShow(true);
-                break;
             case "glass":
             {
                 // glass x y z yaw w h: a test mirror in the theatre (theatre metres, facing yaw), or "glass state"

@@ -18,9 +18,6 @@ public class Cinema
     private readonly Theatre _theatre;
     private float _flickerT;
     private float _scratchUntil;
-    private float _showT, _house = 1f, _curtainHand = 1f;
-    private bool _showFull;
-    private readonly Light _bounce, _fill;
     private readonly VRPanel _scratch;
     private readonly List<TMPro.TextMeshPro> _signs = new();
     private readonly Dictionary<string, TMPro.TextMeshPro> _signById = new();
@@ -95,7 +92,7 @@ public class Cinema
         beamRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
         // Light from the screen onto the audience, and from the house behind (lights Henry's hands; layer 31 only).
-        var bounce = _bounce = new GameObject("InkVR_ScreenLight").AddComponent<Light>();
+        var bounce = new GameObject("InkVR_ScreenLight").AddComponent<Light>();
         bounce.transform.SetParent(_root, false);
         bounce.transform.localRotation = Quaternion.LookRotation(new Vector3(0, -0.35f, -1f));
         bounce.type = LightType.Directional;
@@ -103,7 +100,7 @@ public class Cinema
         bounce.intensity = 1.1f;
         bounce.cullingMask = VRLayers.UIMask;
         bounce.shadows = LightShadows.None;
-        var fill = _fill = new GameObject("InkVR_BoothLight").AddComponent<Light>();
+        var fill = new GameObject("InkVR_BoothLight").AddComponent<Light>();
         fill.transform.SetParent(_root, false);
         fill.transform.localRotation = Quaternion.LookRotation(new Vector3(0, -0.6f, 1f));
         fill.type = LightType.Directional;
@@ -122,17 +119,6 @@ public class Cinema
         _signs.Clear();
         _signById.Clear();
         foreach (var spec in _theatre.Signs) MakeSign(spec);
-    }
-
-    /// <summary>
-    /// The theatre has opened: the show starts. On the title screen the full opening (house lights up, the follow spots
-    /// sweep the curtain, the lights go down and the curtain parts); over a paused game the curtain is already open.
-    /// </summary>
-    public void StartShow(bool full)
-    {
-        _showFull = full;
-        _showT = full ? 0f : 99f;
-        _house = full ? 1f : 0.4f;
     }
 
     /// <summary>Projector flicker, the theatre's lights, drifting dust, the odd film scratch.</summary>
@@ -162,52 +148,6 @@ public class Cinema
         var head = Core.VRRig.Head;
         var eye = head != null ? _root.InverseTransformPoint(head.position) : new Vector3(0, 1.6f, 0);
         _theatre.Animate(_flickerT, flicker, calm, eye);
-        RunShow(dt, flicker, calm);
-    }
-
-    // ---------------- the show: the curtain, the house lights, the follow spots, the screen's light ----------------
-
-    private void RunShow(float dt, float flicker, bool calm)
-    {
-        _showT += dt;
-        var t = _showT;
-        // the curtain parts from 3 s to 6 s into the opening (and after that, the booth's switch draws it)
-        _curtainHand = Mathf.MoveTowards(_curtainHand, TheatreState.CurtainOpen ? 1f : 0f, dt * 0.33f);
-        var open = Mathf.Min(Mathf.Clamp01((t - 3f) / 3f), _curtainHand);
-        _theatre.SetCurtain(open);
-
-        // house lights: up as the theatre opens, down for the show, up again while you walk about
-        var target = t < 1.2f ? 1f : UI.TheatreWalk.WalkMode || TheatreState.HouseUp ? 1f : 0.38f;
-        _house = Mathf.MoveTowards(_house, target, dt * (t < 6f ? 0.3f : 0.6f));
-        _theatre.SetHouseLights(_house);
-        _fill.intensity = 0.75f * (0.55f + 0.45f * _house);
-
-        // the screen's light: as bright as the picture (the projector's flicker, a slow drift as it changes),
-        // and none through a closed curtain
-        var drift = calm ? 1f : 0.88f + 0.12f * Mathf.PerlinNoise(_flickerT * 0.35f, 0.7f);
-        var level = Mathf.SmoothStep(0, 1, open) * flicker * drift;
-        _theatre.SetScreenLight(level, new Color(1f, 0.97f, 0.9f));
-        _bounce.intensity = 1.1f * (0.35f + 0.65f * level);
-
-        // the follow spots sweep the closed curtain, meet in the middle, part with it and go out
-        if (_showFull && t > 0.8f && t < 7.5f)
-        {
-            var fade = Mathf.Clamp01((t - 0.8f) / 0.6f) * Mathf.Clamp01((7.5f - t) / 1.2f);
-            for (var i = 0; i < 2; i++)
-            {
-                var side = i == 0 ? -1f : 1f;
-                var sweep = Mathf.Clamp01((t - 0.8f) / 2.4f);
-                var x = side * Mathf.Lerp(4.2f, 0.55f, Mathf.SmoothStep(0, 1, sweep));
-                x += side * Mathf.SmoothStep(0, 1, Mathf.Clamp01((t - 3.4f) / 3f)) * 3.6f; // out with the curtain
-                var y = 2.4f + Mathf.Sin(t * 2.1f + i) * 0.35f * (1 - sweep);
-                _theatre.SetSpot(i, new Vector3(x, y, Theatre.ScreenZ), fade * 0.95f, 1.15f);
-            }
-        }
-        else
-        {
-            if (!TheatreState.SpotManual) _theatre.SetSpot(0, Vector3.zero, 0f, 1f);
-            _theatre.SetSpot(1, Vector3.zero, 0f, 1f);
-        }
     }
 
     private void Flat(string name, Texture2D tex, Vector3 size, Vector3 pos, Quaternion rot, int order)
@@ -217,33 +157,6 @@ public class Cinema
         p.Transform.localPosition = pos;
         p.Transform.localRotation = rot;
         p.ZTest(UnityEngine.Rendering.CompareFunction.LessEqual);
-    }
-
-    private TMPro.TextMeshPro _toast;
-
-    /// <summary>A line of lettering that floats in front of you for a moment (the caller moves and fades it).</summary>
-    public TMPro.TextMeshPro Toast(string text)
-    {
-        if (_toast == null)
-        {
-            var go = new GameObject("InkVR_Toast") { layer = VRLayers.UI };
-            go.transform.SetParent(_root, false);
-            _toast = go.AddComponent<TMPro.TextMeshPro>();
-            var font = GameFonts.Title;
-            if (font != null) _toast.font = font;
-            _toast.alignment = TMPro.TextAlignmentOptions.Center;
-            _toast.enableWordWrapping = false;
-            _toast.fontSize = 0.9f;
-            _toast.rectTransform.sizeDelta = new Vector2(2.4f, 0.3f);
-        }
-
-        _toast.gameObject.SetActive(true);
-        _toast.text = text;
-        _toast.color = new Color(1f, 0.86f, 0.55f, 1f);
-        var mat = _toast.fontMaterial;
-        mat.renderQueue = 4020;
-        mat.SetFloat("unity_GUIZTestMode", (float)UnityEngine.Rendering.CompareFunction.Always);
-        return _toast;
     }
 
     private void MakeSign(Theatre.SignSpec spec)

@@ -6,29 +6,17 @@ The biggest update yet, and the first full release. Everything since 0.9.1 is in
 
 ### New
 
-- **The theatre, rebuilt.** The menu theatre is now a whole building to explore. Click the move stick to walk
-  about, and click again for the menu (stop beside a seat and you sit down in it). It's lit properly now, with
-  shadows and dark corners, and it's alive: the house lights go down and the curtain parts for the show, two follow
-  spots sweep the stage, the picture's light flickers across the seats, ink drips from the ceiling, and the lights
-  come back up while you walk about. Quiet footsteps follow you, and your body walks with you.
-  - **Backstage**, through the wings: the ghost light, the fly ropes and sandbags, the prop store, the call board.
-  - **Alice Angel's dressing room**, with real mirrors (you see yourself, head and all), a wardrobe and a watch case.
-  - **The cellar**, down the stairs from backstage, where the Ink Machine stands. Pull its lever.
-  - **The projection booth**, up a short stair from the balcony: run the house lights, the curtain, the follow spot
-    and the marquee from the switchboard, and aim the follow spot yourself.
-  - **The Fun Hall**, through a door at the foot of the lobby stairs: eight games played with your hands (Ink Toss,
-    the shooting gallery, darts, the strong man, Ink Ball, Whack-a-Searcher, the claw machine and the ink machine
-    pachinko). Win tickets, spend them on prizes, and beat your own high scores. There's a photo booth too: your
-    photo goes to your Pictures folder.
-  - **26 fan finds** hidden all over, a nod to every chapter. The tally board in the lobby counts them, and finding
-    them all opens Mr. Drew's office. What's inside is yours.
-  - **The theatre dresses for the season**: Halloween now, Christmas in December, and Bendy's birthday in February.
-- **Twelve body styles.** Be Henry (lifelike or toon), or step into the shoes of Bendy, Boris, Alice Angel, the Ink
-  Demon, Sammy Lawrence, the Projectionist, Brute Boris, a Searcher, Joey Drew or Wally Franks. Each has its own
-  hands, arms, body and head (you see the head in mirrors and in your shadow), and ink gets onto all of them. Some
-  have extras: Bendy's and Boris's tails swing as you move, Alice's halo glows, the Projectionist's lens lights the
-  way, the ink creatures drip and leave inky footprints. Choose in the dressing room's wardrobe, VR SETTINGS or the
-  launcher.
+- **Walk the theatre.** Click the move stick in the menu theatre to walk about, and click again for the menu: the
+  hall, the stage, the lobby, the twin staircases and the balcony, with a few surprises to find. Your body walks with
+  you, with quiet footsteps on the boards and the carpet. WALK THE THEATRE in VR SETTINGS or the launcher.
+- **A mirror in the lobby**, by the piano. See yourself head to toe, and press the arrows on the brass panel beside
+  it to change your style and your watch.
+- **Thirteen body styles.** Be Henry (lifelike or toon), or step into the shoes of Bendy, Boris, Alice Angel, the Ink
+  Demon, Sammy Lawrence, the Projectionist, Brute Boris, a Searcher, Joey Drew, Wally Franks or Beast Bendy. Each has
+  its own hands, arms, body and head (you see the head in the mirror and in your shadow), and ink gets onto all of
+  them. Some have extras: Bendy's and Boris's tails swing as you move, Alice's halo glows, the Projectionist's lens
+  lights the way, and the ink creatures drip and leave inky footprints. Choose at the lobby mirror, in VR SETTINGS or
+  in the launcher.
 - **Six watches** for your wrist, all keeping your real time: Henry's tank watch, Bendy's character watch, the
   studio's gold watch, an ink-machine gauge whose vial fills as the chapters get inkier, Alice's angel watch with a
   little halo, and the Ink Demon's. Or none.
@@ -49,7 +37,8 @@ The biggest update yet, and the first full release. Everything since 0.9.1 is in
 ### Quality of life
 
 - **Laser pointer on by default** for the main menu, the pause menu, Options and VR SETTINGS. The stick and A still
-  work, and the laser is steadier: it holds still as you squeeze the trigger.
+  work, and the laser is steadier: it holds still as you squeeze the trigger. Point and click works in every menu,
+  even after you've used the stick.
 - **Gravity pull reaches story items.** Hearts, keys, batteries, books, gears, reels and the rest now fly to your
   hand, not just the few it knew before.
 - **Seated play:** the gravity pull reaches 8.5 m and forgives a looser aim, since you can't lean over to things.
@@ -60,19 +49,19 @@ The biggest update yet, and the first full release. Everything since 0.9.1 is in
   with it, just buzzes the controller.
 - **Tape notes up close.** When a tape plays, its note (who's speaking, what they say) comes up in front of you as a
   sharp page to read. The menus and HUD are drawn sharper too. TAPE NOTES in the launcher puts it back in the HUD.
-- **New options:** STYLE (twelve styles), WATCH, WALK THE THEATRE, WEAPONS, SATCHEL, YOUR SHADOW in VR SETTINGS;
+- **New options:** STYLE (thirteen styles), WATCH, WALK THE THEATRE, WEAPONS, SATCHEL, YOUR SHADOW in VR SETTINGS;
   STYLE, WATCH, WALK THE THEATRE, TAPE NOTES, SATCHEL and GRIPS in the launcher. The launcher's controls page explains
   the new controls.
-- **A faster start.** The theatre is twice the size it was and builds faster than before (its light is worked out on
-  every core of your processor). Henry's textures paint several times faster too.
-- **Your progress in the theatre** (fan finds, tickets, high scores, prizes) is kept in InkVR's own file, never in
-  the game's save.
+- **A faster start.** Henry's textures paint several times faster, so the game gets to the menu sooner.
 
 ### Bug fixes
 
-- **Laser clicks sometimes didn't register.** Letting go of the trigger jolts your hand, which could slide the laser
-  off a small button just as you clicked. A half-pulled trigger could flicker on and off. After quitting to the menu,
-  clicks could go nowhere. All three are fixed.
+- **The laser clicked the wrong thing, or nothing.** Once you'd moved the stick in a menu, the game switched to
+  controller mode: pointing stopped moving the highlight, and a click went to whatever the stick picked last (a click
+  on OPTIONS could even quit the game). Now, while the laser is on the screen, the game treats it as a mouse, so a
+  click goes to what you point at, in every menu. Three smaller causes are fixed too: letting go of the trigger jolts
+  your hand, which could slide the laser off a small button just as you clicked; a half-pulled trigger could flicker
+  on and off; and after quitting to the menu, clicks could go nowhere.
 - **Your hand looked see-through around a weapon.** The game draws the weapon over everything, so in VR it was
   painted over Henry's fingers and through walls. Now your fingers close over the handle.
 - **The axe made a loud sound at every small movement.** Fixed (see *A quiet axe*).

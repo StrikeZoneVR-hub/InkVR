@@ -190,16 +190,8 @@ public static partial class VRRig
         UpdateFade();
         MeleeSwing.DevPreUpdate();
         Hands.Update();
-        if (_cinema != null && CinemaShowing)
-        {
-            UI.TheatreToys.Update(_cinema);
-            UI.TheatreLife.Update(_cinema);
-        }
-        else
-        {
-            UI.TheatreToys.Idle();
-            UI.TheatreLife.Idle();
-        }
+        if (_cinema != null && CinemaShowing) UI.TheatreToys.Update(_cinema);
+        else UI.TheatreToys.Idle();
         if (InGame && !_cinemaActive) MeleeSwing.Update();
         WeaponHandling.Update();
         UI.WeaponWheel.Update();
@@ -448,7 +440,6 @@ public static partial class VRRig
         _cinemaCam.depth = 60; // above every game camera, so a paused game never shows through
 
         _cinema = new Cinema(_cinemaOrigin, UICapture.Texture);
-        _cinema.StartShow(true);
         _cinemaActive = true;
         Recenter();
     }
@@ -463,7 +454,6 @@ public static partial class VRRig
         {
             Recenter();
             _cinema?.Refresh();
-            _cinema?.StartShow(!InGame);
         }
 
         if (InGame)

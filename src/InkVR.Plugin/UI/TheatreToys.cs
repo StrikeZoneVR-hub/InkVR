@@ -82,6 +82,7 @@ public static class TheatreToys
         var doll = _t.Piece("Doll");
         if (doll != null) Grabs.Add(new Grab { T = doll, Rest = doll.localPosition, RestRot = Quaternion.identity, Radius = 0.08f, Bottom = 0f, Centre = 0.15f, Grip = 0.045f, Doll = true });
         SetupKeys();
+        _mirrorStyleShown = _mirrorWatchShown = null;
         _ghostNext = Time.unscaledTime + 25f;
         TheatreSounds.Prewarm();
         _ready = true;
@@ -104,6 +105,7 @@ public static class TheatreToys
         UpdateLockedDoors(now);
         UpdateCutout(now);
         UpdateWriting(dt);
+        UpdateMirror(now);
     }
 
     // ---------------- hands ----------------
@@ -134,29 +136,6 @@ public static class TheatreToys
             PalmVel[h] = Vector3.Lerp(PalmVel[h], pv, 0.5f);
         }
     }
-
-    // ---- for TheatreLife: the hands, in the theatre ----
-    internal static bool HandOk(int h) => HandValid[h];
-    internal static Vector3 TipOf(int h) => Tip[h];
-    internal static Vector3 PalmOf(int h) => Palm[h];
-    internal static Vector3 PalmVelOf(int h) => PalmVel[h];
-    internal static Vector3 TipVelOf(int h) => TipVel[h];
-    internal static Quaternion HandRotOf(int h) => HandRot[h];
-    internal static bool GripOf(int h) => HandValid[h] && Gripping(h);
-    internal static void BuzzOf(int h, float amp, float sec) => Buzz(h, amp, sec);
-    internal static bool Sees(Vector3 p, float maxAngle, float maxDist) => InView(p, maxAngle, maxDist);
-
-    /// <summary>A hand already holds one of the toys (cans, the doll), so it can't take hold of anything else.</summary>
-    internal static bool Holding(int h)
-    {
-        foreach (var g in Grabs)
-            if (g.Hand == h)
-                return true;
-        return false;
-    }
-
-    /// <summary>Something happened that a fan find counts (the bell, a can or the doll taken, the writing).</summary>
-    internal static System.Action<string> Did;
 
     private static bool Gripping(int h)
     {
@@ -245,7 +224,6 @@ public static class TheatreToys
         var down = depth > 0.003f;
         if (down && !_bellDown)
         {
-            Did?.Invoke("bell");
             TheatreSounds.Play(TheatreSounds.Bell, top, Mathf.Clamp(0.45f + speed * 0.6f, 0.45f, 1f), Random.Range(0.99f, 1.01f));
             Buzz(by, 0.5f, 0.04f);
         }
@@ -433,8 +411,6 @@ public static class TheatreToys
                 var h = g.Hand;
                 var hr = HandRot[h];
                 var hp = Palm[h];
-                if (g.Can) Did?.Invoke("soup");
-                else if (g.Doll) Did?.Invoke("doll");
                 g.T.localPosition = hp + hr * g.HoldPos;
                 g.T.localRotation = hr * g.HoldRot;
             }
@@ -630,7 +606,6 @@ public static class TheatreToys
         if (_writing <= 0 && _lookedAtWriting > 0.7f)
         {
             _writing = 0.001f;
-            Did?.Invoke("writing");
             TheatreSounds.Play(TheatreSounds.Seep, at, 0.75f);
         }
 
@@ -646,6 +621,85 @@ public static class TheatreToys
 
         var drips = _t.Piece("Drips");
         if (drips != null) drips.localScale = new Vector3(1, Mathf.Max(0.001f, Mathf.Pow(a, 0.7f)), 1);
+    }
+
+    // ---------------- the mirror's panel: STYLE and WATCH arrows ----------------
+
+    private static readonly bool[] MirrorDown = new bool[4];
+    private static readonly float[] MirrorPush = new float[4];
+    private static string _mirrorStyleShown, _mirrorWatchShown;
+
+    private static void UpdateMirror(float now)
+    {
+        for (var i = 0; i < 4; i++)
+        {
+            var face = Theatre.MirrorButton(i);
+            var depth = 0f;
+            var by = -1;
+            for (var h = 0; h < 2; h++)
+            {
+                if (!HandValid[h]) continue;
+                foreach (var p in new[] { Tip[h], Palm[h] })
+                {
+                    if (Mathf.Abs(p.y - face.y) > Theatre.MirrorButtonHalf || Mathf.Abs(p.z - face.z) > Theatre.MirrorButtonHalf) continue;
+                    var d = face.x + 0.004f - p.x; // (the panel faces +x: a press goes towards -x)
+                    if (d <= 0 || d > 0.07f || d <= depth) continue;
+                    depth = d;
+                    by = h;
+                }
+            }
+
+            var down = depth > 0.005f;
+            if (down && !MirrorDown[i])
+            {
+                Step(i < 2, i % 2 == 0 ? -1 : 1);
+                TheatreSounds.Play(TheatreSounds.Click, face, 0.35f, Random.Range(1.1f, 1.2f));
+                Buzz(by, 0.35f, 0.03f);
+            }
+
+            MirrorDown[i] = down || (MirrorDown[i] && depth > 0.002f);
+            MirrorPush[i] = Mathf.Lerp(MirrorPush[i], Mathf.Min(0.012f, depth), 0.6f);
+            var piece = _t.Piece("MirrorBtn" + i);
+            if (piece != null) piece.localPosition = face - Vector3.right * MirrorPush[i];
+        }
+
+        // the names over the mirror and on the panel (they follow VR SETTINGS and the launcher too)
+        var style = Body.Styles.Current.Label;
+        var watch = Theatre.WatchLabel();
+        if (style != _mirrorStyleShown)
+        {
+            foreach (var id in new[] { "MirrorStyle", "MirrorStyle2" })
+                if (_cinema.Sign(id) is { } s)
+                    s.text = style;
+            _mirrorStyleShown = style;
+        }
+
+        if (watch != _mirrorWatchShown && _cinema.Sign("MirrorWatch") is { } w)
+        {
+            w.text = watch;
+            _mirrorWatchShown = watch;
+        }
+    }
+
+    private static void Step(bool style, int dir)
+    {
+        if (style)
+        {
+            var keys = Body.Styles.Keys;
+            var i = Mathf.Max(0, System.Array.IndexOf(keys, Body.Styles.Current.Key));
+            ModConfig.BodyStyle.Value = keys[(i + dir + keys.Length) % keys.Length];
+            Plugin.L.LogInfo("Mirror: you're " + Body.Styles.Current.Label);
+        }
+        else
+        {
+            var watches = Body.Styles.Watches;
+            var i = 0;
+            for (var k = 0; k < watches.Length; k++)
+                if (watches[k].Key == ModConfig.Watch.Value)
+                    i = k;
+            ModConfig.Watch.Value = watches[(i + dir + watches.Length) % watches.Length].Key;
+            Plugin.L.LogInfo("Mirror: watch " + Theatre.WatchLabel());
+        }
     }
 
     public static string Describe()

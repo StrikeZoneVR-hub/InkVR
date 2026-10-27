@@ -249,7 +249,6 @@ public static class Hands
 
         Body = _body;
         Body.SetVisible(true);
-        Body.SetAccessories(UI.Arcade.Wearing(4), UI.Arcade.Wearing(7));
         if (dt > 0)
         {
             // walking the theatre: the floor moves round you, so the feet go with it and step to keep up
@@ -279,8 +278,7 @@ public static class Hands
     {
         var origin = VRRig.ActiveOrigin;
         var floor = origin != null ? origin.position.y : above.y - 1.6f;
-        // sat in a theatre seat: the floor's that much nearer your head, so the body bends its knees to sit
-        if (VRRig.CinemaActive || !VRRig.InGame) return UI.TheatreWalk.Sitting ? floor + UI.TheatreWalk.SitDrop * VRRig.ActiveScale : floor;
+        if (VRRig.CinemaActive || !VRRig.InGame) return floor;
         var scale = VRRig.ActiveScale;
         var player = GameManager.Instance?.Player;
         var mask = Physics.DefaultRaycastLayers & ~VRLayers.UIMask;

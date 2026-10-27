@@ -360,88 +360,8 @@ public sealed partial class HenryBody
         return mb;
     }
 
-    private System.Func<string, Material> _material;
-
-    // ---- prizes from the Fun Hall: a party hat (on your head: you see it in a mirror, and in your shadow) and the
-    // Ink Demon's bow tie (at your collar) ----
-    private Transform _hat, _bow;
-    private bool _hatOn, _bowOn;
-
-    public void SetAccessories(bool hat, bool bow)
-    {
-        if (hat != _hatOn)
-        {
-            _hatOn = hat;
-            if (hat && _hat == null) BuildHat();
-            if (_hat != null) _hat.gameObject.SetActive(hat);
-        }
-
-        if (bow != _bowOn)
-        {
-            _bowOn = bow;
-            if (bow && _bow == null) BuildBow();
-            if (_bow != null) _bow.gameObject.SetActive(bow);
-        }
-    }
-
-    private float HatHeight => Style switch
-    {
-        BodyStyle.Toon => 0.15f,
-        BodyStyle.Bendy or BodyStyle.InkDemon => 0.14f,
-        BodyStyle.BruteBoris => 0.14f,
-        BodyStyle.Alice => 0.14f,
-        BodyStyle.Projectionist => 0.21f,
-        BodyStyle.Wally => 0.13f,
-        BodyStyle.BeastBendy => 0.18f,
-        _ => 0.13f
-    };
-
-    private void BuildHat()
-    {
-        var y = HatHeight;
-        var mb = new MeshBuilder();
-        mb.Tube(new[] { new Vector3(0, y, -0.08f), new Vector3(0.005f, y + 0.12f, -0.075f), new Vector3(0.01f, y + 0.22f, -0.07f) }, new[] { 0.075f, 0.04f, 0.004f }, Vector3.forward, 18, true, true);
-        mb.Ellipsoid(new Vector3(0.01f, y + 0.23f, -0.07f), Vector3.one * 0.022f, Quaternion.identity, 10, 6);
-        var before = _headRenderers.Count;
-        HeadPart(mb, _material("partyHat"), 0.003f, "PartyHat");
-        _hat = _headRenderers[before].transform;
-        ShowHead(_headShown);
-    }
-
-    private void BuildBow()
-    {
-        // on the chest bone, at the collar: in the rest pose's frame, so it rides with the chest
-        var chest = _bones[(int)B.Chest];
-        var rest = Quaternion.LookRotation(NeckB - ChestP, Vector3.forward);
-        var at = new Vector3(0, 1.45f, 0.085f + (Def.Id is BodyStyle.Toon or BodyStyle.Boris or BodyStyle.BruteBoris or BodyStyle.BeastBendy ? 0.04f : 0f));
-        var mb = new MeshBuilder();
-        foreach (var x in new[] { -1f, 1f }) mb.Ellipsoid(at + new Vector3(0.04f * x, 0, 0), new Vector3(0.04f, 0.03f, 0.014f), Quaternion.identity, 12, 8);
-        mb.Ellipsoid(at, new Vector3(0.016f, 0.018f, 0.016f), Quaternion.identity, 10, 6);
-        mb.Tube(new[] { at + new Vector3(0.02f, -0.02f, 0.005f), at + new Vector3(0.022f, -0.07f, 0.008f) }, new[] { 0.008f, 0.004f }, Vector3.forward, 6, false, true);
-        var go = new GameObject("InkVR_BowTie");
-        go.transform.SetParent(chest, false);
-        go.transform.localPosition = Quaternion.Inverse(rest) * (Vector3.zero - ChestP);
-        go.transform.localRotation = Quaternion.Inverse(rest);
-        go.AddComponent<MeshFilter>().sharedMesh = mb.ToMesh("InkVR_BowTie");
-        var r = go.AddComponent<MeshRenderer>();
-        r.sharedMaterial = _material("demonBow");
-        r.shadowCastingMode = ModConfig.PlayerShadows.Value ? ShadowCastingMode.On : ShadowCastingMode.Off;
-        _renderers.Add(r);
-        _casters.Add(r);
-        var o = new GameObject("InkVR_BowTie_Ink");
-        o.transform.SetParent(go.transform, false);
-        o.AddComponent<MeshFilter>().sharedMesh = mb.ToOutlineMesh("InkVR_BowTie_Ink", 0.002f);
-        var orr = o.AddComponent<MeshRenderer>();
-        orr.sharedMaterial = InkMaterials.Outline;
-        orr.shadowCastingMode = ShadowCastingMode.Off;
-        _renderers.Add(orr);
-        _bow = go.transform;
-        SetLayer(go.layer);
-    }
-
     private void BuildHead(System.Func<string, Material> material)
     {
-        _material = material;
         _headRoot = new GameObject("InkVR_Head").transform;
         _headRoot.SetParent(_root, false);
 

@@ -69,7 +69,6 @@ public static class TheatreWalk
         _walking = false;
         WalkMode = false;
         TheatreToys.Reset();
-        TheatreLife.Reset();
     }
 
     /// <summary>Dev: walk with this stick for a while (the mock runtime has no controllers).</summary>
@@ -115,9 +114,6 @@ public static class TheatreWalk
         {
             WalkMode = !WalkMode;
             XrInput.Haptic(ControllerBindings.OffHand, WalkMode ? 0.35f : 0.2f, 0.04f);
-            // stop walking beside a seat and you sit down in it; walk again and you get up
-            if (!WalkMode) TrySit();
-            else StandUp();
         }
 
         _clickWas = off.StickClick;
@@ -174,8 +170,8 @@ public static class TheatreWalk
                 at += (fwd * stick.y + right * stick.x) * ((hurry ? HurrySpeed : WalkSpeed) * Mathf.Min(1f, stick.magnitude) * dt);
             }
 
-            // walls, seats and rails stop you (you slide along them); real steps into them too (not while you're sat down)
-            if (!Sitting) at = Resolve(_last, at);
+            // walls, seats and rails stop you (you slide along them); real steps into them too
+            at = Resolve(_last, at);
             _offset += at - here;
         }
 
@@ -187,64 +183,20 @@ public static class TheatreWalk
         root.localPosition = -(inv * (_offset + Vector3.up * _shownFloor));
         _rootNow = root.localToWorldMatrix;
         var yawNow = root.eulerAngles.y;
-        // (a jump, like being put back in your seat, isn't a step)
+        // (a jump, like being put back at the front, isn't a step)
         _rootStep = _haveRoot && (_rootNow.GetColumn(3) - _rootWas.GetColumn(3)).sqrMagnitude < 1f ? _rootNow * _rootWas.inverse : Matrix4x4.identity;
         _rootYawStep = _haveRoot ? Mathf.DeltaAngle(_rootYawWas, yawNow) : 0f;
         if (Mathf.Abs(_rootYawStep) > 45f) _rootYawStep = 0f;
         _rootWas = _rootNow;
         _rootYawWas = yawNow;
         _haveRoot = true;
-        Footsteps(dt);
+        Footsteps();
         Eye = new Vector3(at.x, head.y + _shownFloor, at.z);
         ScreenVisible = Theatre.SeesScreen(Eye);
     }
 
-    // ---------------- sitting in a seat ----------------
-
-    /// <summary>How far down you sit (metres): the body bends to it, and the theatre's floor stays where it is.</summary>
-    public const float SitDrop = 0.45f;
-
-    public static bool Sitting { get; private set; }
-    private static Vector3 _standAt;
-    private static float _standFloor;
-
-    /// <summary>Dev: sit in the nearest seat (or stand up).</summary>
-    public static void DevSit(bool sit)
-    {
-        if (sit) TrySit();
-        else StandUp();
-    }
-
-    private static void TrySit()
-    {
-        if (Sitting || !Theatre.NearestSeat(Eye, _floor, 1.0f, out var seat, out var seatFloor)) return;
-        var head = VRRig.HeadLocalPosition;
-        var rot = Quaternion.Euler(0, _yaw, 0);
-        _standAt = _last;
-        _standFloor = _floor;
-        _offset = new Vector3(seat.x, 0, seat.z) - rot * new Vector3(head.x, 0, head.z);
-        _last = new Vector3(seat.x, 0, seat.z);
-        _floor = seatFloor - SitDrop;
-        Sitting = true;
-        TheatreSounds.Play(TheatreSounds.Creak, seat + Vector3.up * 0.4f, 0.3f, 1.4f);
-        Plugin.L.LogInfo($"Sat down at ({seat.x:F2}, {seat.z:F2})");
-    }
-
-    private static void StandUp()
-    {
-        if (!Sitting) return;
-        var head = VRRig.HeadLocalPosition;
-        var rot = Quaternion.Euler(0, _yaw, 0);
-        _offset = _standAt - rot * new Vector3(head.x, 0, head.z);
-        _last = _standAt;
-        _floor = _standFloor;
-        Sitting = false;
-        TheatreSounds.Play(TheatreSounds.Creak, new Vector3(_standAt.x, _floor + 0.4f, _standAt.z), 0.25f, 1.6f);
-    }
-
     private static void Seat(Vector3 head, Quaternion headRot)
     {
-        Sitting = false;
         var f = headRot * Vector3.forward;
         _yaw = -Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
         _offset = -(Quaternion.Euler(0, _yaw, 0) * new Vector3(head.x, 0, head.z));
@@ -287,7 +239,7 @@ public static class TheatreWalk
     private static float _stepTravel;
     private static int _stepTake;
 
-    private static void Footsteps(float dt)
+    private static void Footsteps()
     {
         // with a body, its feet make the sounds as they come down; without one, a step every stride you go
         var body = Body.Hands.Body;
@@ -301,7 +253,7 @@ public static class TheatreWalk
         var here = new Vector3(Eye.x, 0, Eye.z);
         var d = (here - _stepFrom).magnitude;
         _stepFrom = here;
-        if (body != null || d > 1f) return; // (a jump: put back in your seat)
+        if (body != null || d > 1f) return; // (a jump: put back at the front)
         _stepTravel += d;
         if (_stepTravel < 0.62f) return;
         _stepTravel = 0;
@@ -321,13 +273,7 @@ public static class TheatreWalk
     private static void PlayStep(Vector3 at, float k)
     {
         var floor = Theatre.FloorSound(at);
-        var volume = floor switch
-        {
-            TheatreSounds.Floor.Carpet => 0.09f,
-            TheatreSounds.Floor.Concrete => 0.14f,
-            TheatreSounds.Floor.Tile => 0.13f,
-            _ => 0.15f
-        };
+        var volume = floor == TheatreSounds.Floor.Carpet ? 0.09f : 0.15f;
         TheatreSounds.Play(TheatreSounds.Step(floor, _stepTake++), at, volume * k, Random.Range(0.94f, 1.06f));
     }
 

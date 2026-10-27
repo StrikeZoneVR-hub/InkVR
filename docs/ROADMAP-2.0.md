@@ -1,13 +1,13 @@
 # InkVR 2.0: Polish and Comfort
 
-The theatre's rebuild (the hall, backstage, the dressing room, the cellar, the projection booth, the Fun Hall, the
-fan finds and Mr. Drew's office) came in 1.0, with the twelve body styles and the watches. 2.0 adds no new
-features: it's bug fixes and comfort only, so that every chapter plays smoothly and anyone can play in comfort.
+1.0 brought the thirteen body styles, the watches and the lobby mirror; the theatre stays as it is (you walk the
+hall, the stage, the lobby and the balcony). 2.0 adds no new features: it's bug fixes and comfort only, so that every
+chapter plays smoothly and anyone can play in comfort.
 
 Ground rules carry on from 1.0:
 - Every build goes to your headset first. Nothing goes public until you've tested that exact build.
 - No official assets are shipped. Art is read from your installed game, and sounds are synthesised.
-- InkVR's own progress (finds, tickets, scores, prizes) stays in InkVR's own file, never in the game's save.
+- The game's save is never touched by InkVR.
 - Nothing new to learn: every change is a fix, or an option that makes what's already there more comfortable.
 
 ---
@@ -28,8 +28,8 @@ Each build is one test round for you. Your feedback can reorder what follows.
 
 ## Bug fixes
 
-- **Your 1.0 list first.** Anything that breaks, looks wrong or feels off in the new theatre, the Fun Hall's games,
-  the styles, the watches or the game itself.
+- **Your 1.0 list first.** Anything that breaks, looks wrong or feels off in the theatre, the styles, the watches, the
+  mirror or the game itself.
 - **Cutscenes and scripted moments:** the rest checked one by one (knockouts, falls, grabs, Chapter 1's floor
   collapse), so the view never jumps, tilts or ends up in the floor.
 - **Grips:** guns held in two hands with the natural grips, and every item checked in each hand.
@@ -54,8 +54,7 @@ Each build is one test round for you. Your feedback can reorder what follows.
 ### What you see and hear
 - HUD distance and size, and subtitle size.
 - Haptics strength.
-- Volumes for InkVR's own sounds (the theatre's footsteps, the Fun Hall's games and the theatre's ambience) separate
-  from the game's.
+- Volumes for InkVR's own sounds (the theatre's footsteps and toys) separate from the game's.
 
 ### Knowing what's there
 - A soft ink outline on what you can grab, pull or use from afar (optional).
@@ -69,9 +68,7 @@ Each build is one test round for you. Your feedback can reorder what follows.
 
 ## Performance
 
-- 90 fps in every chapter on your RTX 4050 laptop (Chapter 3 runs at 60 to 75 fps today).
-- The theatre draws only the rooms near you (and what you can see through their doors), and its light is cached
-  between runs, so it opens in a second however you've dressed it.
+- 90 fps in every chapter on your RTX 4050 laptop (Chapter 3 runs at 60 to 75 fps today), and in the theatre.
 
 ---
 

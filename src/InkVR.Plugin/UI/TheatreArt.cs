@@ -6,12 +6,10 @@ namespace InkVR.UI;
 /// The theatre's textures, painted at startup in the game's hand-inked style. They are pale with ink
 /// linework; the colour and the light come from each surface's vertex colours.
 /// </summary>
-public static partial class TheatreArt
+public static class TheatreArt
 {
     private static readonly Color Ink = new(0.05f, 0.035f, 0.025f, 1f);
     private static readonly Color PaperWhite = new(0.95f, 0.92f, 0.86f, 1f);
-    private static readonly Color PaleGold = new(0.98f, 0.9f, 0.7f, 1f);
-    private static readonly Color Sun = new(0.98f, 0.86f, 0.55f, 1f);
 
     private static void Frame(InkCanvas c, float inset, float width, float alpha, float wobble = 0.5f)
     {
@@ -30,10 +28,7 @@ public static partial class TheatreArt
             for (var x = 0; x < c.W; x++)
             {
                 var p = c.Px[y * c.W + x];
-                p.r *= k;
-                p.g *= k;
-                p.b *= k;
-                c.Px[y * c.W + x] = p;
+                c.Px[y * c.W + x] = new Color(p.r * k, p.g * k, p.b * k, p.a);
             }
         }
     }
@@ -91,7 +86,7 @@ public static partial class TheatreArt
             for (var x = 0; x < c.W; x++)
             {
                 var p = c.Px[y * c.W + x];
-                c.Mul(y * c.W + x, tone, tone, tone);
+                c.Px[y * c.W + x] = new Color(p.r * tone, p.g * tone, p.b * tone, 1);
             }
 
             for (var g = 0; g < 4; g++)
@@ -157,11 +152,7 @@ public static partial class TheatreArt
             if (x < 14 || x >= c.W - 14)
             {
                 var p = c.Px[y * c.W + x];
-                p.r *= 0.62f;
-                p.g *= 0.62f;
-                p.b *= 0.62f;
-                p.a = 1;
-                c.Px[y * c.W + x] = p;
+                c.Px[y * c.W + x] = new Color(p.r * 0.62f, p.g * 0.62f, p.b * 0.62f, 1);
             }
 
         foreach (var x in new[] { 14f, 113f }) c.Stroke(x, 0, x, c.H, 1.8f, Ink, 0.2f, 0.8f);
@@ -248,7 +239,7 @@ public static partial class TheatreArt
             var slot = (x - x0) % 14 < 5;
             var p = c.Px[y * c.W + x];
             var k = slot ? 0.12f : 0.78f;
-            c.Mul(y * c.W + x, k, k, k);
+            c.Px[y * c.W + x] = new Color(p.r * k, p.g * k, p.b * k, 1);
         }
 
         for (var k = 0; k < 13; k++)
@@ -294,8 +285,8 @@ public static partial class TheatreArt
         for (var y = 0; y < c.H; y++)
         for (var x = 0; x < c.W; x++)
         {
-            var d = System.MathF.Sqrt((x - 64f) * (x - 64f) + (y - 184f) * (y - 184f));
-            if (d < 24) c.Px[y * c.W + x] = PaleGold;
+            var d = Vector2.Distance(new Vector2(x, y), new Vector2(64, 184));
+            if (d < 24) c.Px[y * c.W + x] = new Color(0.98f, 0.9f, 0.7f, 1);
         }
 
         Arc(c, 64, 184, 25, 0, Mathf.PI * 2, 4f, 1f);
@@ -315,11 +306,7 @@ public static partial class TheatreArt
             for (var y = 0; y < c.H; y++)
             {
                 var p = c.Px[y * c.W + x];
-                p.r *= shade;
-                p.g *= shade;
-                p.b *= shade;
-                p.a = 1;
-                c.Px[y * c.W + x] = p;
+                c.Px[y * c.W + x] = new Color(p.r * shade, p.g * shade, p.b * shade, 1);
             }
         }
 
@@ -341,14 +328,10 @@ public static partial class TheatreArt
         for (var y = 0; y < c.H; y++)
         for (var x = 0; x < c.W; x++)
         {
-            var d = System.MathF.Sqrt((x - 128f) * (x - 128f) + (y - 230f) * (y - 230f)) / 200f;
-            var k = 1.05f - 0.33f * System.Math.Min(1f, d);
+            var d = Vector2.Distance(new Vector2(x, y), new Vector2(128, 230)) / 200f;
+            var k = Mathf.Lerp(1.05f, 0.72f, Mathf.Clamp01(d));
             var p = c.Px[y * c.W + x];
-            p.r = System.Math.Min(1f, p.r * k);
-            p.g = System.Math.Min(1f, p.g * k);
-            p.b = System.Math.Min(1f, p.b * k);
-            p.a = 1;
-            c.Px[y * c.W + x] = p;
+            c.Px[y * c.W + x] = new Color(Mathf.Min(1, p.r * k), Mathf.Min(1, p.g * k), Mathf.Min(1, p.b * k), 1);
         }
 
         Frame(c, 6, 4f, 1f);
@@ -386,13 +369,8 @@ public static partial class TheatreArt
         for (var y = 0; y < c.H; y++)
         for (var x = 0; x < c.W; x++)
         {
-            var d = System.MathF.Sqrt((x - 127.5f) * (x - 127.5f) + (y - 127.5f) * (y - 127.5f));
-            if (d < 120)
-            {
-                var p = Sun;
-                p.a = System.Math.Min(1f, 120 - d);
-                c.Px[y * c.W + x] = p;
-            }
+            var d = Vector2.Distance(new Vector2(x, y), new Vector2(127.5f, 127.5f));
+            if (d < 120) c.Px[y * c.W + x] = new Color(0.98f, 0.86f, 0.55f, Mathf.Clamp01(120 - d));
         }
 
         for (var k = 0; k < 24; k++)

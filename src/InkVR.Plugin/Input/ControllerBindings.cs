@@ -95,6 +95,22 @@ public static class ControllerBindings
     }
 }
 
+// The game's menus have two modes. With a mouse, what the pointer is over is what's selected, and a click acts on it;
+// once it has seen a gamepad (the Quest controllers are one, so any push of the stick), hovering stops selecting, and a
+// click acts on whatever the stick last picked: the laser would click OPTIONS and get QUIT. While the laser is on the
+// screen the player is pointing, so the game is told it's a mouse.
+[HarmonyPatch(typeof(GameManager), nameof(GameManager.IsUsingController), MethodType.Getter)]
+internal static class UsingControllerPatch
+{
+    [HarmonyPrefix]
+    private static bool Prefix(ref bool __result)
+    {
+        if (!UI.LaserPointer.OnScreen) return true;
+        __result = false;
+        return false;
+    }
+}
+
 [HarmonyPatch(typeof(InControl.InControlManager), nameof(InControl.InControlManager.Update))]
 internal static class InControlManagerUpdatePatch
 {

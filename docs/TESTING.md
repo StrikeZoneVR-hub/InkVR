@@ -1,22 +1,21 @@
 # Testing InkVR
 
-## Current build: 1.0.0 (the update: everything since 0.9.1, the theatre rebuilt, twelve styles, six watches)
+## Current build: 1.0.0 (the update: everything since 0.9.1, the old theatre with a mirror, thirteen styles, six watches)
 
 1.0 is the single update that goes on GitHub once you've tested it: 0.9.2, 0.10.0 and 0.10.1 below, plus these. The release notes are in [CHANGELOG.md](../CHANGELOG.md).
 
-### New in 1.0: the theatre rebuilt
-- **Lighting:** every lamp lights the rooms with soft shadows and dark corners, worked out when the theatre opens (on all your processor's cores). The house lights dim and the curtain opens for the show; two follow spots sweep the stage; the picture's light flickers across the seats; ink drips from the ceiling. The lights come up while you walk about.
-- **Rooms:** backstage (through the wings), Alice's dressing room (mirrors, wardrobe, watch case), the cellar and the Ink Machine (down from backstage), the projection booth (up from the balcony: switchboard, projectors, follow spot, film shelf), the Fun Hall (a door at the foot of the lobby stairs) and Mr. Drew's office (opens once all 26 fan finds are found).
-- **Walking:** your body steps as you walk, and soft footsteps play for the floor underfoot (wood, carpet, stone, metal). Stop walking beside a seat and you sit down in it; walk again to get up.
-- **The Fun Hall:** Ink Toss, the shooting gallery, darts, the strong man, Ink Ball, Whack-a-Searcher, the claw machine and the pachinko, all by hand. Tickets, high scores and the prize counter (plushes to throw about, a balloon, a party hat and a bow tie you see in the mirror, an inky laser, the golden Bendy). The photo booth saves to Pictures\InkVR.
-- **Progress** (finds, tickets, scores, prizes) is kept in `BepInEx\InkVR\progress.txt`, never in the game's save.
-- **Checked on the test runtime:** every room renders and is walkable; all eight games score (Ink Toss 300, darts 50, Ink Ball 130, the strong man's bell, the gallery, whack, claw and pachinko); prizes bought and worn; finds counted on the tally board and the office opened; sitting; the legs stepping as you walk; the wardrobe, watch case, machine lever, switchboard and follow spot.
+### Changed in 1.0 (from your test): the theatre is back to how it was
+- The rebuilt theatre (backstage, the cellar, the booth, the Fun Hall, the fan finds, the office) is gone, as you asked: the theatre is the one you walked in 0.10, with the hall, the stage, the lobby, the stairs and the balcony.
+- Kept: your body walks with you, and soft footsteps play on the boards and the carpet.
+- **New: a mirror in the lobby**, on the side of the left staircase by the piano. A brass panel beside it has STYLE and WATCH arrows: press them with a fingertip. The style's name is over the mirror.
+- Beast Bendy is now an ordinary 13th style (it used to be the office's prize).
+- **Checked on the test runtime:** the mirror shows you and the lobby; pressing STYLE went Henry, Toon Henry, Bendy (Bendy in the glass, head to toe); pressing WATCH changed the watch; walking from the lobby into the hall; the theatre builds in 1.5 s with no errors.
 
-### New in 1.0: twelve body styles and six watches
-- Henry (Lifelike or Toon), Bendy, Boris, Alice Angel, the Ink Demon, Sammy Lawrence, the Projectionist, Brute Boris, a Searcher, Joey Drew and Wally Franks: each with its own gloves, sleeves, body, shoes and head. Ink stains all of them. Extras: tails that swing, Alice's glowing halo, the Projectionist's lit lens, the ink creatures drip and leave inky footprints. There's a thirteenth for whoever opens the office.
-- Watches: Henry's tank watch, Bendy's, the studio's gold watch, the ink gauge, Alice's and the Ink Demon's, or none.
-- Choose in the dressing room (the wardrobe and the watch case), VR SETTINGS (STYLE, WATCH) or the launcher.
-- **Checked on the test runtime:** all twelve styles and their heads in the dressing-room mirror; every watch on both gloves.
+### Fixed in 1.0 (from your test): the laser after you've used the stick
+- **Cause:** the game's menus have a mouse mode and a controller mode. Any push of the stick switches them to controller mode, and then pointing doesn't move the highlight, and a click acts on whatever the stick picked last. On the title screen, with the stick on QUIT, a laser click on OPTIONS quit the game.
+- **Fix:** while the laser is on the screen, the game is told you're using a mouse. Pointing moves the highlight again, and a click goes to what you point at.
+- **Checked:** title screen: stick to QUIT, laser click on OPTIONS opened Options. Options: stick to ADVANCED, laser click on SETTINGS opened Settings, and on VR SETTINGS opened it. Pause menu in Chapter 1: stick to OPTIONS, laser click on RESUME resumed the game.
+- Each laser click now writes one line to the log (what was pressed and what got clicked), so if one goes astray, your log will show why.
 
 ### Fixed in 1.0: laser clicks that didn't register
 - **Causes:** (1) the click went to whatever the laser was on when you let go of the trigger, and letting go jolts the hand, so on a small button the laser could slide off it just then and the click landed on the background; (2) the trigger had one threshold, so a half-pull could flicker on and off; (3) after quitting to the menu, the laser kept using the old menu system's pointer, so clicks could go nowhere.
@@ -31,17 +30,12 @@
 - **Checked:** Chapter 1's wrench, satchel off, thrown at 4.7 m/s.
 
 ### What to try (1.0)
-1. Turn on WALK THE THEATRE (VR SETTINGS) and watch the show start: the house lights go down and the curtain opens. Is it smooth, and does the theatre open quickly?
-2. Walk everywhere: backstage, the dressing room, down to the cellar, up to the booth, into the Fun Hall. Do the footsteps sound right and quiet, and do your legs step as you walk? Anywhere you get stuck or fall through?
-3. Look in the dressing-room mirrors, then try the wardrobe (a costume on its rail) and the watch case. Try every style in the mirror.
-4. Sit in a seat (stop walking beside one) and stand up again.
-5. Play each Fun Hall game a few times: does each feel right by hand? Buy a prize, wear the hat, take a photo in the booth.
-6. In the booth, flip the switchboard's switches and swing the follow spot onto the stage.
-7. Pull the Ink Machine's lever in the cellar.
-8. Hunt for fan finds (the tally board's in the lobby).
-9. Click through the main menu, Options and VR SETTINGS with the laser, quickly and lazily, and again after quitting to the menu from a chapter.
-10. Play a chapter in a few different styles: does the ink look right on each?
-11. Everything from 0.10.1 below.
+1. On the title screen, move the stick up and down, then point the laser at a different item and click: it should open what you pointed at. Do the same in Options, VR SETTINGS and the pause menu.
+2. Click quickly and lazily with the laser; quit to the menu from a chapter and click again.
+3. Turn on WALK THE THEATRE, walk into the lobby and find the mirror by the piano. Press the STYLE and WATCH arrows and try every style in the glass.
+4. Walk about the hall, the stairs and the balcony: do your legs step, and are the footsteps quiet enough?
+5. Play a chapter in a few different styles: does the ink look right on each?
+6. Everything from 0.10.1 below.
 
 ## Previous build: 0.10.1 (pull and reach story items, solid weapons, the satchel optional)
 
