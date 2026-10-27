@@ -328,6 +328,9 @@ public static class MeleeSwing
         var z = b.center - half;
         var hand = _model.InverseTransformPoint(weapon.transform.parent != null ? HandPoint(weapon) : weapon.transform.position);
         var far = (a - hand).sqrMagnitude > (z - hand).sqrMagnitude ? a : z;
+        // the head from the model's own shape where it can be read (some copies have the hand mount at the head end)
+        var axisIndex = axis == Vector3.right ? 0 : axis == Vector3.up ? 1 : 2;
+        if (Grips.HeadEnd(filter.sharedMesh, axisIndex, b, out var headPositive)) far = headPositive ? a : z;
         var near = far == a ? z : a;
         _nearLocal = near;
         _farLocal = far;

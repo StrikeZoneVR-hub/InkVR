@@ -1737,6 +1737,80 @@ public class DevTools : MonoBehaviour
             case "shotweapons":
                 ShotWeapons = arg != "off";
                 break;
+            case "bring":
+            {
+                // (each brought one gets its own name: InkVR_Brought1, 2...)
+                // bring <name>: move the first weapon with this name to just in front of Henry (to pick up where the floor's solid)
+                var player = GameManager.Instance.Player;
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<BaseWeapon>()))
+                {
+                    var w = o.Cast<BaseWeapon>();
+                    if (!w.gameObject.scene.IsValid() || w.m_IsEquipped || w.name.IndexOf(arg, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    var at = player.transform.position + player.transform.forward * 2.5f + Vector3.up * 1.2f;
+                    w.transform.position = at;
+                    w.name = "InkVR_Brought" + (++_brought);
+                    foreach (var rb in w.GetComponentsInChildren<Rigidbody>()) rb.isKinematic = true;
+                    Plugin.L.LogInfo($"bring {PathOf(w.transform)} to {at}");
+                    break;
+                }
+
+                break;
+            }
+            case "setlocal":
+            {
+                // setlocal <path>|px py pz|ex ey ez : a transform's local position and rotation (e.g. to mimic another copy of a model)
+                var sa = arg.Split('|');
+                var t = Resolve(sa[0].Trim());
+                if (t == null) break;
+                var p = sa[1].Trim().Split(' ').Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                var r = sa[2].Trim().Split(' ').Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                t.localPosition = new Vector3(p[0], p[1], p[2]);
+                t.localEulerAngles = new Vector3(r[0], r[1], r[2]);
+                Plugin.L.LogInfo($"setlocal {PathOf(t)} pos {t.localPosition} rot {t.localEulerAngles}");
+                break;
+            }
+            case "griplog":
+                InkVR.Body.Grips.DevLog = arg != "off";
+                break;
+            case "heldaxes":
+            {
+                // heldaxes: the held weapon's model axes (local x, y, z) as seen from the dominant hand's grip (grip space)
+                var player = GameManager.Instance.Player;
+                var go = player?.WeaponGameObject;
+                var mf = go != null ? go.GetComponentInChildren<MeshFilter>() : null;
+                if (mf == null) break;
+                var dom = InkVR.Input.ControllerBindings.Dominant;
+                var dev = dom == InkVR.Input.Hand.Right ? InkVR.Body.Hands.DevRight : InkVR.Body.Hands.DevLeft;
+                var c = InkVR.Input.XrInput.Get(dom);
+                InkVR.Core.VRRig.TrackingToWorld(dev?.pos ?? c.GripPosition, dev?.rot ?? c.GripRotation, out var gp, out var gr);
+                var inv = Quaternion.Inverse(gr);
+                var m = mf.transform;
+                foreach (var rr in go.GetComponentsInChildren<Renderer>(true))
+                    Plugin.L.LogInfo($"HELDAXES piece {rr.name} {(rr.bounds.center - gp).magnitude / InkVR.Core.VRRig.ActiveScale:F2} m from the grip, size {rr.bounds.size / InkVR.Core.VRRig.ActiveScale} m, on={rr.enabled && rr.gameObject.activeInHierarchy}");
+                var rend = mf.GetComponent<Renderer>();
+                if (rend != null) Plugin.L.LogInfo($"HELDAXES model centre {(rend.bounds.center - gp).magnitude / InkVR.Core.VRRig.ActiveScale:F2} m from the grip, in grip space {inv * (rend.bounds.center - gp) / InkVR.Core.VRRig.ActiveScale}, size {rend.bounds.size / InkVR.Core.VRRig.ActiveScale} m, visible={rend.enabled && rend.gameObject.activeInHierarchy} layer={rend.gameObject.layer}");
+                Plugin.L.LogInfo($"HELDAXES {go.name}/{m.name} in grip space: x={inv * m.right} y={inv * m.up} z={inv * m.forward} (mesh {mf.sharedMesh.name} {mf.sharedMesh.bounds.size} readable={mf.sharedMesh.isReadable})");
+                if (mf.sharedMesh.isReadable)
+                {
+                    // at each end, how far the model reaches either way along y and x from the handle's line (its middle at the other end)
+                    var mb = mf.sharedMesh.bounds;
+                    var verts = mf.sharedMesh.vertices;
+                    float hzMin = mb.min.z, hzMax = mb.max.z;
+                    var py = new float[4];
+                    for (var i = 0; i < verts.Length; i++)
+                    {
+                        var v = verts[i];
+                        var t = (v.z - mb.center.z) / Mathf.Max(1e-5f, mb.extents.z);
+                        var k = t > 0.55f ? 0 : t < -0.55f ? 2 : -1;
+                        if (k < 0) continue;
+                        py[k] = Mathf.Max(py[k], v.y - mb.center.y);
+                        py[k + 1] = Mathf.Max(py[k + 1], mb.center.y - v.y);
+                    }
+
+                    Plugin.L.LogInfo($"HELDAXES +z end reaches y+{py[0]:F2} y-{py[1]:F2}; -z end y+{py[2]:F2} y-{py[3]:F2} (bounds y {mb.min.y:F2}..{mb.max.y:F2})");
+                }
+                break;
+            }
             case "gripstate":
             {
                 // where the weapon's handle runs relative to each hand's fist (the grip pose's +Z line through its origin)
@@ -2090,6 +2164,8 @@ public class DevTools : MonoBehaviour
             if (go.name != "InkVR_DDOLProbe")
                 yield return go;
     }
+
+    private static int _brought;
 
     internal static string PathOf(Transform t)
     {

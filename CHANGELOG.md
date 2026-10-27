@@ -69,6 +69,12 @@ The biggest update yet, and the first full release. Everything since 0.9.1 is in
   flashlight was never switched on. Doors opened by hand now tell the game just as pressing interact does, at every
   door in every chapter. (A grip at the vent could also go to the trunk across the room: see *Point at it, or look
   at it*.)
+- **Chapter 4's axe sat in your hand the wrong way.** The game has copies of the axe turned differently inside
+  (Chapter 4's is a quarter turn round from Chapter 2's), and one copy could even be held by its head. Every axe now
+  sits the same: by its handle, the blade's flat across your palm, whichever copy it is.
+- **Chapter 4's throwing cans sat sideways and upside down,** gripped like a stick and drawn far too big. They're
+  held upright now, a soup can's size, your fingers round them. (These are the empty cans you throw; they can't be
+  eaten in the game either. The full cans you eat are held as before.)
 - **Chapter 4's fairground games couldn't be won in VR, so the story couldn't go on.** Both aim with the game's
   camera (your head, in VR): the ball always flew the way you were looking, whatever your hand did, and the gallery
   shot where you looked, with no gun in your hand. Both now aim with your hand (see *Chapter 4's fairground games by

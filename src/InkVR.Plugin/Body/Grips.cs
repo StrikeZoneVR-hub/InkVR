@@ -24,12 +24,22 @@ public static class Grips
         public Vector3 AxisLocal, NearLocal, FarLocal; // the handle's length: knob end → head (model local)
         public float LengthM, RadiusM;                  // metres
         public bool IsGun;
+        // a bladed tool (an axe): the blade's thin side, model local; it's held across your palm, whichever copy it is
+        public Vector3 ThinLocal;
+        public bool Bladed;
+        // a can you throw (Chapter 4's empty cans): held round its middle, upright in your fist, fingers open round it
+        public bool IsCan;
         // at rest, relative to the game's HandContainer
         public Vector3 AxisRel, GripRel;
         public bool HaveRest;
     }
 
     private static Shape _held;
+
+    /// <summary>Dev: log how the held weapon sits once a second.</summary>
+    public static bool DevLog;
+
+    private static float _devLogAt;
     private static System.IntPtr _heldWeapon;
 
     // per hand: a pose for the hand model (world), set when the hand is put on something
@@ -108,10 +118,40 @@ public static class Grips
         var wanted = twoHandDir ?? gripRotWorld * Vector3.forward;
         var d0 = rot * s.AxisRel;
         var fixedRot = Quaternion.FromToRotation(d0, wanted) * rot;
-        container.rotation = fixedRot;
-        container.position = gripWorld - fixedRot * Vector3.Scale(s.GripRel, container.lossyScale);
-
         var dom = ControllerBindings.Dominant;
+        if (s.Bladed)
+        {
+            // the same axe comes in copies turned differently about the handle (Chapter 2's against Chapter 4's): the
+            // blade's thin side goes across your palm, as a hatchet sits in a fist, whichever copy it is
+            var thin = fixedRot * (Quaternion.Inverse(container.rotation) * s.Model.TransformDirection(s.ThinLocal));
+            var across = gripRotWorld * Vector3.right;
+            var a = Vector3.ProjectOnPlane(thin, wanted);
+            var b = Vector3.ProjectOnPlane(across, wanted);
+            if (a.sqrMagnitude > 1e-6f && b.sqrMagnitude > 1e-6f)
+            {
+                if (Vector3.Dot(a, b) < 0) b = -b;
+                fixedRot = Quaternion.FromToRotation(a, b) * fixedRot;
+            }
+        }
+
+        container.rotation = fixedRot;
+        var grip = gripWorld;
+        if (s.IsCan)
+        {
+            // out of the fist by the can's own thickness, the fingers open round it
+            var side = dom == Hand.Left ? -1f : 1f;
+            grip += gripRotWorld * new Vector3(-side * Mathf.Max(0f, s.RadiusM - 0.017f), 0, 0) * scale;
+            CurlLimit[(int)dom] = CurlFor(s.RadiusM);
+        }
+
+        container.position = grip - fixedRot * Vector3.Scale(s.GripRel, container.lossyScale);
+        if (DevLog && Time.unscaledTime > _devLogAt)
+        {
+            _devLogAt = Time.unscaledTime + 1f;
+            var at = GripPointWorld(s);
+            Plugin.L.LogInfo($"GRIPDEV {weapon.name}: held point {(at - grip).magnitude / scale:F3} m from where it's put; handle along the fist {Vector3.Angle(s.Model.TransformDirection(s.AxisLocal), wanted):F0} deg; thin across the palm {Vector3.Angle(Vector3.ProjectOnPlane(s.Model.TransformDirection(s.ThinLocal), wanted), Vector3.ProjectOnPlane(gripRotWorld * Vector3.right, wanted)):F0} deg; grip {gripWorld}");
+        }
+
         if (twoHandDir.HasValue)
         {
             // your weapon hand turns to the handle too
@@ -131,8 +171,8 @@ public static class Grips
         var far = s.Model.TransformPoint(s.FarLocal);
         var len = (far - near).magnitude;
         if (len < 1e-5f) return near;
-        // the knob a few centimetres past the little finger; a short tool is held at its middle
-        var fromKnob = s.LengthM < 0.25f ? 0.42f : Mathf.Clamp(0.065f / s.LengthM, 0.08f, 0.3f);
+        // the knob a few centimetres past the little finger; a short tool is held at its middle, a can round its middle
+        var fromKnob = s.IsCan ? 0.5f : s.LengthM < 0.25f ? 0.42f : Mathf.Clamp(0.065f / s.LengthM, 0.08f, 0.3f);
         return near + (far - near) * fromKnob;
     }
 
@@ -155,24 +195,126 @@ public static class Grips
         if (best == null) return null;
         var b = best.sharedMesh.bounds;
         var e = b.extents;
-        var axis = e.x >= e.y && e.x >= e.z ? Vector3.right : e.y >= e.z ? Vector3.up : Vector3.forward;
+        var isCan = weapon.TryCast<ThrowWeapon>() != null;
+        var scale = VRRig.ActiveScale;
+        var lossy = best.transform.lossyScale;
+        int axisIndex;
+        if (isCan)
+        {
+            // a can's axis is the one round which it's round: the other two sides the same
+            var sx = Mathf.Abs(e.y - e.z) / Mathf.Max(1e-5f, Mathf.Max(e.y, e.z));
+            var sy = Mathf.Abs(e.x - e.z) / Mathf.Max(1e-5f, Mathf.Max(e.x, e.z));
+            var sz = Mathf.Abs(e.x - e.y) / Mathf.Max(1e-5f, Mathf.Max(e.x, e.y));
+            axisIndex = sx <= sy && sx <= sz ? 0 : sy <= sz ? 1 : 2;
+        }
+        else axisIndex = e.x >= e.y && e.x >= e.z ? 0 : e.y >= e.z ? 1 : 2;
+
+        var axis = axisIndex == 0 ? Vector3.right : axisIndex == 1 ? Vector3.up : Vector3.forward;
         var half = Vector3.Scale(e, axis);
         var a = b.center + half;
         var z = b.center - half;
         var container = GameManager.Instance?.Player?.m_HandContainer;
         var mount = container != null && container.childCount > 0 ? container.GetChild(0).position : weapon.transform.position;
         var hand = best.transform.InverseTransformPoint(mount);
+        // the head is the heavy end (an axe's blade): from the model itself where it can be read, else the far end
+        // from the game's hand mount (which some copies have at the wrong end)
         var near = (a - hand).sqrMagnitude < (z - hand).sqrMagnitude ? a : z;
+        if (!isCan && HeadEnd(best.sharedMesh, axisIndex, b, out var headPositive)) near = headPositive ? z : a;
         var far = near == a ? z : a;
-        var scale = VRRig.ActiveScale;
-        var lossy = best.transform.lossyScale;
         var lengthM = Vector3.Scale(far - near, lossy).magnitude / Mathf.Max(1e-4f, scale);
-        // the handle's thickness: the smaller of the other two extents near the knob is unknowable from bounds, so a
-        // tool's handle is taken as a typical 1.6 cm (a fist round it); a gun is held by its own grip
         var isGun = weapon.TryCast<GunWeapon>() != null;
-        var s = new Shape { Model = best.transform, AxisLocal = (far - near).normalized, NearLocal = near, FarLocal = far, LengthM = lengthM, RadiusM = isGun ? 0.016f : 0.016f, IsGun = isGun };
-        Plugin.L.LogInfo($"Natural grip: {weapon.name} ({best.name}), {lengthM:F2} m long{(isGun ? ", a gun (held by its own grip, aimed with your hand)" : ", held by its handle through your fist")}");
+        var s = new Shape { Model = best.transform, AxisLocal = (far - near).normalized, NearLocal = near, FarLocal = far, LengthM = lengthM, RadiusM = 0.016f, IsGun = isGun, IsCan = isCan };
+
+        // the other two sides: the thinner one, and whether it's a blade (much thinner than it is wide)
+        int o1 = (axisIndex + 1) % 3, o2 = (axisIndex + 2) % 3;
+        var thinIndex = e[o1] <= e[o2] ? o1 : o2;
+        var wideIndex = thinIndex == o1 ? o2 : o1;
+        s.ThinLocal = thinIndex == 0 ? Vector3.right : thinIndex == 1 ? Vector3.up : Vector3.forward;
+        s.Bladed = !isGun && !isCan && e[thinIndex] < e[wideIndex] * 0.4f;
+        if (isCan)
+        {
+            // upright: its lid end up, beyond your thumb (the game's own lid piece shows which end that is)
+            foreach (var r in weapon.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                var n = r.name.ToLowerInvariant();
+                if (r.transform == best.transform || !(n.Contains("top") || n.Contains("lid"))) continue;
+                var top = best.transform.InverseTransformPoint(r.bounds.center);
+                var toA = (a - top).sqrMagnitude < (z - top).sqrMagnitude;
+                s.NearLocal = toA ? z : a;
+                s.FarLocal = toA ? a : z;
+                s.AxisLocal = (s.FarLocal - s.NearLocal).normalized;
+                break;
+            }
+
+            // the game's held can is drawn big, for a camera right behind it: in your hand it's a soup can's size
+            const float canHeight = 0.14f;
+            if (s.LengthM > canHeight * 1.3f)
+            {
+                var shrink = canHeight / s.LengthM;
+                weapon.transform.localScale *= shrink;
+                s.LengthM *= shrink;
+                lossy = best.transform.lossyScale;
+            }
+
+            // the handle's thickness is a typical 1.6 cm (a fist round it); a can's is its own
+            s.RadiusM = (Mathf.Abs(e[o1] * lossy[o1]) + Mathf.Abs(e[o2] * lossy[o2])) * 0.5f / Mathf.Max(1e-4f, scale);
+        }
+
+        Plugin.L.LogInfo($"Natural grip: {weapon.name} ({best.name}), {s.LengthM:F2} m long" + (isGun ? ", a gun (held by its own grip, aimed with your hand)"
+            : isCan ? $", a can (held round its middle, {s.RadiusM * 200f:F0} cm across)" : s.Bladed ? ", held by its handle through your fist, the blade's flat across your palm" : ", held by its handle through your fist"));
         return s;
+    }
+
+    private static readonly System.Collections.Generic.Dictionary<System.IntPtr, int> Heads = new();
+
+    /// <summary>
+    /// Which end of a long model is its head (an axe's blade, a hammer's head): the end that spreads widest across its
+    /// length, from the model's own vertices. False when the model can't be read or both ends are alike.
+    /// </summary>
+    public static bool HeadEnd(Mesh mesh, int axisIndex, Bounds b, out bool positive)
+    {
+        positive = true;
+        if (mesh == null) return false;
+        var key = mesh.Pointer + axisIndex;
+        if (!Heads.TryGetValue(key, out var known))
+        {
+            known = 0;
+            try
+            {
+                if (mesh.isReadable)
+                {
+                    var verts = mesh.vertices;
+                    var c = b.center[axisIndex];
+                    var half = Mathf.Max(1e-5f, b.extents[axisIndex]);
+                    int o1 = (axisIndex + 1) % 3, o2 = (axisIndex + 2) % 3;
+                    float pos = 0, neg = 0;
+                    for (var i = 0; i < verts.Length; i++)
+                    {
+                        var v = verts[i];
+                        var t = (v[axisIndex] - c) / half;
+                        var dx = v[o1] - b.center[o1];
+                        var dy = v[o2] - b.center[o2];
+                        var spread = dx * dx + dy * dy;
+                        if (t > 0.55f && spread > pos) pos = spread;
+                        else if (t < -0.55f && spread > neg) neg = spread;
+                    }
+
+                    // clearly wider at one end (an axe's blade is several times its handle's width)
+                    if (pos > neg * 1.7f) known = 1;
+                    else if (neg > pos * 1.7f) known = -1;
+                    Plugin.L.LogInfo($"Natural grip: {mesh.name}'s ends spread {Mathf.Sqrt(pos):F2} (+) and {Mathf.Sqrt(neg):F2} (-): {(known > 0 ? "the head's at +" : known < 0 ? "the head's at -" : "alike, so the hand mount decides")}");
+                }
+            }
+            catch
+            {
+                known = 0;
+            }
+
+            Heads[key] = known;
+        }
+
+        positive = known > 0;
+        return known != 0;
     }
 
     /// <summary>The held weapon's main model and its length (knob end → far end, world), for the other hand.</summary>

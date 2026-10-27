@@ -4,6 +4,12 @@
 
 1.0 is the single update that goes on GitHub once you've tested it: 0.9.2, 0.10.0 and 0.10.1 below, plus these. The release notes are in [CHANGELOG.md](../CHANGELOG.md).
 
+### Fixed in 1.0 (from your fifth test): the axe and the throwing cans in your hand
+- **The axe:** the game has copies of the same axe model turned differently inside them. Chapter 2's (the one you've played with) has its blade a quarter turn round from Chapter 4's (Bertrum's, the one you got next) and from a spare one in Chapter 2. The grip took whatever turn the copy had, so Chapter 4's sat with its blade the wrong way. And which end is the head was judged from the game's hand mount, which one Chapter 3 copy has at the wrong end. Now the head is found from the model itself (the wide end), and a blade is turned with its flat across your palm, so every copy sits like Chapter 2's.
+- **The throwing cans** (Chapter 4's empty cans, a weapon you throw: the model is literally "EmptyCan", and they can't be eaten in the flat game either): they were gripped like a tool handle, through a closed fist near one end, upside down, and the game's held can is drawn 32 cm tall for a camera right behind it. Now: upright (the lid end up), held round its middle with the fingers open round it, at a soup can's size (14 cm). The full cans you eat were fine: your log shows four eaten.
+- **Checked on the test runtime:** the Chapter 2 axe holds exactly as before; the same axe turned to the Chapter 4 copy's angle now sits identically (handle along the fist, blade flat across the palm); a Chapter 4 can, picked up, sits upright in the hand with its label the right way up (picture taken); the Gent pipe on your own Chapter 5 save is unchanged (its two ends are alike, so the old rule still decides). Your save is byte for byte unchanged.
+- **Not reachable on the test runtime:** Chapter 3's weapon station (plunger, wrench, ink tool, Tommy gun) only opens through the story. The new rules only change bladed tools (the axe, possibly the wrench, held flat across the palm) and tools with one clearly wide end (held by the other end); round tools and guns are as before. Please look at each as you pick it up.
+
 ### Fixed in 1.0 (from your fourth test): Chapter 4's fairground games
 - **What went wrong:** to power the haunted house, the story needs both the ball toss (knock down 5 bottles with 3 balls) and the shooting gallery (10 hits from 20 shots) won. The flat game aims both with its camera, which in VR is your head. The ball toss threw every ball the way you were looking (the ball isn't the kind of throw InkVR steered by hand), and the gallery shot where you looked, with no gun in your hand. Your log: plenty of throws, no win, and the fair games lever pulled before the games were won.
 - **The ball toss now:** point at a bottle with your throwing hand and pull, then let go of, the trigger. The ball leaves your hand on the arc that lands on the bottle nearest where you point (within about 12 degrees), aimed at its middle, brisk enough to knock it off its stand. A gold arc shows where it'll go; swing as you let go if you like (the throw goes where you pointed as you began the swing). No more weak lobs from a gentle release.
@@ -49,13 +55,15 @@
 - The throw was part of the satchel, so with the satchel off (the new default) a carried thing only went into your pocket. Now let go mid-swing and it flies, lands, and melts away (it's in your inventory already).
 - **Checked:** Chapter 1's wrench, satchel off, thrown at 4.7 m/s.
 
-### What to try (1.0)
-1. Chapter 4's fair games: the ball toss (point at a bottom bottle, pull and let go of the trigger) and the shooting gallery (aim the gun in your hand, pull the trigger). Then pull the fair games lever.
-2. Anywhere: point at things with either hand, or just look at them, then grip or press X.
-3. Grip a valve or a lever and just hold the grip: does it finish after a moment?
-4. Menus: move the stick, then point the laser at a different item and click.
-5. The theatre: the mirror by the piano (STYLE and WATCH arrows); walk about (legs and quiet footsteps).
-6. Everything from 0.10.1 below.
+### What to try (1.0): a start-to-end playthrough
+Play Chapters 1 to 5 and the Archives start to end. Things to look at on the way:
+1. Every weapon as you pick it up (Chapter 2's axe, Chapter 3's station weapons, Chapter 4's axe and throwing cans, Chapter 5's pipe): held by its handle, the right way round? Can you swing and throw?
+2. Every door the story waits on: does the next part start once you've pushed it open?
+3. Using things: point (either hand) or look, then grip or X. Valves and levers: just hold the grip if the motion's awkward.
+4. Chapter 1's darts and Chapter 4's fair games.
+5. Bacon Soup: pick a full can up, pull the lid off with your other hand, tip it to your mouth.
+6. Menus with the laser, also after moving the stick; the theatre mirror; quitting to the menu and continuing.
+If anything stops you, your log (BepInEx\LogOutput.log) says what happened: send it with a note of where you were.
 
 ## Previous build: 0.10.1 (pull and reach story items, solid weapons, the satchel optional)
 
