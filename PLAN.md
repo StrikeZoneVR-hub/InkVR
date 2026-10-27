@@ -46,7 +46,14 @@ Each test build goes to your headset before the next one starts, and your feedba
 | later | **UI pass (rest of M5):** world-space subtitles, readable prompts, note viewer, VR button glyphs, chapter cards, credits | |
 | later | **Performance (M8):** a measured 90 fps pass through every chapter on your laptop | |
 | later | **All chapters certified (M9):** full Ch1–5 + Archives VR playthrough, softlock checks, boss fights | |
-| **1.0 full release** | Polish from your feedback, body ink and shadows, GitHub release | |
+| **1.0 full release** | Polish from your feedback, body ink and shadows, GitHub release | ✅ built as 1.0.0 (your test, then GitHub) |
+| 1.1 | **Foundations for 2.0:** fixes from your 1.0 test; rooms drawn only when near; cached theatre build; InkVR's progress file; the fan-find tally board | after Dark Revival |
+| 1.2 | **Theatre overhaul part 1:** the hall rebuilt (sit anywhere, curtains and house lights for the show), projection booth, backstage and dressing rooms | |
+| 1.3 | **The Fun Hall:** the arcade room, four games, tickets, prize counter, high scores | |
+| 1.4 | **Theatre overhaul part 2:** basement ink machine, the full fan-find hunt, photo booth, seasonal dressing, Joey's office, four more games | |
+| 1.5 | **Quality of life and features:** comfort options, grab highlights, VR SETTINGS tabs and presets, first-run tips, launcher upgrades, physical in-game items, cutscene leftovers | |
+| 1.6 | **Performance and certification:** 90 fps in every chapter, full playthrough of Ch1–5 and the Archives | |
+| **2.0 final** | **The Grand Reopening:** polish, the street doors open, trailer, GitHub. Details: docs/ROADMAP-2.0.md | |
 
 ---
 
