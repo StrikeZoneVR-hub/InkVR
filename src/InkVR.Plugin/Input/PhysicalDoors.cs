@@ -550,23 +550,38 @@ public static class PhysicalDoors
         d.OwnCallUntil = now + 0.2f;
         try
         {
-            // The game's own opening (its sound, occlusion and listeners), over a moment, to where the door already is.
+            // The game's own interaction with the door, as if you'd pressed interact on it: its sound, occlusion and,
+            // above all, its listeners. The story waits on some doors being "interacted with" (Chapter 4's stairwell
+            // door switches on the holding room and the vent's flashlight); opening the door any other way left it
+            // waiting for ever. If the game doesn't open it that way, it's opened directly, as before.
             switch (d.Kind)
             {
                 case Kind.Base:
-                    d.B.Open(0.15f, Ease.Linear, d.Theta);
+                    (d.B.m_DoorFront ?? d.B.m_DoorBack)?.Interact();
+                    if (!d.B.IsOpen) d.B.Open(0.15f, Ease.Linear, d.Theta);
                     break;
                 case Kind.Simple:
-                    d.D.Open(0.15f, d.Theta);
+                    d.D.Interact();
+                    if (!d.D.IsOpen) d.D.Open(0.15f, d.Theta);
                     break;
                 default:
-                    d.C.Open(0.15f, d.Theta);
+                    d.C.m_DoorInteractable?.Interact();
+                    if (!d.C.IsOpen) d.C.Open(0.15f, d.Theta);
                     break;
             }
 
             // finished at once (its listeners run now), so it never tugs the door against your hand
             DOTween.Complete(d.Hinge, true);
-            Apply(d, d.Theta);
+            if (d.Locked && d.OpenInGame)
+            {
+                // the story locked it open behind you: it stays as wide as the game opened it (a crack you'd pushed
+                // it would otherwise be all the way you'd ever get)
+                d.LastSet = d.Hinge.localRotation;
+                d.Theta = AngleOf(d, d.LastSet);
+                if (d.Theta > d.Max) d.Max = d.Theta + 1f;
+                if (d.Theta < d.Min) d.Min = d.Theta - 1f;
+            }
+            else Apply(d, d.Theta);
         }
         catch (Exception e)
         {
@@ -810,6 +825,18 @@ public static class PhysicalDoors
         var local = VRRig.ActiveOrigin.InverseTransformPoint(grip) - Vector3.up * VRRig.HeightLift;
         Dev.DevRecorder.HandGoTo(local, seconds);
         return $"hand to {d.Root.name} u={u} h={h} off={off} (tracking {local})";
+    }
+
+    /// <summary>Dev: what a push by hand does once the door's open past a crack: the leaf at this angle, and the game told.</summary>
+    public static string DevPush(float angle)
+    {
+        DevNearest(out var hinge);
+        var d = Doors.Find(x => x.Hinge == hinge);
+        if (d == null || !d.Ready) return "no measured door near";
+        d.Theta = angle;
+        Apply(d, angle);
+        TellOpen(d, Time.unscaledTime);
+        return $"pushed {d.Root.name} to {angle:F0}°: open(game)={d.OpenInGame} locked={d.Locked} theta={d.Theta:F0}";
     }
 
     /// <summary>Dev: a recording camera on the given side of the nearest door, off towards its hinge or edge, looking at the doorway.</summary>

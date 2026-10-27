@@ -441,6 +441,13 @@ public class DevTools : MonoBehaviour
                     break;
                 }
 
+                if (arg.StartsWith("push"))
+                {
+                    // door push <angle>: what a hand's push does (the leaf to that angle, the game told it's open)
+                    Plugin.L.LogInfo("DOOR " + Input.PhysicalDoors.DevPush(float.Parse(arg.Substring(4).Trim(), System.Globalization.CultureInfo.InvariantCulture)));
+                    break;
+                }
+
                 Plugin.L.LogInfo("DOOR " + Input.PhysicalDoors.DevNearest(out var hinge));
                 if (arg == "look" && hinge != null) InkVR.Core.VRRig.DevLookAt = hinge.position;
                 break;
@@ -719,6 +726,26 @@ public class DevTools : MonoBehaviour
                 }
 
                 Plugin.L.LogInfo($"callall {arg}: {n} instances");
+                break;
+            }
+            case "sections":
+            {
+                // sections: every story controller in the level, active and complete or not (the story's progress)
+                foreach (var o in Object.FindObjectsOfType(Il2CppType.Of<ChapterController>()))
+                {
+                    var cc = o.Cast<ChapterController>();
+                    var list = cc.m_Controllers;
+                    var names = new List<string>();
+                    for (var i = 0; list != null && i < list.Length; i++) names.Add($"{i}:{(list[i] != null ? list[i].GetIl2CppType().Name : "-")}");
+                    Plugin.L.LogInfo($"CHAPTER current={cc.m_CurrentController} active={cc.m_IsActive} order: {string.Join(" ", names)}");
+                }
+
+                foreach (var o in Object.FindObjectsOfType(Il2CppType.Of<BaseController>()))
+                {
+                    var c = o.Cast<BaseController>();
+                    Plugin.L.LogInfo($"SECTION {c.GetIl2CppType().Name} at {PathOf(c.transform)} active={c.m_IsActive} complete={c.IsComplete}");
+                }
+
                 break;
             }
             case "standat":

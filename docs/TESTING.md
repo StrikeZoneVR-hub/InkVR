@@ -4,6 +4,12 @@
 
 1.0 is the single update that goes on GitHub once you've tested it: 0.9.2, 0.10.0 and 0.10.1 below, plus these. The release notes are in [CHANGELOG.md](../CHANGELOG.md).
 
+### Fixed in 1.0 (from your third test): Chapter 4's flashlight in the vent, for real this time
+- **The real cause:** the flashlight is switched on by the story when the stairwell door into the holding room is opened, and the story listens for the door being *interacted with*. A door pushed open by hand was opened directly, so the story never heard it: the stairwell never finished, the holding room never started, and the flashlight stayed off (`m_Active = False` at your checkpoint, after your door push). My earlier test switched the flashlight on by hand, which hid this.
+- **Fix:** a door pushed open by hand now tells the game through its own interaction (exactly what X does), then stays where your hand has it. If the story locks the door open behind you (this one does), it stays as wide as the game opens it, so you can't end up locked behind a crack.
+- **Checked on your own save** (Slot 1, loaded read-only in a test session that can't save; your save is byte for byte unchanged): finished the Abyss the game's own way, pushed the stairwell door open 5 degrees by the hand path: the story moved on, the door locked open, the flashlight switched on. Then, standing at the vent and looking at the flashlight, a grip played the game's vent scene (Henry in the vent, the flashlight lit, the Lost Ones peering in), and the chapter moved on.
+- This applies to every door you open by hand, in every chapter, so no other story door can stall the same way.
+
 ### Fixed in 1.0 (from your second test video): using things, and Chapter 4's vent
 - **What went wrong:** things only answered a hand right on them (within about 40 cm), so prompts didn't show until you walked up to things in real life (the bridge lever). In the Lost Ones' room, the vent's way in is the flashlight lying inside it; your hands never got close enough, and your grip went to the trunk 2.5 m away instead (your log shows it used twice).
 - **Now, three ways find what you use, in this order:** a hand on it; either hand pointing at it, out to the game's own reach (8 units, about 2.4 m, walls stop it); or, with neither hand on or pointing at anything, what you look at. The game's highlight and prompt follow it, and grip (either hand) or X uses it. Something nearer that you point at or look at always wins over a gravity pull further off.

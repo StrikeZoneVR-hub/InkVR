@@ -61,8 +61,11 @@ The biggest update yet, and the first full release. Everything since 0.9.1 is in
 
 ### Bug fixes
 
-- **Chapter 4's vent wouldn't let you in.** The flashlight inside it only answered a hand right on it, and a grip
-  went to the trunk across the room instead. Now point at it or look at it, grip (or X), and in you go.
+- **Chapter 4 got stuck at the vent: the flashlight did nothing.** A door pushed open by hand didn't tell the game
+  it had been opened the way the story listens for, so the story waiting on the stairwell door never moved on and the
+  flashlight was never switched on. Doors opened by hand now tell the game just as pressing interact does, at every
+  door in every chapter. (A grip at the vent could also go to the trunk across the room: see *Point at it, or look
+  at it*.)
 - **Prompts only showed with your hand on things**, so reaching Chapter 4's bridge lever meant walking up to it in
   real life. Fixed (see *Point at it, or look at it*).
 - **The weapon wheel sometimes wouldn't open** in Chapter 4 (an error in the log each time). Fixed.
