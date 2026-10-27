@@ -135,7 +135,7 @@ public static class ModConfig
         DynamicResolution = cfg.Bind("Graphics", "DynamicResolution", true, "Lower the resolution a little when the graphics card can't keep up with the headset's refresh rate, and raise it again when it can (smooth frame rate first).");
         MinRenderScale = cfg.Bind("Graphics", "MinRenderScale", 0.7f, "The lowest DynamicResolution may go.");
         VolumetricLightVR = cfg.Bind("Graphics", "VolumetricLightInVR", true, "The game's light beams through the air, rendered per eye in VR (off saves GPU time).");
-        LaserPointer = cfg.Bind("Controls", "LaserPointer", false, "Show a laser from your hand to click menus (the thumbstick and A always work).");
+        LaserPointer = cfg.Bind("Controls", "LaserPointer", true, "A laser from your hand to point and click in menus: the main menu, the pause menu, Options and VR SETTINGS (in the theatre the move stick can walk you about, so the laser picks). The thumbstick and A still work when you aren't walking.");
         ExploreTheatre = cfg.Bind("Controls", "ExploreTheatre", true, "In the menu theatre, click the move stick to walk around it (the stage, the lobby, the stairs, the balcony; there are things to find), and click again to use the menu. With the laser on, pushing the stick while you aren't pointing at the screen walks too.");
 
         PerfLog = cfg.Bind("Debug", "LogPerformance", true, "Write VR frame timing to the BepInEx log every 5 seconds (helps tuning).");

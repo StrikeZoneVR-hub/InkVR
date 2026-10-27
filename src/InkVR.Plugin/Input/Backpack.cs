@@ -46,6 +46,7 @@ public static class Backpack
         public Vector3 Velocity, Spin;
         public float RestSince = -1f, Radius, Started;
         public bool Home; // flying back to the shoulder (not thrown)
+        public bool Pocket; // thrown without the satchel: it's in your pockets already, so it just melts away
         public Vector3 From;
     }
 
@@ -418,9 +419,15 @@ public static class Backpack
                 t.localScale = f.Item.Scale * Mathf.Max(0.02f, 1f - m);
                 if (m >= 1f)
                 {
+                    Air.RemoveAt(i);
+                    if (f.Pocket)
+                    {
+                        Object.Destroy(f.Item.Copy);
+                        continue;
+                    }
+
                     t.localScale = f.Item.Scale;
                     Store(f.Item);
-                    Air.RemoveAt(i);
                     Plugin.L.LogInfo($"Satchel: {f.Item.Name} came back");
                 }
             }
@@ -433,6 +440,19 @@ public static class Backpack
         var m = UI.VRLayers.UIMask;
         if (player != null) m |= 1 << player.gameObject.layer;
         return m;
+    }
+
+    /// <summary>
+    /// Something you were carrying, thrown with the satchel off: the game already has it (it's in your pockets),
+    /// so this is only its copy flying, bouncing, landing, then melting away.
+    /// </summary>
+    public static void ThrowFromPocket(GameObject copy, Vector3 velocity, float radius, Vector3 scale)
+    {
+        if (copy == null) return;
+        var item = new Item { Copy = copy, Name = copy.name, Scale = scale };
+        var speed = velocity.magnitude / VRRig.ActiveScale;
+        Air.Add(new Flying { Item = item, Velocity = velocity * 1.15f, Spin = Random.onUnitSphere * Mathf.Min(900f, speed * 180f), Radius = radius, Started = Time.unscaledTime, Pocket = true });
+        Plugin.L.LogInfo($"Thrown (no satchel): {item.Name} at {speed:F1} m/s");
     }
 
     // ---------------- the satchel ----------------

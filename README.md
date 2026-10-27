@@ -92,6 +92,9 @@ Also included:
 | Grip: grab / use | Grip: grab / use |
 | Menu: pause | |
 
+Menus (the main menu, pause, Options and VR SETTINGS): point the laser from your hand and pull the trigger, or use
+the stick and A. In the menu theatre, click the move stick to walk around it and again to go back to the menu.
+
 Left-handed? Switch DOMINANT HAND in VR SETTINGS and the two sides swap. The launcher's **CONTROLS** page shows
 the layout on a picture of the controllers, as you have it set up.
 

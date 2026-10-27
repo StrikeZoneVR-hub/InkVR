@@ -300,7 +300,7 @@ namespace InkVR.Launcher
 
             var notes = string.Join("\n", new[]
             {
-                "LOOK AROUND WITH YOUR HEAD. MENUS: STICK MOVES, A SELECTS, B GOES BACK.",
+                "MENUS: POINT THE LASER AND PULL THE TRIGGER (OR STICK AND A). B GOES BACK.",
                 "SWING THE AXE TO HIT. GUNS FIRE WHERE YOU POINT. GRIP WITH BOTH HANDS TOO.",
                 "HOLD THE TRIGGER, SWING, LET GO TO THROW. TURN VALVES, PULL LEVERS BY HAND.",
                 "PUSH OR PULL DOORS. PRESS BUTTONS WITH A FINGER. OVER YOUR SHOULDER: HOLSTER.",
@@ -538,7 +538,7 @@ namespace InkVR.Launcher
             Row("RENDER SCALE", scales.Select(s => Math.Round(s * 100) + "%").ToArray(), Nearest(scales, cfg?.GetFloat("Graphics", "RenderScale", 1) ?? 1), i => cfg.Set("Graphics", "RenderScale", scales[i]), has);
             Row("AUTO RESOLUTION", new[] { "ON", "OFF" }, has && !cfg.GetBool("Graphics", "DynamicResolution", true) ? 1 : 0, i => cfg.Set("Graphics", "DynamicResolution", i == 0), has);
             Row("LIGHT BEAMS", new[] { "ON", "OFF" }, has && !cfg.GetBool("Graphics", "VolumetricLightInVR", true) ? 1 : 0, i => cfg.Set("Graphics", "VolumetricLightInVR", i == 0), has);
-            Row("LASER POINTER", new[] { "OFF", "ON" }, has && cfg.GetBool("Controls", "LaserPointer", false) ? 1 : 0, i => cfg.Set("Controls", "LaserPointer", i == 1), has);
+            Row("LASER POINTER", new[] { "ON", "OFF" }, has && !cfg.GetBool("Controls", "LaserPointer", true) ? 1 : 0, i => cfg.Set("Controls", "LaserPointer", i == 0), has);
             Row("WALK THE THEATRE", new[] { "STICK CLICK", "OFF" }, has && !cfg.GetBool("Controls", "ExploreTheatre", true) ? 1 : 0, i => cfg.Set("Controls", "ExploreTheatre", i == 0), has);
             Row("TAPE NOTES", new[] { "CLOSE UP", "IN THE HUD" }, has && !cfg.GetBool("Comfort", "CloseUpNotes", true) ? 1 : 0, i => cfg.Set("Comfort", "CloseUpNotes", i == 0), has);
             Row("REDUCE FLASHES", new[] { "OFF", "ON" }, _reduce ? 1 : 0, i =>

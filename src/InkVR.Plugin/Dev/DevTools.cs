@@ -173,6 +173,48 @@ public class DevTools : MonoBehaviour
 
                 break;
             }
+            case "laseraim":
+            {
+                // laseraim <ui path> [dx dy] | off : the dev right hand points the laser at a menu element (dx, dy: pixels off it)
+                if (arg == "off")
+                {
+                    InkVR.UI.LaserPointer.DevForce = false;
+                    XrInput.DevRightAim = null;
+                    XrInput.DevRightTrigger = null;
+                    break;
+                }
+
+                var la = arg.Split(' ');
+                var nums = Enumerable.Reverse(Enumerable.Reverse(la).TakeWhile(v => v.Length > 0 && (char.IsDigit(v[0]) || v[0] == '-')).ToArray()).ToArray();
+                var path = string.Join(' ', la.Take(la.Length - nums.Length));
+                var t = Resolve(path);
+                var rt = t != null ? t.GetComponent<RectTransform>() : null;
+                var panel = InkVR.Core.VRRig.PointerPanel;
+                Camera uiCam = null;
+                foreach (var cam in Camera.allCameras)
+                    if (cam.name == "UICamera")
+                        uiCam = cam;
+                if (rt == null || panel == null || uiCam == null || InkVR.Core.VRRig.ActiveOrigin == null)
+                {
+                    Plugin.L.LogWarning($"laseraim: rect={rt != null} panel={panel != null} uiCam={uiCam != null}");
+                    break;
+                }
+
+                var px = (Vector2)RectTransformUtility.WorldToScreenPoint(uiCam, rt.TransformPoint(rt.rect.center));
+                if (nums.Length >= 2) px += new Vector2(float.Parse(nums[0], System.Globalization.CultureInfo.InvariantCulture), float.Parse(nums[1], System.Globalization.CultureInfo.InvariantCulture));
+                var world = panel.Transform.TransformPoint(new Vector3(px.x / InkVR.UI.UICapture.Width - 0.5f, px.y / InkVR.UI.UICapture.Height - 0.5f, 0));
+                var o = InkVR.Core.VRRig.ActiveOrigin;
+                var target = o.InverseTransformPoint(world) - Vector3.up * InkVR.Core.VRRig.HeightLift;
+                var hand = new Vector3(0.2f, 1.25f, 0.25f);
+                XrInput.DevRightAim = (hand, Quaternion.LookRotation(target - hand));
+                InkVR.UI.LaserPointer.DevForce = true;
+                XrInput.DevRightTrigger ??= 0f;
+                Plugin.L.LogInfo($"LASERAIM {PathOf(t)} pixel {px}");
+                break;
+            }
+            case "laserstate":
+                Plugin.L.LogInfo($"LASER onScreen={InkVR.UI.LaserPointer.OnScreen} last=[{InkVR.UI.LaserPointer.LastClick}]");
+                break;
             case "rb":
             {
                 // rb <path>: the physics body on it (or above it): kinematic or loose, where, how fast

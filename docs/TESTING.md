@@ -1,6 +1,27 @@
 # Testing InkVR
 
-## Current build: 0.10.1 (pull and reach story items, solid weapons, the satchel optional)
+## Current build: 1.0.0 (the update: everything since 0.9.1, plus a reliable laser)
+
+1.0 is the single update that goes on GitHub once you've tested it: 0.9.2, 0.10.0 and 0.10.1 below, plus these. The release notes are in [CHANGELOG.md](../CHANGELOG.md).
+
+### Fixed in 1.0: laser clicks that didn't register
+- **Causes:** (1) the click went to whatever the laser was on when you let go of the trigger, and letting go jolts the hand, so on a small button the laser could slide off it just then and the click landed on the background; (2) the trigger had one threshold, so a half-pull could flicker on and off; (3) after quitting to the menu, the laser kept using the old menu system's pointer, so clicks could go nowhere.
+- **Fix:** what you press is what gets clicked, if you let go on it or near it. The laser steadies as you squeeze and holds still on what you pressed (sliders still drag). The trigger presses at 55% and lets go at 30%. A new menu system gets a new pointer.
+- **Checked:** on the title screen, the laser opened Options; pressing VR SETTINGS, sliding 55 pixels off it and letting go still opened it (that click used to be lost); two clicks on TURNING switched it to SNAP and back.
+
+### Changed in 1.0: the laser is on by default
+- For the main menu, the pause menu, Options and VR SETTINGS (in the theatre the stick can walk you about now, so the laser picks). New installs start with it on; your own settings already have it on.
+
+### Fixed in 1.0: throwing what you carry with the satchel off
+- The throw was part of the satchel, so with the satchel off (the new default) a carried thing only went into your pocket. Now let go mid-swing and it flies, lands, and melts away (it's in your inventory already).
+- **Checked:** Chapter 1's wrench, satchel off, thrown at 4.7 m/s.
+
+### What to try (1.0)
+1. Click through the main menu, Options and VR SETTINGS with the laser, quickly and lazily.
+2. Quit to the menu from a chapter and click with the laser again.
+3. Everything from 0.10.1 below.
+
+## Previous build: 0.10.1 (pull and reach story items, solid weapons, the satchel optional)
 
 From your 0.10.0 test: "all the story objects and other stuff does not let me pick up with the gravity pull... for most puzzle stuff I have to bend down, reach up or move very far", "weapons when held look like the hand is see-through and not very physics based", "the backpack can be off by default". Plus three bugs found in your log.
 

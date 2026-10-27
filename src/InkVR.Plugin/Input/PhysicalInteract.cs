@@ -648,7 +648,22 @@ public static class PhysicalInteract
                     }
                 }
 
-                if (Grip(t.Hand) < 0.35f && t.CheckAt <= 0) t.ShrinkFrom = now; // (once it's sure the game took it)
+                if (Grip(t.Hand) < 0.35f && t.CheckAt <= 0)
+                {
+                    // let go mid-swing: it flies (and then it's in your pockets); otherwise it shrinks into them
+                    var v = WeaponHandling.Velocity(t.Hand);
+                    if (ModConfig.PhysicalThrow.Value && v.magnitude / VRRig.ActiveScale > 1.5f)
+                    {
+                        var r = t.Copy.GetComponentInChildren<Renderer>();
+                        var radius = r != null ? Mathf.Min(r.bounds.extents.x, Mathf.Min(r.bounds.extents.y, r.bounds.extents.z)) : 0.04f * VRRig.ActiveScale;
+                        Backpack.ThrowFromPocket(t.Copy, v, Mathf.Max(0.02f * VRRig.ActiveScale, radius), t.Copy.transform.localScale);
+                        Trophies.RemoveAt(i);
+                        continue;
+                    }
+
+                    t.ShrinkFrom = now; // (once it's sure the game took it)
+                }
+
                 continue;
             }
 

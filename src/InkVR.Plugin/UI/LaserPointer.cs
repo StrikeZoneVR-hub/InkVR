@@ -27,9 +27,29 @@ public static class LaserPointer
     /// <summary>The laser is on the screen (so in the theatre the stick stays the menu's).</summary>
     public static bool OnScreen { get; private set; }
 
+    /// <summary>Dev: run the laser on the mock runtime from XrInput's dev aim and trigger (no controllers there).</summary>
+    public static bool DevForce;
+
+    // Pulling a trigger and letting it go jolts the controller a little; on a small button that used to slide the
+    // laser off it, and the click went to the background. So: the trigger presses at 55% and lets go at 30% (a
+    // half-pull doesn't flicker), the spot steadies as you squeeze, it holds still on what you pressed, and letting
+    // go anywhere near where you pressed clicks what you pressed.
+    private const float PressAt = 0.55f, ReleaseAt = 0.3f, SlipPx = 70f;
+    private static bool _trig, _haveSpot;
+    private static Vector2 _spot;
+    private static GameObject _clickHandler;
+    private static EventSystem _pedSystem;
+
     public static void Update()
     {
         OnScreen = false;
+        if (DevForce) XrInput.ApplyDev();
+        var c = ControllerBindings.Dom;
+        var was = _trig;
+        _trig = _trig ? c.Trigger > ReleaseAt : c.Trigger > PressAt;
+        var down = _trig && !was;
+        var up = !_trig && was;
+
         if (!ModConfig.LaserPointer.Value)
         {
             Release();
@@ -39,12 +59,10 @@ public static class LaserPointer
         }
 
         var panel = VRRig.PointerPanel;
-        var c = ControllerBindings.Dom;
         var theatre = VRRig.CinemaShowing;
-        if (!XrInput.Ready || panel == null || !panel.Visible || !c.PoseValid || EventSystem.current == null || (theatre && !TheatreWalk.ScreenVisible))
+        if (!(XrInput.Ready || DevForce) || panel == null || !panel.Visible || !c.PoseValid || EventSystem.current == null || (theatre && !TheatreWalk.ScreenVisible))
         {
-            Release();
-            Show(false);
+            Lost(up);
             return;
         }
 
@@ -56,8 +74,7 @@ public static class LaserPointer
         // (in the theatre you can point at the screen from the back of the balcony)
         if (!plane.Raycast(ray, out var dist) || dist <= 0 || dist > (theatre ? 30f : MaxLength) * scale)
         {
-            Release();
-            Show(false);
+            Lost(up);
             return;
         }
 
@@ -65,8 +82,7 @@ public static class LaserPointer
         var local = panel.Transform.InverseTransformPoint(hit);
         if (Mathf.Abs(local.x) > 0.5f || Mathf.Abs(local.y) > 0.5f)
         {
-            Release();
-            Show(false);
+            Lost(up);
             return;
         }
 
@@ -75,13 +91,43 @@ public static class LaserPointer
         DrawLaser(origin, hit, panel, scale);
 
         var pixel = new Vector2((local.x + 0.5f) * UICapture.Width, (local.y + 0.5f) * UICapture.Height);
-        Process(pixel, c);
+        Process(pixel, c, down, up);
     }
 
-    private static void Process(Vector2 pixel, ControllerState c)
+    /// <summary>The laser left the screen: a press survives a moment off it (a jolt), and is let go with the trigger.</summary>
+    private static void Lost(bool up)
     {
-        _ped ??= new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+        _haveSpot = false;
+        Show(false);
+        if (!_trig || up) Release();
+    }
+
+    private static void Process(Vector2 raw, ControllerState c, bool down, bool up)
+    {
+        // a new event system (the game rebuilds its menus after quitting to the menu): new pointer data for it
+        if (_ped == null || _pedSystem == null || _pedSystem != EventSystem.current)
+        {
+            _ped = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+            _pedSystem = EventSystem.current;
+            _hovered = _pressed = _drag = _clickHandler = null;
+            _dragging = false;
+        }
+
         _results ??= new RaycastResults();
+
+        // steadier the more you squeeze the trigger
+        var squeeze = Mathf.InverseLerp(0.08f, PressAt, c.Trigger);
+        if (!_haveSpot)
+        {
+            _spot = raw;
+            _haveSpot = true;
+        }
+        else _spot = Vector2.Lerp(_spot, raw, 1f - Mathf.Exp(-Time.unscaledDeltaTime * Mathf.Lerp(45f, 8f, squeeze)));
+
+        // pressed on a button: it stays on that button unless you really move off it (a slider drags, though)
+        var pixel = _spot;
+        if (_pressed != null && _drag == null && (_spot - _ped.pressPosition).magnitude < SlipPx) pixel = _ped.pressPosition;
+
         var delta = pixel - _ped.position;
         _ped.delta = delta;
         _ped.position = pixel;
@@ -104,23 +150,22 @@ public static class LaserPointer
 
         IsOverInteractive = target != null && VRRig.MenuWantsPointer;
 
-        var down = c.TriggerPressed && !c.PrevTriggerPressed;
-        var up = !c.TriggerPressed && c.PrevTriggerPressed;
-
         if (down && target != null)
         {
             _ped.pressPosition = pixel;
             _ped.pointerPressRaycast = _results[0];
             _ped.eligibleForClick = true;
             _pressed = ExecuteEvents.ExecuteHierarchy(target, _ped, ExecuteEvents.pointerDownHandler) ?? target;
+            _clickHandler = ExecuteEvents.GetEventHandler<IPointerClickHandler>(target);
             _ped.pointerPress = _pressed;
             _ped.rawPointerPress = target;
             _drag = ExecuteEvents.GetEventHandler<IDragHandler>(target);
             if (_drag != null) ExecuteEvents.Execute(_drag, _ped, ExecuteEvents.initializePotentialDrag);
             XrInput.Haptic(ControllerBindings.Dominant, 0.25f, 0.02f);
+            LastClick = $"pressed {target.name} ({(_clickHandler != null ? _clickHandler.name : "no click handler")}) at {pixel}";
         }
 
-        if (c.TriggerPressed && _drag != null)
+        if (_trig && _drag != null)
         {
             if (!_dragging && (pixel - _ped.pressPosition).sqrMagnitude > 25f)
             {
@@ -133,17 +178,35 @@ public static class LaserPointer
             if (_dragging) ExecuteEvents.Execute(_drag, _ped, ExecuteEvents.dragHandler);
         }
 
-        if (up) Release(target);
+        if (up) Release(target, pixel);
     }
 
-    private static void Release(GameObject target = null)
+    /// <summary>Dev/log: what the laser last pressed and clicked.</summary>
+    public static string LastClick = "";
+
+    private static void Release(GameObject target = null, Vector2? at = null)
     {
         if (_ped == null) return;
         if (_pressed != null)
         {
             ExecuteEvents.Execute(_pressed, _ped, ExecuteEvents.pointerUpHandler);
-            if (!_dragging && target != null)
-                ExecuteEvents.ExecuteHierarchy(target, _ped, ExecuteEvents.pointerClickHandler);
+            if (!_dragging)
+            {
+                // what you pressed is clicked if you let go on it, or near where you pressed it
+                var here = target != null ? ExecuteEvents.GetEventHandler<IPointerClickHandler>(target) : null;
+                var near = at.HasValue && (at.Value - _ped.pressPosition).magnitude < SlipPx;
+                if (_clickHandler != null && (here == _clickHandler || near))
+                {
+                    ExecuteEvents.Execute(_clickHandler, _ped, ExecuteEvents.pointerClickHandler);
+                    LastClick += $" -> clicked {_clickHandler.name}";
+                }
+                else if (_clickHandler == null && target != null)
+                {
+                    ExecuteEvents.ExecuteHierarchy(target, _ped, ExecuteEvents.pointerClickHandler);
+                    LastClick += $" -> clicked under {target.name}";
+                }
+                else LastClick += " -> let go off it (no click)";
+            }
         }
 
         if (_dragging && _drag != null) ExecuteEvents.Execute(_drag, _ped, ExecuteEvents.endDragHandler);
@@ -155,6 +218,7 @@ public static class LaserPointer
 
         _pressed = null;
         _drag = null;
+        _clickHandler = null;
         _dragging = false;
         _ped.dragging = false;
         _ped.pointerPress = null;
