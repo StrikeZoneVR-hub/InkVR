@@ -58,7 +58,7 @@ Also included:
 - A weapon wheel (click the right stick) and an inventory card in your hand (hold Y), or the game's own buttons.
 - Snap or smooth turning; seated or standing play.
 - World size: AUTO makes Henry's eyes your eyes, or set it yourself.
-- Body options: full body, arms and hands, hands only, or none; any of the thirteen styles.
+- Body options: full body, arms and hands, hands only, or none; the new Henry or Classic Henry.
 - Each motion control can be switched back to a button in VR SETTINGS.
 - Comfort: calm the theatre's projector flicker and film scratches.
 - Automatic render resolution to hold the headset's frame rate.
