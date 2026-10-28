@@ -74,7 +74,7 @@ public sealed partial class HenryBody
         Rest(B.RFoot, Ankle(1), Toe(1), Vector3.up);
 
         // A style with the game's own model wears it; Henry's skeleton (never drawn) still does the standing and stepping.
-        if (def.GameModel != null || def.ArchiveModel != null) _character = CharacterSkin.TryCreate(def, parent, 0);
+        if (def.ModelFile != null || def.GameModel != null || def.ArchiveModel != null) _character = CharacterSkin.TryCreate(def, parent, 0);
         if (_character != null) Stains.AddRange(_character.Stains);
         if (_character != null && def.DrawnHead) BuildHead(material);
         if (_character == null)
@@ -135,8 +135,10 @@ public sealed partial class HenryBody
         };
         _character.Apply(p, HandPoseOf(left), HandPoseOf(right));
 
-        // the watch onto the model's own left wrist, sized to it
-        if (left != null && _character.Wrist(0, out var wrist, out var frame, out var radius))
+        // the watch onto the model's own left forearm, fitted round its skin (or, if that can't be found, at the wrist)
+        if (left == null) return;
+        if (_character.WatchSpot(0, out var spot, out var along, out var halfWidth, out var halfDepth)) left.FitWatch(spot, along, halfWidth, halfDepth);
+        else if (_character.Wrist(0, out var wrist, out var frame, out var radius))
             left.PlaceWatch(wrist, frame, Mathf.Clamp(radius * 1.1f / Mathf.Max(left.WatchRadius * left.Root.lossyScale.x, 1e-5f), 0.5f, 3f));
     }
 

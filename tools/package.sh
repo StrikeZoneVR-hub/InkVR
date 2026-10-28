@@ -17,6 +17,9 @@ cp "src/InkVR.Launcher/bin/Release/InkVR Launcher.exe" "src/InkVR.Launcher/bin/R
 unzip -q vendor/bepinex-be790.zip -d "$OUT/InkVR-Payload"
 rm -f "$OUT/InkVR-Payload/changelog.txt"
 cp "$GAME/BepInEx/plugins/InkVR/InkVR.dll" "$OUT/InkVR-Payload/BepInEx/plugins/InkVR/"
+# Henry and Toon Henry's bodies (built in Blender from MakeHuman's CC0 base: tools/henry)
+mkdir -p "$OUT/InkVR-Payload/BepInEx/plugins/InkVR/models"
+cp models/*.inkmodel "$OUT/InkVR-Payload/BepInEx/plugins/InkVR/models/"
 # BepInEx settings InkVR wants: no console window, log flushed as it's written (for bug reports)
 cp "$GAME/BepInEx/config/BepInEx.cfg" "$OUT/InkVR-Payload/BepInEx/config/"
 cp src/InkVR.Launcher/Assets/Fonts/Bangers-OFL.txt "$OUT/Bangers font license.txt"

@@ -28,6 +28,11 @@
   <Target Name="DeployToGame" AfterTargets="Build" Condition="Exists('$(BepInExDir)')">
     <MakeDir Directories="$(BepInExDir)plugins\InkVR" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExDir)plugins\InkVR" />
+    <!-- Henry and Toon Henry (models/, built in Blender by tools/henry) -->
+    <ItemGroup>
+      <InkModelFile Include="$(MSBuildThisFileDirectory)..\..\models\*.inkmodel" />
+    </ItemGroup>
+    <Copy SourceFiles="@(InkModelFile)" DestinationFolder="$(BepInExDir)plugins\InkVR\models" SkipUnchangedFiles="true" />
   </Target>
   <ItemGroup>
     <EmbeddedResource Include="Body/UnityTypes.txt" LogicalName="UnityTypes.txt" />

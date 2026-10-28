@@ -1,8 +1,29 @@
 # Testing InkVR
 
-## Current build: 1.1.0, the Characters Update (with 1.0.1's tape notes and mirror laser)
+## Current build: 1.1.0, the Henry Update (with 1.0.1's tape notes and mirror laser)
 
 1.0 is on GitHub; 1.1.0 is local and installed in your game. Nothing goes up until you've tried it.
+
+### Doors (you: "doors would not open slowly with hands, or push open like a real door")
+- **What went wrong:** when your hand opened a door, InkVR told the game (so the story hears it, as with X), and the game then swung the door to its own 145 degrees and locked it open: a gentle push flung it wide and it never moved again.
+- **Now:** the door stays exactly where your hand has it, slow or fast; when the game locks a door open it stays yours to swing (stopping just short of the frame); a grip takes hold from 14 cm of the leaf or handle (8 cm missed often).
+
+### Henry, rebuilt (you: "a way better model for henry in blender ... only two need a rebuild which is henry and toon henry", then "just remove toon henry and have just that one with the watches fitting the arm correctly")
+- **One Henry:** built in Blender from MakeHuman's free (CC0) figure, aged to about 60: grey hair, waistcoat and tie, rolled shirt sleeves, trousers, shoes, a 53-bone skeleton. It ships with InkVR as a 7 MB file and loads in about 0.1 s.
+- **Taken out:** Toon Henry and every other style. A saved choice of another style comes back as Henry. STYLE is gone from VR SETTINGS, the launcher and the mirror's panel (the panel now changes only the watch).
+- **Worn like the 1.1 characters were:** Henry's invisible skeleton does the standing, crouching and stepping; the model's arms reach your hands, its fingers close as you grip, and your view leaves its head out (the mirror and your shadow show it). The forearm now turns half way with your hand, so the wrist doesn't wring.
+- **The watch fits his arm:** the strap goes round the skin of his forearm just above the wrist (fitted to its shape every frame, so it never sinks in or floats), and it turns with your hand like a real watch: turn your wrist to read it. All six watches.
+- **Ink:** drips land on his hand and run down the wrist; wading inks his trouser legs and shoes up to the ink line; a soaking covers him head to toe. About 1.3 ms a frame while he's soaked.
+- **Checked on the test runtime:** Henry in the lobby mirror and from all sides; the watch from four sides with the wrist turned both ways, and from your eyes; the mirror's watch arrows (next and back); Chapter 1 (the body costs about 0.5 ms a frame); drips, wading and a soaking. Your save is unchanged and your settings were put back.
+
+### What to try (1.1.0)
+1. A door: ease it open slowly with your hand, then push one hard. Pull one towards you by its handle.
+2. The lobby mirror: wave, crouch, turn round. Does Henry look right? Change the watch with the arrows.
+3. Raise your left hand and turn your wrist to read the watch, with each watch.
+4. In a chapter: look down and forward; do the arms and hands feel like yours? Walk through some ink.
+5. A tape note (from 1.0.1): does the page come up, and can you read it?
+
+## Previous try of 1.1.0: the Characters Update (since replaced by one Henry)
 
 ### The characters (you: "a complete realism and everything connected overhaul ... as close as possible to the actual characters")
 - **Eight styles are the game's own models**, loaded from your install when they're picked: the Ink Demon, Sammy, the Projectionist and a Searcher (the game keeps these ready to load), and Boris, Chapter 3's Alice Angel, Brute Boris and Bendy (read from the statues in the game's Archives scene; I wrote a reader for the game's files so the mod can take them from your copy).
@@ -13,7 +34,7 @@
 - **Still drawn, as you chose:** Henry, Toon Henry, Wally and Joey; their shoulders now move with the arms. Beast Bendy stays drawn for now too.
 - **Checked on the test runtime:** every game-model style from the front, without its head (your view), and looking down; open hands and fists; the watch on Sammy's and the Projectionist's wrists; Sammy in Chapter 1; the axe in Boris's fist in Chapter 2; ink wading as Sammy (about 0.7 ms a frame). Your save is unchanged and your settings were put back.
 
-### What to try (1.1.0)
+### What to try (that try)
 1. In the lobby mirror, step through the styles with the laser and look at each one: hands up, crouch, turn round.
 2. In a chapter, pick a few: do the arms and hands feel like yours? Is anything in your view when you look down or forward?
 3. Pick up the axe and swing as Boris or Brute Boris (Brute Boris's hands are as big as the game makes them).

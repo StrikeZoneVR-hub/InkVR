@@ -103,7 +103,7 @@ public sealed class CharacterSkin
             var src = smr.bones;
             var bones = new Transform[src.Length];
             for (var i = 0; i < bones.Length; i++) bones[i] = src[i];
-            var part = InkStains.RegisterModel(smr, sub, mb, weights, bones, mesh.bindposes, InkRegion.Torso);
+            var part = InkStains.RegisterModel(smr, sub, mb, weights, bones, mesh.bindposes, RegionOf(smr));
             if (part == null) continue;
             Stains.Add(part);
             if (twin != null)
@@ -115,6 +115,22 @@ public sealed class CharacterSkin
         }
 
         if (Stains.Count > 0) Plugin.L.LogInfo($"Body: {Def.Label} takes ink ({Stains.Count} piece{(Stains.Count > 1 ? "s" : "")})");
+    }
+
+    /// <summary>
+    /// Which part of the body a piece is, by where it reaches at rest (still standing at the origin): only on the feet
+    /// (shoes), down to the shins (trousers, and skin to the ankles: wading inks these up to the ink line), or above.
+    /// </summary>
+    private InkRegion RegionOf(SkinnedMeshRenderer smr)
+    {
+        var b = smr.sharedMesh.bounds;
+        var toWorld = smr.transform.localToWorldMatrix;
+        var mid = toWorld.MultiplyPoint3x4(b.center).y;
+        var half = Mathf.Abs(toWorld.MultiplyVector(new Vector3(0, b.extents.y, 0)).y);
+        var lo = mid - half - _floor;
+        var hi = mid + half - _floor;
+        if (hi < _restEyeY * 0.1f) return InkRegion.Feet;
+        return lo < _restEyeY * 0.3f ? InkRegion.Legs : InkRegion.Torso;
     }
 
     /// <summary>Each vertex's two heaviest bones (the ink's own skinning).</summary>
@@ -188,7 +204,8 @@ public sealed class CharacterSkin
     public static CharacterSkin TryCreate(StyleDef def, Transform parent, int layer)
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        var go = def.GameModel != null ? GameModels.Spawn(def.GameModel, null, layer) : ArchiveModels.Spawn(def.ArchiveModel, layer);
+        var go = def.ModelFile != null ? InkModel.Spawn(def.ModelFile, layer)
+            : def.GameModel != null ? GameModels.Spawn(def.GameModel, null, layer) : ArchiveModels.Spawn(def.ArchiveModel, layer);
         var spawned = clock.ElapsedMilliseconds;
         if (go == null) return null;
         var skin = new CharacterSkin(def, go);
@@ -218,7 +235,7 @@ public sealed class CharacterSkin
             Plugin.L.LogWarning($"Body: {def.Label}'s ink couldn't be set up ({e.Message}) {e.StackTrace}");
         }
 
-        Plugin.L.LogInfo($"Body: {def.Label} is the game's own model ({skin._all.Count} bones, eyes {skin._restEyeY:F2} up; {spawned} + {clock.ElapsedMilliseconds - spawned} ms)");
+        Plugin.L.LogInfo($"Body: {def.Label} is {(def.ModelFile != null ? "InkVR's" : "the game's own")} model ({skin._all.Count} bones, eyes {skin._restEyeY:F2} up; {spawned} + {clock.ElapsedMilliseconds - spawned} ms)");
         return skin;
     }
 
@@ -386,6 +403,7 @@ public sealed class CharacterSkin
         }
 
         _restEyeY = Mathf.Max(0.1f, _restEye.y - _floor);
+        BuildRings();
         BuildRenderers();
         return true;
     }
@@ -910,6 +928,147 @@ public sealed class CharacterSkin
         return _wristOk[side];
     }
 
+    // ---- where the watch goes: eight points round each forearm's skin just short of the wrist (the back of the arm, the
+    // palm side, the two sides and between), each as the bones that move it, how much, and where it sat on each at bind ----
+
+    private readonly (Transform bone, float w, Vector3 at)[][][] _ring = new (Transform, float, Vector3)[2][][];
+    private readonly Vector3[] _ringPts = new Vector3[8];
+
+    private void BuildRings()
+    {
+        for (var side = 0; side < 2; side++)
+        {
+            var hand = _role[side == 0 ? (int)R.LHand : (int)R.RHand];
+            var fore = _role[side == 0 ? (int)R.LFore : (int)R.RFore];
+            var hp = _rp[hand];
+            var axis = hp - _rp[fore];
+            var len = axis.magnitude;
+            if (len < 1e-5f) continue;
+            axis /= len;
+            var back = Vector3.ProjectOnPlane(Canonical(side, out _) * Vector3.up, axis).normalized;
+            if (back.sqrMagnitude < 0.5f) continue;
+            var across = Vector3.Cross(axis, back);
+            var dirs = new Vector3[8];
+            for (var k = 0; k < 8; k++)
+            {
+                var a = k * 45f * Mathf.Deg2Rad;
+                dirs[k] = back * Mathf.Cos(a) + across * Mathf.Sin(a);
+            }
+
+            var best = new float[8];
+            var pick = new (SkinnedMeshRenderer smr, int v)[8];
+            for (var k = 0; k < 8; k++) best[k] = float.MinValue;
+            foreach (var smr in Root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                var mesh = smr.sharedMesh;
+                if (mesh == null || !mesh.isReadable || !smr.gameObject.activeInHierarchy || smr.name.EndsWith("_Eyes")) continue;
+                var verts = mesh.vertices;
+                var toWorld = smr.transform.localToWorldMatrix;
+                for (var v = 0; v < verts.Length; v++)
+                {
+                    var d = toWorld.MultiplyPoint3x4(verts[v]) - hp;
+                    var t = Vector3.Dot(d, axis);
+                    // (the length of the strap, about two centimetres up the arm from the wrist on a Henry-sized arm)
+                    if (t < -0.12f * len || t > -0.045f * len) continue;
+                    var radial = d - axis * t;
+                    if (radial.magnitude > 0.3f * len) continue;
+                    for (var k = 0; k < 8; k++)
+                    {
+                        var s = Vector3.Dot(radial, dirs[k]);
+                        if (s <= best[k]) continue;
+                        best[k] = s;
+                        pick[k] = (smr, v);
+                    }
+                }
+            }
+
+            var ring = new (Transform, float, Vector3)[8][];
+            for (var k = 0; k < 8 && ring != null; k++)
+            {
+                if (pick[k].smr == null) ring = null;
+                else ring[k] = Influences(pick[k].smr, pick[k].v);
+                if (ring != null && ring[k] == null) ring = null;
+            }
+
+            _ring[side] = ring;
+        }
+    }
+
+    /// <summary>A vertex as its bones, weights, and where it sits in each bone's space at bind (so it can be skinned here).</summary>
+    private static (Transform, float, Vector3)[] Influences(SkinnedMeshRenderer smr, int v)
+    {
+        var mesh = smr.sharedMesh;
+        if (!ReadWeights(mesh, out var per, out var weight, out var bone)) return null;
+        var k = 0;
+        for (var i = 0; i < v; i++) k += per[i];
+        var bones = smr.bones;
+        var poses = mesh.bindposes;
+        var p = mesh.vertices[v];
+        var list = new List<(Transform, float, Vector3)>();
+        for (var j = 0; j < per[v] && k + j < weight.Length; j++)
+        {
+            var b = bone[k + j];
+            if (b < 0 || b >= bones.Length || b >= poses.Length || bones[b] == null || weight[k + j] <= 0f) continue;
+            list.Add((bones[b], weight[k + j], poses[b].MultiplyPoint3x4(p)));
+        }
+
+        return list.Count > 0 ? list.ToArray() : null;
+    }
+
+    /// <summary>
+    /// Where a watch sits on this forearm right now, fitted to its skin: the middle of the strap, its frame (z along the
+    /// arm towards the hand, y out of the back of the hand, so the face turns with your hand like a real watch) and the
+    /// half-width and half-depth of the oval the strap must be to go round the skin without sinking into it.
+    /// </summary>
+    public bool WatchSpot(int side, out Vector3 centre, out Quaternion frame, out float halfWidth, out float halfDepth)
+    {
+        centre = default;
+        frame = Quaternion.identity;
+        halfWidth = halfDepth = 0f;
+        var ring = _ring[side];
+        if (!_wristOk[side] || ring == null) return false;
+        var c = Vector3.zero;
+        for (var k = 0; k < 8; k++)
+        {
+            var p = Vector3.zero;
+            foreach (var (b, w, at) in ring[k]) p += b.localToWorldMatrix.MultiplyPoint3x4(at) * w;
+            _ringPts[k] = p;
+            c += p;
+        }
+
+        c /= 8f;
+        var hand = _all[_role[side == 0 ? (int)R.LHand : (int)R.RHand]].position;
+        var fore = _all[_role[side == 0 ? (int)R.LFore : (int)R.RFore]].position;
+        var along = (hand - fore).normalized;
+        var up = Vector3.ProjectOnPlane(_wristFrame[side] * Vector3.up, along);
+        if (up.sqrMagnitude < 1e-10f || along.sqrMagnitude < 0.5f) return false;
+        frame = Quaternion.LookRotation(along, up);
+        var x = frame * Vector3.right;
+        var y = frame * Vector3.up;
+        float hw = 1e-4f, hd = 1e-4f;
+        for (var k = 0; k < 8; k++)
+        {
+            var d = _ringPts[k] - c;
+            hw = Mathf.Max(hw, Mathf.Abs(Vector3.Dot(d, x)));
+            hd = Mathf.Max(hd, Mathf.Abs(Vector3.Dot(d, y)));
+        }
+
+        // the oval as wide and deep as the skin, grown until every point is inside it
+        var m = 1f;
+        for (var k = 0; k < 8; k++)
+        {
+            var d = _ringPts[k] - c;
+            var ex = Vector3.Dot(d, x) / hw;
+            var ey = Vector3.Dot(d, y) / hd;
+            m = Mathf.Max(m, Mathf.Sqrt(ex * ex + ey * ey));
+        }
+
+        centre = c;
+        halfWidth = hw * m;
+        halfDepth = hd * m;
+        return true;
+    }
+
     /// <summary>How thick the forearm is just short of the wrist, at rest (model units): the middle of its vertices there.</summary>
     private float MeasureWrist(int side)
     {
@@ -1150,7 +1309,20 @@ public sealed class CharacterSkin
         // a straight (or nearly straight) T-pose arm has no bend of its own to go by: elbows bend backwards
         if (restBend.magnitude < restReach.magnitude * 0.08f) restBend = Vector3.back;
         Target(upper, shoulder, Look(elbow - shoulder, bend) * Quaternion.Inverse(Look(_rp[fore] - _rp[upper], restBend)) * _rr[upper]);
-        Target(fore, elbow, Look(wrist - elbow, bend) * Quaternion.Inverse(Look(_rp[hand] - _rp[fore], restBend)) * _rr[fore]);
+        var foreRot = Look(wrist - elbow, bend) * Quaternion.Inverse(Look(_rp[hand] - _rp[fore], restBend)) * _rr[fore];
+        if (_foreTwist[side] < 0)
+        {
+            // no twist bone (Henry's model): the forearm itself turns half way with the hand, as an arm's bones do, so the
+            // wrist doesn't wring
+            var axis = (wrist - elbow).normalized;
+            var restUp = Vector3.ProjectOnPlane(_rr[hand] * Vector3.up, (_rp[hand] - _rp[fore]).normalized);
+            var foreUp = foreRot * (Quaternion.Inverse(_rr[fore]) * restUp);
+            var handUp = handRot * (Quaternion.Inverse(_rr[hand]) * restUp);
+            var twist = Vector3.SignedAngle(Vector3.ProjectOnPlane(foreUp, axis), Vector3.ProjectOnPlane(handUp, axis), axis);
+            foreRot = Quaternion.AngleAxis(twist * 0.5f, axis) * foreRot;
+        }
+
+        Target(fore, elbow, foreRot);
         Target(hand, wrist, handRot);
         _wristFrame[side] = h.Rot;
         _wristOk[side] = true;

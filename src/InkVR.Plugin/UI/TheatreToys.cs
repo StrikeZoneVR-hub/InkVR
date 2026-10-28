@@ -629,16 +629,16 @@ public static class TheatreToys
         if (drips != null) drips.localScale = new Vector3(1, Mathf.Max(0.001f, Mathf.Pow(a, 0.7f)), 1);
     }
 
-    // ---------------- the mirror's panel: STYLE and WATCH arrows ----------------
+    // ---------------- the mirror's panel: the WATCH arrows ----------------
 
-    private static readonly bool[] MirrorDown = new bool[4];
-    private static readonly float[] MirrorPush = new float[4];
+    private static readonly bool[] MirrorDown = new bool[Theatre.MirrorButtons];
+    private static readonly float[] MirrorPush = new float[Theatre.MirrorButtons];
     private static string _mirrorStyleShown, _mirrorWatchShown;
 
     private static void UpdateMirror(float now)
     {
         MirrorLaser();
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < Theatre.MirrorButtons; i++)
         {
             var face = Theatre.MirrorButton(i);
             var depth = 0f;
@@ -659,7 +659,7 @@ public static class TheatreToys
             var down = depth > 0.005f;
             if (down && !MirrorDown[i])
             {
-                Step(i < 2, i % 2 == 0 ? -1 : 1);
+                Step(i % 2 == 0 ? -1 : 1);
                 TheatreSounds.Play(TheatreSounds.Click, face, 0.35f, Random.Range(1.1f, 1.2f));
                 Buzz(by, 0.35f, 0.03f);
             }
@@ -677,9 +677,7 @@ public static class TheatreToys
         var watch = Theatre.WatchLabel();
         if (style != _mirrorStyleShown)
         {
-            foreach (var id in new[] { "MirrorStyle", "MirrorStyle2" })
-                if (_cinema.Sign(id) is { } s)
-                    s.text = style;
+            if (_cinema.Sign("MirrorStyle") is { } s) s.text = style;
             _mirrorStyleShown = style;
         }
 
@@ -733,7 +731,7 @@ public static class TheatreToys
             return;
         }
 
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < Theatre.MirrorButtons; i++)
         {
             var b = Theatre.MirrorButton(i);
             // a little more forgiving than the button's face
@@ -745,7 +743,7 @@ public static class TheatreToys
         if (MirrorTrig[hand] && !MirrorTrigWas[hand] && _mirrorHover >= 0)
         {
             var i = _mirrorHover;
-            Step(i < 2, i % 2 == 0 ? -1 : 1);
+            Step(i % 2 == 0 ? -1 : 1);
             TheatreSounds.Play(TheatreSounds.Click, Theatre.MirrorButton(i), 0.35f, Random.Range(1.1f, 1.2f));
             Buzz(hand, 0.35f, 0.03f);
             _mirrorShot = i;
@@ -776,25 +774,15 @@ public static class TheatreToys
     /// <summary>Dev: what the mirror's laser is on.</summary>
     public static string DescribeMirror() => $"hover={_mirrorHover} trig={MirrorTrig[0]}/{MirrorTrig[1]} style={Body.Styles.Current.Label} watch={Theatre.WatchLabel()}";
 
-    private static void Step(bool style, int dir)
+    private static void Step(int dir)
     {
-        if (style)
-        {
-            var keys = Body.Styles.Keys;
-            var i = Mathf.Max(0, System.Array.IndexOf(keys, Body.Styles.Current.Key));
-            ModConfig.BodyStyle.Value = keys[(i + dir + keys.Length) % keys.Length];
-            Plugin.L.LogInfo("Mirror: you're " + Body.Styles.Current.Label);
-        }
-        else
-        {
-            var watches = Body.Styles.Watches;
-            var i = 0;
-            for (var k = 0; k < watches.Length; k++)
-                if (watches[k].Key == ModConfig.Watch.Value)
-                    i = k;
-            ModConfig.Watch.Value = watches[(i + dir + watches.Length) % watches.Length].Key;
-            Plugin.L.LogInfo("Mirror: watch " + Theatre.WatchLabel());
-        }
+        var watches = Body.Styles.Watches;
+        var i = 0;
+        for (var k = 0; k < watches.Length; k++)
+            if (watches[k].Key == ModConfig.Watch.Value)
+                i = k;
+        ModConfig.Watch.Value = watches[(i + dir + watches.Length) % watches.Length].Key;
+        Plugin.L.LogInfo("Mirror: watch " + Theatre.WatchLabel());
     }
 
     public static string Describe()

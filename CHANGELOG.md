@@ -1,31 +1,32 @@
 # Changelog
 
-## InkVR 1.1: The Characters Update
+## InkVR 1.1: The Henry Update
 
 ### New
 
-- **Be the characters themselves.** Eight styles are now the game's own character models, head to toe: the Ink
-  Demon, Sammy Lawrence, the Projectionist, a Searcher, Boris, Alice Angel (as Chapter 3 shows her, halo and all),
-  Brute Boris and Bendy. Each is one connected body moved by yours: it stands, crouches and steps where you do, its
-  arms reach your hands, its own fingers close when you grip, and your watch sits on its wrist. In first person you
-  see its own arms, gloves and body; the mirror in the theatre's lobby and your shadow show all of it.
-- **Read from your own game.** The models come from your installation as the game starts (some from the game's own
-  files, the rest from the statues in its Archives). Nothing from the game ships with InkVR.
-- **Bendy** is the studio's concept model of him (the Archives' statue), given a skeleton, with InkVR's drawn head:
-  the statue's own head is a cutaway showing the works inside.
-- **Ink gets onto them too:** wade through ink as Sammy and his trouser legs come out black.
-- **The Projectionist's lens** throws light where you look, flickering like a projector.
+- **Henry, head to toe.** Henry has a whole new body, built for InkVR: his face, grey hair, waistcoat and tie, rolled
+  shirt sleeves, trousers and shoes, as one connected body. It stands, crouches and steps where you do, its arms
+  reach your hands and its fingers close when you grip. In first person you see his arms, hands and body; the mirror
+  in the theatre's lobby and your shadow show all of him.
+- **Ink all over him.** Drips land and run down his hands and arms, wading inks his trouser legs and shoes up to the
+  ink line, and a soaking covers him head to toe, then dries.
+- **The watch fits his wrist.** The strap goes round his forearm just above the wrist, sized to it, and the watch
+  turns with your hand like a real one: turn your wrist to read the time. All six watches.
 
-### Quality of life
+### Changes
 
+- **One Henry.** The other body styles are gone: Toon Henry, the drawn Bendy, Boris, Alice, Joey, Wally and Beast
+  Bendy, and the game's character models. If you'd picked one, you're Henry again. The STYLE rows have left VR
+  SETTINGS, the launcher and the mirror's panel, which now changes your watch.
 - **Point at the mirror's arrows.** In the theatre lobby, point either hand at the brass panel beside the mirror: a
   laser shows where you're pointing, and the arrow under it sinks a little. Pull that hand's trigger to change your
-  style or your watch. Pressing the arrows with a finger still works.
-- **Henry's shoulders.** The drawn styles (Henry, Toon Henry, Wally Franks, Joey Drew) have shoulders that move
-  with the arms, so a raised arm grows out of the body instead of turning in a doll's socket.
+  watch. Pressing the arrows with a finger still works.
 
 ### Bug fixes
 
+- **Doors didn't move with your hand.** A door you pushed or pulled jumped to the game's own open angle as soon as it
+  opened, so you couldn't ease one open or push it like a real door. Now the door goes exactly as far as your hand
+  takes it, slowly or with a shove, and a gentle reach for the handle catches it.
 - **Tape notes weren't up close, so they were hard to read.** In 1.0 the close-up page never came up: InkVR read
   where the game's note sits on the screen wrongly (as one point in the middle), took it for nothing, and left the
   note small in the far HUD, pixelated and blurry. Now, when a tape plays, its note comes up as a page half a metre

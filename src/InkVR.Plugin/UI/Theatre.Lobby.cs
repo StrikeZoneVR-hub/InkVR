@@ -891,8 +891,11 @@ public sealed partial class Theatre
     /// <summary>The mirror glass's centre.</summary>
     public static Vector3 MirrorAt => new(MirrorWallX + 0.03f, LobbyFloor + 0.3f + MirrorH * 0.5f, MirrorZ);
 
-    /// <summary>The panel's buttons (0, 1: STYLE back and next; 2, 3: WATCH back and next): the centre of each face.</summary>
-    public static Vector3 MirrorButton(int i) => new(MirrorWallX + 0.068f, LobbyFloor + (i < 2 ? 1.5f : 1.29f), PanelZ + (i % 2 == 0 ? -0.17f : 0.17f));
+    /// <summary>The panel's buttons (0, 1: WATCH back and next): the centre of each face.</summary>
+    public static Vector3 MirrorButton(int i) => new(MirrorWallX + 0.068f, LobbyFloor + WatchRowY, PanelZ + (i % 2 == 0 ? -0.17f : 0.17f));
+
+    public const int MirrorButtons = 2;
+    private const float WatchRowY = 1.38f;
 
     public const float MirrorButtonHalf = 0.05f;
 
@@ -918,17 +921,15 @@ public sealed partial class Theatre
         Signs.Add(new SignSpec { Text = "WHO ARE YOU TONIGHT?", Pos = new Vector3(x + 0.03f, c.y + MirrorH * 0.5f + 0.38f, c.z), Rot = rot, Height = 0.06f, Width = 1.3f, Color = Cream });
         Signs.Add(new SignSpec { Text = Body.Styles.Current.Label, Pos = new Vector3(x + 0.03f, c.y + MirrorH * 0.5f + 0.2f, c.z), Rot = rot, Height = 0.12f, Width = 1.5f, Color = new Color(1f, 0.84f, 0.5f), Id = "MirrorStyle" });
 
-        // beside it, a brass panel: press the arrows to change your style and your watch
+        // beside it, a brass panel: press the arrows to change your watch
         var pc = new Vector3(x + 0.015f, f + 1.4f, PanelZ);
         var name = new Color(1f, 0.84f, 0.5f);
         Box(_box, pc, new Vector3(0.03f, 0.52f, 0.5f), GoldDark);
         Box(_box, pc + n * 0.018f, new Vector3(0.01f, 0.46f, 0.44f), Dark * 2.2f);
         Signs.Add(new SignSpec { Text = "POINT AT AN ARROW OR PRESS IT", Pos = new Vector3(x + 0.04f, f + 1.6f, PanelZ), Rot = rot, Height = 0.024f, Width = 0.42f, Color = Cream * 0.8f });
-        Signs.Add(new SignSpec { Text = "STYLE", Pos = new Vector3(x + 0.04f, f + 1.5f, PanelZ), Rot = rot, Height = 0.045f, Width = 0.22f, Color = Cream });
-        Signs.Add(new SignSpec { Text = Body.Styles.Current.Label, Pos = new Vector3(x + 0.04f, f + 1.415f, PanelZ), Rot = rot, Height = 0.03f, Width = 0.42f, Color = name, Id = "MirrorStyle2" });
-        Signs.Add(new SignSpec { Text = "WATCH", Pos = new Vector3(x + 0.04f, f + 1.29f, PanelZ), Rot = rot, Height = 0.045f, Width = 0.22f, Color = Cream });
-        Signs.Add(new SignSpec { Text = WatchLabel(), Pos = new Vector3(x + 0.04f, f + 1.205f, PanelZ), Rot = rot, Height = 0.03f, Width = 0.42f, Color = name, Id = "MirrorWatch" });
-        for (var i = 0; i < 4; i++)
+        Signs.Add(new SignSpec { Text = "WATCH", Pos = new Vector3(x + 0.04f, f + WatchRowY, PanelZ), Rot = rot, Height = 0.045f, Width = 0.22f, Color = Cream });
+        Signs.Add(new SignSpec { Text = WatchLabel(), Pos = new Vector3(x + 0.04f, f + WatchRowY - 0.085f, PanelZ), Rot = rot, Height = 0.03f, Width = 0.42f, Color = name, Id = "MirrorWatch" });
+        for (var i = 0; i < MirrorButtons; i++)
         {
             var b = MirrorButton(i);
             var left = i % 2 == 0;

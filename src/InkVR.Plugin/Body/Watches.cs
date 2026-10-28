@@ -30,6 +30,31 @@ public partial class HandModel
         if (_watchRoot == null) return;
         _watchRoot.SetPositionAndRotation(wrist, frame);
         _watchRoot.localScale = Vector3.one * bigger;
+        Oval(1f, 1f);
+    }
+
+    /// <summary>
+    /// The watch round a worn model's forearm, fitted to its skin (<see cref="CharacterSkin.WatchSpot"/>): the strap's
+    /// middle there, an oval just round the skin (half-width across the arm, half-depth back to palm, in the world), the
+    /// case on top at the size that oval wants.
+    /// </summary>
+    public void FitWatch(Vector3 centre, Quaternion frame, float halfWidth, float halfDepth)
+    {
+        if (_watchRoot == null || _watchRoot.parent == null) return;
+        const float snug = 1.06f; // (just off the skin: the strap's outline mustn't sink into it)
+        var unit = WatchRadius * _watchRoot.parent.lossyScale.x; // the strap's radius in the world, unscaled
+        var s = Mathf.Clamp((halfWidth + halfDepth) * 0.5f * snug / unit, 0.5f, 3f);
+        _watchRoot.SetPositionAndRotation(centre - frame * new Vector3(0, 0, _strapMidZ * unit / WatchRadius * s), frame);
+        _watchRoot.localScale = Vector3.one * s;
+        Oval(halfWidth * snug / (unit * s), halfDepth * snug / (unit * s));
+    }
+
+    /// <summary>The strap squeezed to an oval (across, back to palm), the case riding on its top.</summary>
+    private void Oval(float across, float depth)
+    {
+        if (_watchStrap == null) return;
+        _watchStrap.localScale = new Vector3(across, depth, 1f);
+        if (_watchFace != null) _watchFace.localPosition = new Vector3(_faceRest.x, _faceRest.y * depth, _faceRest.z);
     }
 
     /// <summary>Back on Henry's own wrist.</summary>
@@ -39,7 +64,12 @@ public partial class HandModel
         _watchRoot.localPosition = Vector3.zero;
         _watchRoot.localRotation = Quaternion.identity;
         _watchRoot.localScale = Vector3.one;
+        Oval(1f, 1f);
     }
+
+    private Transform _watchStrap, _watchFace;
+    private Vector3 _faceRest;
+    private float _strapMidZ;
     private Transform _secondHand;
 
     private void BuildWatch(WatchKind kind, Func<string, Material> material)
@@ -63,12 +93,15 @@ public partial class HandModel
         _watchRoot = new GameObject("Watch").transform;
         _watchRoot.SetParent(_wrist, false);
         WatchRadius = r;
+        _strapMidZ = Lifelike ? -0.0205f + z : -0.0115f;
         Part("WatchStrap", _watchRoot, band, material(strap), 0.0009f, stain: true);
+        _watchStrap = _watchRoot.Find("WatchStrap");
 
         var face = new GameObject("WatchFace").transform;
         face.SetParent(_watchRoot, false);
-        face.localPosition = new Vector3(0, r * 0.84f - 0.0003f, -0.0205f + z);
+        face.localPosition = _faceRest = new Vector3(0, r * 0.84f - 0.0003f, -0.0205f + z);
         face.localRotation = Quaternion.Euler(0, -90f, 0); // local +Z = 12 o'clock (the little-finger side), +X = 3 (the fingers)
+        _watchFace = face;
 
         switch (kind)
         {

@@ -34,7 +34,7 @@
 | | |
 |---|---|
 | <img src="docs/images/hands.jpg" alt="A Lifelike hand with Henry's wristwatch in the theatre" width="100%"> | <img src="docs/images/doors.jpg" alt="Henry's hand pushing a door open" width="100%"> |
-| **Your hands, your body.** Look down and see Henry: cartoon gloves, braces and big shoes in the game's own style (or a Lifelike style), with a real wristwatch. Your arms are his arms. | **Doors by hand.** Push, pull or fling a door open; locked ones rattle and stop you. |
+| **Your hands, your body.** Look down and see Henry, head to toe: his own body, waistcoat, tie and rolled sleeves, with a real wristwatch that turns with your wrist. Your arms are his arms. | **Doors by hand.** Push, pull or fling a door open; locked ones rattle and stop you. |
 | <img src="docs/images/valve.jpg" alt="A gloved hand gripping a valve wheel" width="100%"> | <img src="docs/images/touch.jpg" alt="A finger booping a Bendy cut-out on the nose" width="100%"> |
 | **Turn it yourself.** Valves and wheels turn in your hand as you wind them round; levers swing as you pull them; switches flip under your fingers. | **Touch everything.** Press buttons, DOOR RELEASE and tape recorders with a fingertip, lift lids, open drawers and chests, play the organ and the piano, boop Bendy on the nose. |
 | <img src="docs/images/soup.jpg" alt="A can of Bacon Soup in Henry's gloved hand" width="100%"> | <img src="docs/images/darts.jpg" alt="A dart in Henry's hand, the dartboard across the room" width="100%"> |
@@ -42,12 +42,12 @@
 | <img src="docs/images/fight.jpg" alt="The axe bursting a Searcher into ink" width="100%"> | <img src="docs/images/ink.jpg" alt="Ink stains on Henry's sleeve and glove" width="100%"> |
 | **Fight like you mean it.** Swing the axe with one hand or both: a hit counts anywhere on an enemy, and planks break where you strike. Guns aim where your hand points, with a two-handed grip. | **Real-time ink.** Every drop lands on your hands, arms and clothes, runs and drips. Wade in and the ink ripples and splashes round you, and inky shoes leave footprints. |
 | <img src="docs/images/scenes.jpg" alt="A scripted scene playing around you in VR" width="100%"> | <img src="docs/images/theatre.jpg" alt="The 1930s theatre the menus play in, Henry's glove raised" width="100%"> |
-| **Cutscenes in VR.** Scripted scenes play around you while you keep Henry's body. Your head does the looking, and the world never tilts, spins or shakes. | **A picture palace.** The menus play on the big screen of a 1930s theatre built in the game's style, and VR SETTINGS sits inside the game's own Options. Click the move stick to walk it: the stage, the lobby, the stairs and the balcony, with a few things to find, and a mirror in the lobby where you change who you are. |
+| **Cutscenes in VR.** Scripted scenes play around you while you keep Henry's body. Your head does the looking, and the world never tilts, spins or shakes. | **A picture palace.** The menus play on the big screen of a 1930s theatre built in the game's style, and VR SETTINGS sits inside the game's own Options. Click the move stick to walk it: the stage, the lobby, the stairs and the balcony, with a few things to find, and a mirror in the lobby where you see yourself and change your watch. |
 
 Also included:
 - Every chapter playable from start to finish, and the Archives.
-- Thirteen body styles: Henry (Lifelike or Toon), Bendy, Boris, Alice Angel, the Ink Demon, Sammy Lawrence, the Projectionist, Brute Boris, a Searcher, Joey Drew, Wally Franks and Beast Bendy. Eight of them are the game's own character models, read from your installation as it starts (nothing from the game ships with InkVR), worn as one connected body that moves with yours. Ink gets onto them, and the mirror in the theatre's lobby shows you who you are (point at its arrows and pull the trigger, or press them, to change).
-- Six watches for your wrist, all keeping your real time (or none).
+- Henry's whole body, built for InkVR: one connected body that stands, crouches and steps where you do, its arms reaching your hands and its fingers closing as you grip. Ink gets all over it, and the mirror in the theatre's lobby and your shadow show all of you.
+- Six watches for your wrist, fitted round it and all keeping your real time (or none): point at the arrows beside the lobby mirror and pull the trigger, or press them, to change.
 - **Optional:** a satchel over your left shoulder (off unless you turn it on: SATCHEL in VR SETTINGS or the launcher). With it on, what you pick up stays in your hand until you let go of it behind your left shoulder, which puts it in; reach over your shoulder and grip to bring the satchel round and take things out, hold one to what it's for and let go to use it, or throw it (it comes back).
 - Natural grips: the axe, the tools and what you carry sit in your hand by their handles, and your fingers close round them.
 - Solid weapons: the weapon in your hand stops at walls and floors (it tips back in your fist like a real one), your fingers close over its handle, and swings knock loose things about.
@@ -149,6 +149,7 @@ things can be tested without a headset.
   - Unity's [OpenXR plugin](https://docs.unity3d.com/Packages/com.unity.xr.openxr@latest), downloaded from Unity
     by the launcher, not bundled
   - the [Bangers](https://fonts.google.com/specimen/Bangers) font (SIL Open Font License)
+  - Henry's body is built from [MakeHuman](http://www.makehumancommunity.org/)'s figure, clothes and hair (CC0)
 
 If InkVR made the studio feel real for you, you can [support it on Ko-fi](https://ko-fi.com/strikezonevr). Thank you!
 

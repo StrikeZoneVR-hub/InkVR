@@ -1213,10 +1213,20 @@ public class DevTools : MonoBehaviour
             }
             case "handturn":
             {
-                // twist the dev right hand about its pointing axis
+                // handturn <deg> [l] : twist the dev right (or left) hand about its pointing axis
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var turn = Quaternion.AngleAxis(float.Parse(a[0], System.Globalization.CultureInfo.InvariantCulture), Vector3.forward);
+                if (a.Length > 1 && a[1] == "l")
+                {
+                    if (!InkVR.Body.Hands.DevLeft.HasValue) break;
+                    var dl = InkVR.Body.Hands.DevLeft.Value;
+                    InkVR.Body.Hands.DevLeft = (dl.pos, dl.rot * turn);
+                    break;
+                }
+
                 if (!InkVR.Body.Hands.DevRight.HasValue) break;
                 var d = InkVR.Body.Hands.DevRight.Value;
-                InkVR.Body.Hands.DevRight = (d.pos, d.rot * Quaternion.AngleAxis(float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture), Vector3.forward));
+                InkVR.Body.Hands.DevRight = (d.pos, d.rot * turn);
                 break;
             }
             case "hittest":
@@ -2060,6 +2070,38 @@ public class DevTools : MonoBehaviour
                 var l = cam.GetStereoViewMatrix(Camera.StereoscopicEye.Left).inverse.GetColumn(3);
                 var r = cam.GetStereoViewMatrix(Camera.StereoscopicEye.Right).inverse.GetColumn(3);
                 Plugin.L.LogInfo($"EYES {cam.name}: left={(Vector3)l} right={(Vector3)r} separation={Vector3.Distance(l, r):F3} units, camera at {cam.transform.position}, lossyScale={cam.transform.lossyScale.x:F2}, stereoSeparation={cam.stereoSeparation}");
+                break;
+            }
+            case "matprop":
+            {
+                // matprop <material name part> <property> <number | r,g,b[,a] | black | white | grey | flat | none>
+                var a = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (a.Length < 3) { Plugin.L.LogWarning("matprop <name part> <property> <value>"); break; }
+                var n = 0;
+                foreach (var o in Resources.FindObjectsOfTypeAll(Il2CppType.Of<Material>()))
+                {
+                    var m = o.Cast<Material>();
+                    if (m.name.IndexOf(a[0], StringComparison.OrdinalIgnoreCase) < 0 || !m.HasProperty(a[1])) continue;
+                    var v = a[2];
+                    if (float.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var f)) m.SetFloat(a[1], f);
+                    else if (v.Contains(','))
+                    {
+                        var c = v.Split(',').Select(s => float.Parse(s, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                        m.SetColor(a[1], new Color(c[0], c[1], c[2], c.Length > 3 ? c[3] : 1f));
+                    }
+                    else
+                        m.SetTexture(a[1], v switch
+                        {
+                            "black" => Texture2D.blackTexture,
+                            "white" => Texture2D.whiteTexture,
+                            "grey" => Texture2D.grayTexture,
+                            "flat" => Texture2D.normalTexture,
+                            _ => null
+                        });
+                    n++;
+                }
+
+                Plugin.L.LogInfo($"MATPROP {a[1]}={a[2]} on {n} material(s) named *{a[0]}*");
                 break;
             }
             case "shaders":

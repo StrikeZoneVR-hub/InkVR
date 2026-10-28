@@ -85,6 +85,9 @@ public sealed class StyleDef
     /// <summary>Or a statue in the Archives scene to read the model from (characters only in a chapter's own files).</summary>
     public string ArchiveModel;
 
+    /// <summary>Or InkVR's own model of this style (an .inkmodel in the plugin's models folder: Henry, built in Blender).</summary>
+    public string ModelFile;
+
     /// <summary>The model's own head is left off for InkVR's drawn one (the concept Bendy statue's head is a cutaway).</summary>
     public bool DrawnHead;
 
@@ -112,12 +115,11 @@ public static class Styles
         return d;
     }
 
-    // Only Henry, drawn and as a cartoon (1.2): the other characters (the game's own models, and the drawn Bendy, Boris,
-    // Alice, Joey, Wally and Beast Bendy) were taken out. A saved choice of one of them comes back as Henry (ByKey).
+    // Only Henry (1.2), his whole body built in Blender: the other characters (the game's own models, the drawn Bendy,
+    // Boris, Alice, Joey, Wally and Beast Bendy, and Toon Henry) were taken out. A saved choice of one comes back as Henry.
     public static readonly StyleDef[] All =
     {
-        new() { Id = BodyStyle.Lifelike, Key = "Lifelike", Label = "HENRY", Blurb = "Henry Stein: waistcoat, tie, rolled sleeves and his tank watch.", Hands = HandKind.Lifelike, Sleeves = SleeveKind.Rolled, WeddingBand = true },
-        new() { Id = BodyStyle.Toon, Key = "Toon", Label = "TOON HENRY", Blurb = "Henry drawn like a cartoon: braces, big shoes and white gloves.", Hands = HandKind.Toon, Sleeves = SleeveKind.Rolled, CartoonFeet = true },
+        new() { Id = BodyStyle.Lifelike, Key = "Lifelike", Label = "HENRY", Blurb = "Henry Stein: waistcoat, tie, rolled sleeves and his tank watch.", Hands = HandKind.Lifelike, Sleeves = SleeveKind.Rolled, WeddingBand = true, ModelFile = "henry.inkmodel" },
     };
 
     public static StyleDef Of(BodyStyle id)
