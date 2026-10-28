@@ -4,10 +4,11 @@
 
 ### New
 
-- **Henry, head to toe.** Henry has a whole new body, built for InkVR: his face, grey hair, waistcoat and tie, rolled
-  shirt sleeves, trousers and shoes, as one connected body. It stands, crouches and steps where you do, its arms
-  reach your hands and its fingers close when you grip. In first person you see his arms, hands and body; the mirror
-  in the theatre's lobby and your shadow show all of him.
+- **Henry, head to toe.** Henry has a whole new body, built for InkVR: his face, grey hair, waistcoat and tie, shirt
+  sleeves rolled to the elbow, trousers and shoes, as one connected body. It stands, crouches and steps where you do,
+  its arms reach your hands, and his hands open, close and hold things exactly as Henry's always have. His clothes
+  move with him: raise your arms and the sleeves and waistcoat go with them. In first person you see his arms, hands
+  and body; the mirror in the theatre's lobby and your shadow show all of him.
 - **Ink all over him.** Drips land and run down his hands and arms, wading inks his trouser legs and shoes up to the
   ink line, and a soaking covers him head to toe, then dries.
 - **The watch fits his wrist.** The strap goes round his forearm just above the wrist, sized to it, and the watch

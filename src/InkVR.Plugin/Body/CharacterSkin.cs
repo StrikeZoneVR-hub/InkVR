@@ -908,6 +908,9 @@ public sealed class CharacterSkin
         public Quaternion Rot;
         public float Scale; // world units per metre of hand
         public float Index, Grip, Thumb;
+
+        /// <summary>The hand's own finger joints, posed (<see cref="HandModel.FingerJoints"/>): the fingers copy them.</summary>
+        public Transform[] Joints;
     }
 
     private readonly Quaternion[] _wristFrame = new Quaternion[2];
@@ -928,11 +931,13 @@ public sealed class CharacterSkin
         return _wristOk[side];
     }
 
-    // ---- where the watch goes: eight points round each forearm's skin just short of the wrist (the back of the arm, the
-    // palm side, the two sides and between), each as the bones that move it, how much, and where it sat on each at bind ----
+    // ---- where the watch goes: points round each forearm's skin just short of the wrist (the furthest out in sixteen
+    // directions, at both ends of the strap and its middle), each as the bones that move it, how much, and where it sat
+    // on each at bind ----
 
+    private const int RingDirs = 16, RingSlices = 3, RingPts = RingDirs * RingSlices;
     private readonly (Transform bone, float w, Vector3 at)[][][] _ring = new (Transform, float, Vector3)[2][][];
-    private readonly Vector3[] _ringPts = new Vector3[8];
+    private readonly Vector3[] _ringPts = new Vector3[RingPts];
 
     private void BuildRings()
     {
@@ -948,16 +953,16 @@ public sealed class CharacterSkin
             var back = Vector3.ProjectOnPlane(Canonical(side, out _) * Vector3.up, axis).normalized;
             if (back.sqrMagnitude < 0.5f) continue;
             var across = Vector3.Cross(axis, back);
-            var dirs = new Vector3[8];
-            for (var k = 0; k < 8; k++)
+            var dirs = new Vector3[RingDirs];
+            for (var k = 0; k < RingDirs; k++)
             {
-                var a = k * 45f * Mathf.Deg2Rad;
+                var a = k * (360f / RingDirs) * Mathf.Deg2Rad;
                 dirs[k] = back * Mathf.Cos(a) + across * Mathf.Sin(a);
             }
 
-            var best = new float[8];
-            var pick = new (SkinnedMeshRenderer smr, int v)[8];
-            for (var k = 0; k < 8; k++) best[k] = float.MinValue;
+            var best = new float[RingPts];
+            var pick = new (SkinnedMeshRenderer smr, int v)[RingPts];
+            for (var k = 0; k < RingPts; k++) best[k] = float.MinValue;
             foreach (var smr in Root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
             {
                 var mesh = smr.sharedMesh;
@@ -969,21 +974,24 @@ public sealed class CharacterSkin
                     var d = toWorld.MultiplyPoint3x4(verts[v]) - hp;
                     var t = Vector3.Dot(d, axis);
                     // (the length of the strap, about two centimetres up the arm from the wrist on a Henry-sized arm)
-                    if (t < -0.12f * len || t > -0.045f * len) continue;
+                    const float from = -0.135f, to = -0.035f;
+                    if (t < from * len || t > to * len) continue;
                     var radial = d - axis * t;
                     if (radial.magnitude > 0.3f * len) continue;
-                    for (var k = 0; k < 8; k++)
+                    var slice = Mathf.Clamp((int)((t / len - from) / (to - from) * RingSlices), 0, RingSlices - 1);
+                    for (var k = 0; k < RingDirs; k++)
                     {
                         var s = Vector3.Dot(radial, dirs[k]);
-                        if (s <= best[k]) continue;
-                        best[k] = s;
-                        pick[k] = (smr, v);
+                        var at = slice * RingDirs + k;
+                        if (s <= best[at]) continue;
+                        best[at] = s;
+                        pick[at] = (smr, v);
                     }
                 }
             }
 
-            var ring = new (Transform, float, Vector3)[8][];
-            for (var k = 0; k < 8 && ring != null; k++)
+            var ring = new (Transform, float, Vector3)[RingPts][];
+            for (var k = 0; k < RingPts && ring != null; k++)
             {
                 if (pick[k].smr == null) ring = null;
                 else ring[k] = Influences(pick[k].smr, pick[k].v);
@@ -1028,7 +1036,7 @@ public sealed class CharacterSkin
         var ring = _ring[side];
         if (!_wristOk[side] || ring == null) return false;
         var c = Vector3.zero;
-        for (var k = 0; k < 8; k++)
+        for (var k = 0; k < RingPts; k++)
         {
             var p = Vector3.zero;
             foreach (var (b, w, at) in ring[k]) p += b.localToWorldMatrix.MultiplyPoint3x4(at) * w;
@@ -1036,7 +1044,7 @@ public sealed class CharacterSkin
             c += p;
         }
 
-        c /= 8f;
+        c /= RingPts;
         var hand = _all[_role[side == 0 ? (int)R.LHand : (int)R.RHand]].position;
         var fore = _all[_role[side == 0 ? (int)R.LFore : (int)R.RFore]].position;
         var along = (hand - fore).normalized;
@@ -1046,7 +1054,7 @@ public sealed class CharacterSkin
         var x = frame * Vector3.right;
         var y = frame * Vector3.up;
         float hw = 1e-4f, hd = 1e-4f;
-        for (var k = 0; k < 8; k++)
+        for (var k = 0; k < RingPts; k++)
         {
             var d = _ringPts[k] - c;
             hw = Mathf.Max(hw, Mathf.Abs(Vector3.Dot(d, x)));
@@ -1055,7 +1063,7 @@ public sealed class CharacterSkin
 
         // the oval as wide and deep as the skin, grown until every point is inside it
         var m = 1f;
-        for (var k = 0; k < 8; k++)
+        for (var k = 0; k < RingPts; k++)
         {
             var d = _ringPts[k] - c;
             var ex = Vector3.Dot(d, x) / hw;
@@ -1256,6 +1264,8 @@ public sealed class CharacterSkin
         Target(foot, ankle, footRot * Quaternion.Inverse(Look(restFoot, Vector3.up)) * _rr[foot]);
     }
 
+    private readonly float[] _twist = new float[2];
+
     private void Arm(int side, in Pose p, in HandPose h, float s)
     {
         var clav = _role[side == 0 ? (int)R.LClav : (int)R.RClav];
@@ -1292,6 +1302,21 @@ public sealed class CharacterSkin
         var bodyFwd = p.Chest * Vector3.up;
         var bodyRight = Vector3.Cross(bodyUp, bodyFwd);
         var hint = bodyRight * (side == 0 ? -0.2f : 0.2f) - bodyUp * 0.75f - bodyFwd * 0.35f;
+        // reaching further than the arm: the shoulder comes forward first (the collarbone swings, as yours does)
+        if (clav >= 0)
+        {
+            var over = (wrist - shoulder).magnitude - (a + b) * 0.97f;
+            if (over > 0f)
+            {
+                var pivot = _tp[clav];
+                var want = shoulder + (wrist - shoulder).normalized * Mathf.Min(over, 0.08f * s);
+                var turn = Quaternion.RotateTowards(Quaternion.identity, Quaternion.FromToRotation(shoulder - pivot, want - pivot), 30f);
+                Target(clav, pivot, turn * _tq[clav]);
+                Carry(clav, upper);
+                shoulder = _tp[upper];
+            }
+        }
+
         var reach = wrist - shoulder;
         _devArm[side] = $"{(side == 0 ? "L" : "R")} shoulder {shoulder:F2} wrist {wrist:F2} reach {reach.magnitude:F2}/{a + b:F2}";
         Vector3 elbow;
@@ -1302,8 +1327,10 @@ public sealed class CharacterSkin
         }
         else elbow = TwoBone(shoulder, wrist, a, b, hint, out _);
 
-        var bend = Vector3.ProjectOnPlane(elbow - (shoulder + wrist) * 0.5f, reach);
-        if (bend.sqrMagnitude < 1e-8f) bend = Vector3.ProjectOnPlane(hint, reach);
+        // (the plane the elbow bends in, from its pole: the elbow's own offset vanishes as the arm straightens, and
+        // with it the arm's roll would flicker)
+        var bend = Vector3.ProjectOnPlane(hint, reach);
+        if (bend.sqrMagnitude < 1e-8f) bend = Vector3.ProjectOnPlane(elbow - (shoulder + wrist) * 0.5f, reach);
         var restReach = _rp[hand] - _rp[upper];
         var restBend = Vector3.ProjectOnPlane(_rp[fore] - (_rp[upper] + _rp[hand]) * 0.5f, restReach);
         // a straight (or nearly straight) T-pose arm has no bend of its own to go by: elbows bend backwards
@@ -1319,6 +1346,9 @@ public sealed class CharacterSkin
             var foreUp = foreRot * (Quaternion.Inverse(_rr[fore]) * restUp);
             var handUp = handRot * (Quaternion.Inverse(_rr[hand]) * restUp);
             var twist = Vector3.SignedAngle(Vector3.ProjectOnPlane(foreUp, axis), Vector3.ProjectOnPlane(handUp, axis), axis);
+            // (continuous from last frame, so it never flips half a turn as the hand passes straight back)
+            twist = Mathf.Clamp(_twist[side] + Mathf.DeltaAngle(_twist[side], twist), -160f, 160f);
+            _twist[side] = twist;
             foreRot = Quaternion.AngleAxis(twist * 0.5f, axis) * foreRot;
         }
 
@@ -1357,6 +1387,13 @@ public sealed class CharacterSkin
         var along = (knuckle - _rp[hand]).normalized;
         var t = thumb != null ? Vector3.ProjectOnPlane(_rp[thumb[0]] - _rp[hand], along).normalized : (side == 0 ? Vector3.forward : Vector3.forward);
         var back = side == 1 ? Vector3.Cross(t, along) : Vector3.Cross(along, t);
+        var index = _fingers[side * 5];
+        var pinky = _fingers[side * 5 + 3];
+        if (index != null && pinky != null)
+        {
+            var knuckles = Vector3.Cross(_rp[index[0]] - _rp[hand], _rp[pinky[0]] - _rp[hand]);
+            if (knuckles.sqrMagnitude > 1e-12f) back = Vector3.Dot(knuckles, back) >= 0 ? knuckles.normalized : -knuckles.normalized;
+        }
         palm = Quaternion.Inverse(_rr[hand]) * ((knuckle - _rp[hand]) * 0.5f - back * ((knuckle - _rp[hand]).magnitude * 0.12f));
         return Quaternion.LookRotation(along, back);
     }
@@ -1364,6 +1401,30 @@ public sealed class CharacterSkin
     private void Fingers(int side, in HandPose h)
     {
         if (!h.Valid) return;
+        if (h.Joints != null)
+        {
+            // each segment pointed where the same segment of Henry's own hand points (it's posed every frame, hidden):
+            // so the fingers rest, close and hold things exactly as they always have
+            for (var f = 0; f < 5; f++)
+            {
+                var chain = _fingers[side * 5 + f];
+                if (chain == null) continue;
+                for (var j = 0; j < chain.Length; j++)
+                {
+                    var i = chain[j];
+                    var bone = _all[i];
+                    bone.localRotation = _rl[i];
+                    var src = h.Joints[f * 3 + Mathf.Min(j, 2)];
+                    var rest = j + 1 < chain.Length ? _rp[chain[j + 1]] - _rp[i] : j > 0 ? _rp[i] - _rp[chain[j - 1]] : Vector3.zero;
+                    if (src == null || rest.sqrMagnitude < 1e-12f) continue;
+                    var now = bone.rotation * (Quaternion.Inverse(_rr[i]) * rest);
+                    bone.rotation = Quaternion.FromToRotation(now, src.forward) * bone.rotation;
+                }
+            }
+
+            return;
+        }
+
         var canonBack = Canonical(side, out _) * Vector3.up;
         for (var f = 0; f < 5; f++)
         {

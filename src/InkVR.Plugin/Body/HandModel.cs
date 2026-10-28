@@ -477,6 +477,27 @@ public partial class HandModel
 
     public Vector3 WristPosition => _wrist.position;
 
+    private Transform[] _jointList;
+
+    /// <summary>
+    /// The finger joints as they're posed now: index, middle, ring and pinky, then the thumb, three each from the
+    /// base (+Z along each segment, +Y out of its back). A worn model's fingers copy them, so they open and close as
+    /// Henry's always have.
+    /// </summary>
+    public Transform[] FingerJoints
+    {
+        get
+        {
+            if (_jointList != null) return _jointList;
+            var list = new Transform[15];
+            for (var f = 0; f < 4; f++)
+            for (var j = 0; j < 3; j++)
+                list[f * 3 + j] = _fingers[f].Joints[j];
+            for (var j = 0; j < 3; j++) list[12 + j] = _thumb.Joints[j];
+            return _jointList = list;
+        }
+    }
+
     /// <summary>The hand's frame: +Z along the fingers, +Y out of the back of the hand.</summary>
     public Transform Wrist => _wrist;
 

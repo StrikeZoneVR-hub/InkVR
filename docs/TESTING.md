@@ -13,8 +13,15 @@
 - **Taken out:** Toon Henry and every other style. A saved choice of another style comes back as Henry. STYLE is gone from VR SETTINGS, the launcher and the mirror's panel (the panel now changes only the watch).
 - **Worn like the 1.1 characters were:** Henry's invisible skeleton does the standing, crouching and stepping; the model's arms reach your hands, its fingers close as you grip, and your view leaves its head out (the mirror and your shadow show it). The forearm now turns half way with your hand, so the wrist doesn't wring.
 - **The watch fits his arm:** the strap goes round the skin of his forearm just above the wrist (fitted to its shape every frame, so it never sinks in or floats), and it turns with your hand like a real watch: turn your wrist to read it. All six watches.
+- **Hands like the old Henry's:** see the fixes above.
 - **Ink:** drips land on his hand and run down the wrist; wading inks his trouser legs and shoes up to the ink line; a soaking covers him head to toe. About 1.3 ms a frame while he's soaked.
 - **Checked on the test runtime:** Henry in the lobby mirror and from all sides; the watch from four sides with the wrist turned both ways, and from your eyes; the mirror's watch arrows (next and back); Chapter 1 (the body costs about 0.5 ms a frame); drips, wading and a soaking. Your save is unchanged and your settings were put back.
+
+### Fixed from your first try of the new Henry
+- **"some skin shows on the shoes":** the foot under each shoe showed through the leather on the instep and the heel. The whole foot inside the shoe is gone now (checked with his skin tinted green: none shows).
+- **"hands don't close correctly like thumb not right and fingers go into hand on close" / "normal hand pose too looks like claws":** his fingers and thumb now copy the old Henry hand joint for joint (it's still posed every frame, hidden), so they rest, close and hold things exactly as before; his palm is also lined up with the old hand's (it was 11 degrees off). Checked open, half and closed against the old hands side by side.
+- **"when stretching arms it glitches out a bit":** his shirt sleeves ended in a ragged edge halfway up the arm and, with the arms up, tore away in strips down his sides, because the cloth followed MakeHuman's helper layer instead of the skin. Now the shirt and waistcoat follow the skin right under them, the sleeves are rolled to just below the elbow with a proper rolled cuff, and the waistcoat's armholes are a clean line. Also: the forearm's turn no longer flips half a turn, the arm's roll stays steady when it's straight, and on a long reach his shoulder comes forward first.
+- **"watch still showing skin a bit":** the strap is fitted to sixteen points round the arm at three places along it (it was eight at one), with a little more room.
 
 ### What to try (1.1.0)
 1. A door: ease it open slowly with your hand, then push one hard. Pull one towards you by its handle.

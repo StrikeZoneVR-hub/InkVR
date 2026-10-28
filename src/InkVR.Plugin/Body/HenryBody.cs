@@ -153,7 +153,8 @@ public sealed partial class HenryBody
             Scale = m.Root.lossyScale.x,
             Index = m.IndexCurl,
             Grip = m.GripCurl,
-            Thumb = m.ThumbCurl
+            Thumb = m.ThumbCurl,
+            Joints = m.FingerJoints
         };
     }
 

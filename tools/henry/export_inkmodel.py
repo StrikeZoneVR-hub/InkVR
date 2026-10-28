@@ -104,11 +104,33 @@ for img in images:
         w, h = img.size
     px = np.clip(np.array(img.pixels[:], dtype=np.float32), 0, 1).reshape(-1, 4)
     if (px[:, 3] < 0.99).any():
-        # see-through edges baked solid (the game's character shaders are opaque): the colour of what's there
-        # behind it, hair for hair and skin for eyebrows, so a card reads as hair, not as a dark rectangle
-        solid = px[px[:, 3] > 0.5, :3].mean(axis=0) if (px[:, 3] > 0.5).any() else np.array([0.5, 0.5, 0.5])
-        under = solid if "hair" in img.name.lower() else np.array([0.80, 0.64, 0.50])
+        # see-through baked solid (the game's character shaders are opaque). Hair and brow cards: the colour of what's
+        # behind them (hair for hair, skin for brows), so a card reads as hair, not as a dark rectangle. Anything else
+        # (shoes, clothes): the empty space between its pieces takes the colour of the nearest piece, so nothing
+        # bleeds in along the seams as the picture is filtered and shrunk in the game (skin colour did, on the shoes)
+        name = img.name.lower()
         a = px[:, 3:4]
+        if "hair" in name or "brow" in name:
+            solid = px[px[:, 3] > 0.5, :3].mean(axis=0) if (px[:, 3] > 0.5).any() else np.array([0.5, 0.5, 0.5])
+            under = solid if "hair" in name else np.array([0.80, 0.64, 0.50])
+        else:
+            rgb = px[:, :3].reshape(h, w, 3).copy()
+            filled = (px[:, 3] > 0.5).reshape(h, w)
+            for _ in range(64):
+                if filled.all():
+                    break
+                acc = np.zeros_like(rgb)
+                cnt = np.zeros((h, w), dtype=np.float32)
+                for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    f = np.roll(filled, (dy, dx), axis=(0, 1))
+                    acc += np.roll(rgb, (dy, dx), axis=(0, 1)) * f[..., None]
+                    cnt += f
+                new = ~filled & (cnt > 0)
+                rgb[new] = acc[new] / cnt[new][:, None]
+                filled |= new
+            if (~filled).any():
+                rgb[~filled] = rgb[filled].mean(axis=0)
+            under = rgb.reshape(-1, 3)
         px[:, :3] = px[:, :3] * a + under * (1 - a)
         px[:, 3] = 1
     px = (px.ravel() * 255 + 0.5).astype(np.uint8)

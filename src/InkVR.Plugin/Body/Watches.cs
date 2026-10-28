@@ -41,7 +41,7 @@ public partial class HandModel
     public void FitWatch(Vector3 centre, Quaternion frame, float halfWidth, float halfDepth)
     {
         if (_watchRoot == null || _watchRoot.parent == null) return;
-        const float snug = 1.06f; // (just off the skin: the strap's outline mustn't sink into it)
+        const float snug = 1.1f; // (just off the skin: the strap's outline mustn't sink into it)
         var unit = WatchRadius * _watchRoot.parent.lossyScale.x; // the strap's radius in the world, unscaled
         var s = Mathf.Clamp((halfWidth + halfDepth) * 0.5f * snug / unit, 0.5f, 3f);
         _watchRoot.SetPositionAndRotation(centre - frame * new Vector3(0, 0, _strapMidZ * unit / WatchRadius * s), frame);

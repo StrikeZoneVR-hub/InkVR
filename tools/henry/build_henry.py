@@ -276,7 +276,38 @@ def ref_covered(proxy, rings=2):
     return mask
 
 
-def proxy_object(name, proxy, coord, W, names, rig, keep=None, material=None, tuck=None, adjust=None):
+_SKIN_TREE = None
+
+
+def skin_weights(pos, coord, W, k=4):
+    """Bone weights for points just off the body: those of the body under them (its nearest few vertices, the
+    nearest most). Clothes skinned like this move with the skin they lie on: MakeHuman's own weights for them come
+    from its helper layer, which bridges the armpit, and the shirt and waistcoat tore away in strips there when the
+    arms went up."""
+    global _SKIN_TREE
+    from mathutils import kdtree
+    if _SKIN_TREE is None or _SKIN_TREE[1] is not coord:
+        base = mh.ObjMesh(os.path.join(mh.MH, "3dobjs", "base.npz"))
+        ids = np.unique(base.fvert[base.group == base.groups.index("body")])
+        tree = kdtree.KDTree(len(ids))
+        for i, v in enumerate(ids):
+            tree.insert(coord[v], i)
+        tree.balance()
+        _SKIN_TREE = ((tree, ids), coord)
+    tree, ids = _SKIN_TREE[0]
+    out = np.zeros((len(pos), W.shape[1]))
+    for n, c in enumerate(pos):
+        near = tree.find_n(c, k)
+        wsum = 0.0
+        for _, i, d in near:
+            q = 1.0 / max(d, 1e-3) ** 2
+            out[n] += W[ids[i]] * q
+            wsum += q
+        out[n] /= max(wsum, 1e-9)
+    return out
+
+
+def proxy_object(name, proxy, coord, W, names, rig, keep=None, material=None, tuck=None, adjust=None, follow_skin=False):
     pos = proxy.fit(coord)
     w = fit_weights(proxy, W)
     if tuck is not None:
@@ -292,12 +323,103 @@ def proxy_object(name, proxy, coord, W, names, rig, keep=None, material=None, tu
     if adjust is not None:
         pos = adjust(pos, faces)
     used = sorted({v for f, _ in faces for v in f})
+    if follow_skin:
+        # (above the hips: the trouser legs keep MakeHuman's, which part cleanly between the legs)
+        w = w.copy()
+        upper = np.array([kind(names[i]) != "legs" for i in np.argmax(w, axis=1)])
+        idx = np.array([v for v in used if upper[v]], dtype=np.int64)
+        if len(idx):
+            w[idx] = skin_weights(pos[idx], coord, W)
     remap = {v: i for i, v in enumerate(used)}
     ob = mesh_object(name, mh.to_blender(pos[used]), [[remap[v] for v in f] for f, _ in faces], proxy.obj.texco, [t for _, t in faces])
     if material is not None:
         ob.data.materials.append(material)
     skin(ob, rig, names, w[used])
     return ob, pos, w
+
+
+def cuffs(coord, W, names, rig, bones, shirt, shirt_pos, forearm_t, end, material):
+    """The shirt's sleeves rolled up: a band of rolled cloth round each forearm over the sleeve's cut edge, as thick
+    as a couple of turns of shirt, shaped to the arm under it."""
+    base = mh.ObjMesh(os.path.join(mh.MH, "3dobjs", "base.npz"))
+    body_ids = np.unique(base.fvert[base.group == base.groups.index("body")])
+    # a cream patch of the shirt's own cloth for the band: the middle of its biggest face on the back
+    best, uv0 = -1.0, (0.5, 0.5)
+    for f, t in shirt.kept:
+        c = shirt_pos[f].mean(axis=0)
+        if c[2] > 0:
+            continue
+        area = np.linalg.norm(np.cross(shirt_pos[f[1]] - shirt_pos[f[0]], shirt_pos[f[2]] - shirt_pos[f[0]]))
+        if area > best:
+            best, uv0 = area, shirt.obj.texco[t].mean(axis=0)
+    seg = 28
+    loops = ((end - 0.11, 0.03), (end - 0.085, 0.12), (end - 0.045, 0.17), (end + 0.0, 0.17), (end + 0.03, 0.12), (end + 0.045, 0.03))
+    verts, faces, uvs = [], [], []
+    for side in ("l", "r"):
+        elbow, wrist = bones[f"lowerarm_{side}"][0], bones[f"hand_{side}"][0]
+        axis = wrist - elbow
+        length = np.linalg.norm(axis)
+        a = axis / length
+        u = np.cross(a, np.array([0.0, 0.0, 1.0]))
+        u /= np.linalg.norm(u)
+        v = np.cross(a, u)
+        # the arm's skin round it at each ring: the furthest out in each direction, there
+        pts = coord[body_ids]
+        pts = pts[np.sign(pts[:, 0]) == np.sign(elbow[0])]
+        t_all = ((pts - elbow) @ axis) / (length * length)
+        rel_all = pts - elbow
+        rel_all -= np.outer(rel_all @ a, a)
+        dist_all = np.linalg.norm(rel_all, axis=1)
+        ang_all = np.arctan2(rel_all @ v, rel_all @ u)
+
+        def outline(tt):
+            near = (np.abs(t_all - tt) < 0.035) & (dist_all < 0.9)  # (this arm, not the body beside it)
+            dist, ang = dist_all[near], ang_all[near]
+            radius = np.full(seg, np.nan)
+            for k in range(seg):
+                c = -math.pi + (k + 0.5) * 2 * math.pi / seg
+                d = np.abs((ang - c + math.pi) % (2 * math.pi) - math.pi)
+                sel = d < 2 * math.pi / seg
+                if sel.any():
+                    radius[k] = dist[sel].max()
+            good = ~np.isnan(radius)
+            if not good.any():
+                return np.full(seg, 0.35)
+            radius[~good] = np.interp(np.flatnonzero(~good), np.flatnonzero(good), radius[good], period=seg)
+            return (radius + np.roll(radius, 1) + np.roll(radius, -1)) / 3
+
+        start = len(verts)
+        for li, (tt, out) in enumerate(loops):
+            centre = elbow + axis * tt
+            radius = outline(tt)
+            for k in range(seg):
+                c = -math.pi + (k + 0.5) * 2 * math.pi / seg
+                d = math.cos(c) * u + math.sin(c) * v
+                verts.append(centre + d * (radius[k] + out))
+                uvs.append((uv0[0] + 0.03 * k / seg, uv0[1] + 0.02 * li / len(loops)))
+        for li in range(len(loops) - 1):
+            for k in range(seg):
+                i0 = start + li * seg + k
+                i1 = start + li * seg + (k + 1) % seg
+                j0, j1 = i0 + seg, i1 + seg
+                faces.append([i0, i1, j1, j0])
+    verts = np.array(verts)
+    # wound so the outside faces out (the quads above go round one way or the other with the side's basis)
+    fixed = []
+    for f in faces:
+        p0, p1, p3 = verts[f[0]], verts[f[1]], verts[f[3]]
+        n = np.cross(p1 - p0, p3 - p0)
+        side = "l" if f[0] < len(verts) // 2 else "r"
+        elbow, wrist = bones[f"lowerarm_{side}"][0], bones[f"hand_{side}"][0]
+        a = (wrist - elbow) / np.linalg.norm(wrist - elbow)
+        out = p0 - elbow
+        out -= (out @ a) * a
+        fixed.append(f if n @ out > 0 else f[::-1])
+    ob = mesh_object("HenryCuffs", mh.to_blender(verts), fixed, np.array(uvs), fixed)
+    ob.data.materials.append(material)
+    skin(ob, rig, names, skin_weights(verts, coord, W))
+    print(f"HENRY cuffs: {len(verts)} vertices")
+    return ob
 
 
 def skinned_meshes(rig):
@@ -390,14 +512,29 @@ def build_clothes(coord, rig):
     hem = waist - 0.4  # dm: the waistcoat comes down over the trousers' waistband
     arm_bones = np.array([kind(n) in ("upper", "lower") for n in names])
 
+    ARMHOLE = -0.2  # dm in from the shoulder joint: a waistcoat's armhole, upright, just inside the shoulder
+
+    def past_armhole(points):
+        """How far out past the armhole each point is (dm, sideways; above 0 is the sleeve). With the arms hanging
+        out and down, the armpit's side of the arm is further out than the ribs below it."""
+        return np.abs(points[:, 0]) - abs(bones["upperarm_l"][0][0]) - ARMHOLE
+
+    armpit = bones["upperarm_l"][0][1] - 1.1  # dm: the armpit, about 11 cm under the shoulder joint
+
     def suit_keep(faces, w, pos):
         uv = suit.obj.texco
         armw = w[:, arm_bones].sum(axis=1)
+        past = past_armhole(pos)
         keep = []
         for f, t in faces:
             jacket = uv[t][:, 1].mean() > 0.5
-            if armw[f].mean() > 0.42:
-                keep.append(False)  # the jacket's sleeves: it's a waistcoat now (cut where the arm takes over)
+            top = pos[f][:, 1].max()
+            if jacket and (past[f].max() > 0 if top > armpit else armw[f].mean() > 0.5):
+                # the jacket's sleeves: it's a waistcoat now (cut on a clean upright line over the shoulder; under the
+                # arm, where the arm takes over)
+                keep.append(False)
+            elif not jacket and armw[f].mean() > 0.42:
+                keep.append(False)
             elif jacket and pos[f][:, 1].max() < hem:
                 keep.append(False)  # and it stops at the hem
             else:
@@ -412,24 +549,82 @@ def build_clothes(coord, rig):
                 low = [v for v in f if pos[v][1] < hem]
                 for v in low:
                     pos[v][1] = hem
+        # and the armholes: the open edge's corners near the cut go onto its line (they were teeth that flapped)
+        count = {}
+        for f, _ in faces:
+            for a, b in zip(f, f[1:] + f[:1]):
+                e = (min(a, b), max(a, b))
+                count[e] = count.get(e, 0) + 1
+        edge = sorted({v for e, n in count.items() if n == 1 for v in e})
+        past = past_armhole(pos[edge])
+        for v, p in zip(edge, past):
+            if -0.35 < p <= 0 and pos[v][1] > armpit:
+                pos[v][0] -= np.sign(pos[v][0]) * p
         return pos
 
 
-    so, _, _ = proxy_object("HenrySuit", suit, coord, W, names, rig, suit_keep, image_material("Suit", tex("suit", suit.texture())), tuck={"torso": 1.06}, adjust=suit_hem)
+    so, _, _ = proxy_object("HenrySuit", suit, coord, W, names, rig, suit_keep, image_material("Suit", tex("suit", suit.texture())), tuck={"torso": 1.06}, adjust=suit_hem, follow_skin=True)
     # the body vertices the waistcoat (and the shirt front under it) really covers: under there, no shirt
-    vest_covered = ref_covered(suit)
+    vest_covered = ref_covered(suit, rings=1)
+
+    def forearm_t(points):
+        """How far down the forearm each point is (0 the elbow, 1 the wrist; below 0 above the elbow), on its own side."""
+        out = np.full(len(points), -1.0)
+        for side in ("l", "r"):
+            elbow, wrist = bones[f"lowerarm_{side}"][0], bones[f"hand_{side}"][0]
+            shoulder = bones[f"upperarm_{side}"][0]
+            axis = wrist - elbow
+            t = ((points - elbow) @ axis) / (axis @ axis)
+            mine = np.sign(points[:, 0]) == np.sign(shoulder[0])
+            out[mine] = t[mine]
+        return out
+
+    SLEEVE_END = 0.16  # rolled up to a sixth of the way down the forearm
 
     def shirt_keep(faces, w, pos):
         kinds, _ = face_kinds(faces, w, names)
+        t = forearm_t(pos)
         keep = []
         for (f, _), k in zip(faces, kinds):
             under_vest = vest_covered[shirt.ref[f]].all()
-            keep.append(k in ("torso", "upper") and pos[f][:, 1].min() > hem and not (k == "torso" and under_vest))
+            arm = k in ("upper", "lower")
+            keep.append((k == "torso" or arm) and pos[f][:, 1].min() > hem and not (k == "torso" and under_vest)
+                        and (not arm or t[f].max() < SLEEVE_END))
         return keep
 
-    sh, _, _ = proxy_object("HenryShirt", shirt, coord, W, names, rig, shirt_keep, image_material("Shirt", tex("shirt", shirt.texture())), tuck={"torso": 0.6})
+    def sleeve_in(pos, faces):
+        # the last few centimetres of each sleeve drawn in to the arm, into the roll (a loose sleeve flared past it)
+        on_body = (coord[shirt.ref] * shirt.w[:, :, None]).sum(axis=1)
+        t = forearm_t(pos)
+        f = np.clip((t - (SLEEVE_END - 0.12)) / 0.08, 0, 1)[:, None] * 0.7
+        return pos + (on_body - pos) * f
+
+    shirt_mat = image_material("Shirt", tex("shirt", shirt.texture()))
+    sh, shirt_pos, _ = proxy_object("HenryShirt", shirt, coord, W, names, rig, shirt_keep, shirt_mat, tuck={"torso": 0.6}, adjust=sleeve_in, follow_skin=True)
+    cuffs(coord, W, names, rig, bones, shirt, shirt_pos, forearm_t, SLEEVE_END, shirt_mat)
     shoes = mh.Proxy("clothes", "shoes01")
-    proxy_object("HenryShoes", shoes, coord, W, names, rig, None, image_material("Shoes", tex("shoes", shoes.texture())))
+    _, shoe_pos, _ = proxy_object("HenryShoes", shoes, coord, W, names, rig, None, image_material("Shoes", tex("shoes", shoes.texture())))
+    # inside the shoes: the whole foot goes (it showed through the leather where the shoe hugs it), up to just under
+    # the shoes' opening, which is their open edge above their middle height
+    edge_count = {}
+    for f, _ in shoes.kept:
+        for a, b in zip(f, f[1:] + f[:1]):
+            e = (min(a, b), max(a, b))
+            edge_count[e] = edge_count.get(e, 0) + 1
+    rim = {v for e, n in edge_count.items() if n == 1 for v in e}
+    middle = np.median(shoe_pos[:, 1])
+    opening = [shoe_pos[v][1] for v in rim if shoe_pos[v][1] > middle]
+    opening_y = min(opening) if opening else middle
+    foot_bone = np.array([n.startswith(("foot_", "ball_")) for n in names])
+    # (the instep rises above the opening's lowest point, and showed through the laces: the foot goes whole; above the
+    # opening, only what's within a centimetre of the shoe, the trousers cover the rest)
+    shoe_tree = __import__("mathutils").kdtree.KDTree(len(shoe_pos))
+    for k, v in enumerate(shoe_pos):
+        shoe_tree.insert(v, k)
+    shoe_tree.balance()
+    near_shoe = np.array([shoe_tree.find(c)[2] < 0.1 for c in coord])
+    in_shoes = foot_bone[np.argmax(W, axis=1)] & ((coord[:, 1] < opening_y - 0.05) | near_shoe | (coord[:, 1] < opening_y + 0.6))
+    print(f"HENRY shoes: opening at {opening_y:.2f} dm, {in_shoes.sum()} foot vertices inside")
     hair = mh.Proxy("hair", "short02")
     proxy_object("HenryHair", hair, coord, W, names, rig, None, image_material("Hair", tex("hair", hair.texture()), alpha=True))
     brows = mh.Proxy("eyebrows", "eyebrow001")
@@ -440,8 +635,9 @@ def build_clothes(coord, rig):
     proxy_object("HenryEyes", eyes, coord, W, names, rig, None, image_material("Eyes", os.path.join(mh.MH, "eyes", "materials", "brown_eye.png")))
 
     # under the clothes there's no body to show through: only where what's left of each garment really covers it
-    # (and MakeHuman says it may go), so the waistcoat's armholes and the rolled sleeves leave no gaps
-    covered = (covered_by(suit, coord) & suit.delete) | (covered_by(shirt, coord) & shirt.delete) | (covered_by(shoes, coord) & shoes.delete)
+    # (and MakeHuman says it may go), so the waistcoat's armholes and the rolled sleeves leave no gaps. Under the
+    # shoes everything they sit over goes (the instep and heel showed through the leather)
+    covered = (covered_by(suit, coord) & suit.delete) | (covered_by(shirt, coord) & shirt.delete) | covered_by(shoes, coord) | in_shoes
     main = [kind(names[i]) for i in np.argmax(W, axis=1)]
     bare = np.array([m == "lower" for m in main])
     print(f"HENRY covered: {(covered & ~bare).sum()} body vertices go")
