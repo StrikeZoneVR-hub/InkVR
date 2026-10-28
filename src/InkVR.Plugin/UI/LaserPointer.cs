@@ -244,8 +244,18 @@ public static class LaserPointer
 
         public void Show(bool on)
         {
-            if (_line != null && _line.gameObject.activeSelf != on) _line.gameObject.SetActive(on);
-            if (_dot != null && _dot.GameObject != null) _dot.Visible = on;
+            try
+            {
+                if (_line != null && _line.gameObject.activeSelf != on) _line.gameObject.SetActive(on);
+                if (_dot != null && _dot.GameObject != null) _dot.Visible = on;
+            }
+            catch (System.Exception)
+            {
+                // Quitting to the menu, the game's reset destroys the beam's objects (kept between scenes) and a test
+                // for null doesn't see it yet on that frame: let go of them, and Draw builds them again.
+                _line = null;
+                _dot = null;
+            }
         }
 
         /// <summary>From the hand to a surface; <paramref name="surface"/> faces away from you (a VR panel's turn).</summary>
@@ -273,6 +283,7 @@ public static class LaserPointer
             }
 
             Show(true);
+            if (_line == null) return; // (it was just found destroyed: built again next frame)
             _line.startWidth = 0.004f * scale;
             _line.endWidth = 0.0015f * scale;
             _line.SetPosition(0, from);
