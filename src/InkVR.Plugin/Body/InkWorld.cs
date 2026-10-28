@@ -418,15 +418,17 @@ public static class InkWorld
             foreach (var pool in Pools)
             {
                 if (pool.R == null || !pool.R.enabled || !pool.R.gameObject.activeInHierarchy) continue;
-                if (Under(pb, pool.B, pool.Top)) Coat(p, pool.Top, group);
+                if (Under(pb, pool.B, pool.Top)) Coat(p, pool.Top, group, pool.B);
             }
 
-            if (DevPool.HasValue && Under(pb, DevPool.Value.box, DevPool.Value.top)) Coat(p, DevPool.Value.top, group);
+            if (DevPool.HasValue && Under(pb, DevPool.Value.box, DevPool.Value.top)) Coat(p, DevPool.Value.top, group, DevPool.Value.box);
         }
 
-        void Coat(StainPart p, float top, int group)
+        void Coat(StainPart p, float top, int group, Bounds area)
         {
-            InkStains.DepositBelow(p, top, edge, rate);
+            // (only what's over the pool: a worn model's one piece spans the whole body, and a hand in a basin inked
+            // the trousers below its rim)
+            InkStains.DepositBelow(p, top, edge, rate, area: area);
             p.InInkUntil = now + 0.25f;
             if (group is 1 or 2)
             {
@@ -454,7 +456,8 @@ public static class InkWorld
                 var body = Hands.Body?.Stains;
                 if (body != null)
                     for (var i = phase - 2; i < body.Count; i += 2)
-                        Dip(body[i], 3);
+                        if (body[i].Region != InkRegion.Hand) // (a worn model's hands dip as the hands, above)
+                            Dip(body[i], 3);
                 break;
         }
     }
@@ -900,7 +903,8 @@ public static class InkWorld
         var body = Hands.Body?.Stains;
         if (body != null)
             foreach (var p in body)
-                SoakQueue.Enqueue(p);
+                if (p.Region != InkRegion.Hand || !SoakQueue.Contains(p))
+                    SoakQueue.Enqueue(p);
         KeepSoaked(now);
         Footprints.Wet(0, 1f);
         Footprints.Wet(1, 1f);

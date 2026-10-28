@@ -569,6 +569,9 @@ namespace InkVR.Launcher
             y = 390;
             var bodies = new[] { "Full", "Arms", "Hands", "None" };
             Row("BODY", new[] { "FULL BODY", "ARMS & HANDS", "HANDS ONLY", "NONE" }, Math.Max(0, Array.IndexOf(bodies, cfg?.Get("Body", "Mode") ?? "Full")), i => cfg.Set("Body", "Mode", bodies[i]), has);
+            var styles = new List<string> { "Lifelike", "Classic" };
+            var styleNames = new[] { "HENRY", "CLASSIC HENRY" };
+            Row("STYLE", styleNames, Math.Max(0, styles.IndexOf(cfg?.Get("Body", "Style") ?? "Lifelike")), i => cfg.Set("Body", "Style", styles[i]), has);
             var watches = new[] { "Tank", "Bendy", "Studio", "Gauge", "Angel", "Demon", "None" };
             Row("WATCH", new[] { "TANK (HENRY'S)", "BENDY", "STUDIO GOLD", "INK GAUGE", "ANGEL HALO", "INK DEMON", "NONE" }, Math.Max(0, Array.IndexOf(watches, cfg?.Get("Body", "Watch") ?? "Tank")), i => cfg.Set("Body", "Watch", watches[i]), has);
             Row("YOUR SHADOW", new[] { "ON", "OFF" }, has && !cfg.GetBool("Body", "PlayerShadows", true) ? 1 : 0, i => cfg.Set("Body", "PlayerShadows", i == 0), has);

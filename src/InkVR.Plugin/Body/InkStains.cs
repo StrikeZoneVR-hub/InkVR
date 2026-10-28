@@ -93,7 +93,12 @@ public sealed class StainPart
 
     public bool Skinned => Bones != null;
     public bool Ready => Map != null && Map.Ready;
-    public bool Visible => R != null && R.enabled && R.gameObject.activeInHierarchy;
+    public bool Visible => Shown(R) || Shown(Twin);
+
+    /// <summary>A worn model's copy of the piece for your eyes (the piece is still there when only that's drawn).</summary>
+    public Renderer Twin;
+
+    private static bool Shown(Renderer r) => r != null && r.enabled && r.gameObject.activeInHierarchy;
     public float LastSplat => LastInk;
 
     /// <summary>The rigid piece's transform this frame.</summary>
@@ -634,12 +639,15 @@ public static class InkStains
     /// line <paramref name="edge"/> high. <paramref name="near"/>/<paramref name="within"/> limit it to around a
     /// point (one foot in a puddle).
     /// </summary>
-    public static void DepositBelow(StainPart p, float surfaceY, float edge, float amount, Vector3? near = null, float within = 0)
+    public static void DepositBelow(StainPart p, float surfaceY, float edge, float amount, Vector3? near = null, float within = 0, Bounds? area = null)
     {
         if (!Usable(p)) return;
         var map = p.Map;
         var wv = p.World();
         var tris = p.Tris;
+        var limitArea = area.HasValue;
+        var ar = area ?? default;
+        float ax0 = ar.min.x - edge, ax1 = ar.max.x + edge, az0 = ar.min.z - edge, az1 = ar.max.z + edge;
         var within2 = within * within;
         var nx = near?.x ?? 0;
         var nz = near?.z ?? 0;
@@ -651,6 +659,13 @@ public static class InkStains
             int ia = tris[t * 3], ib = tris[t * 3 + 1], ic = tris[t * 3 + 2];
             F3 a = wv[ia], b = wv[ib], c = wv[ic];
             if (Math.Min(a.Y, Math.Min(b.Y, c.Y)) > surfaceY + edge) continue;
+            if (limitArea)
+            {
+                var cx = (a.X + b.X + c.X) * (1f / 3f);
+                var cz = (a.Z + b.Z + c.Z) * (1f / 3f);
+                if (cx < ax0 || cx > ax1 || cz < az0 || cz > az1) continue;
+            }
+
             if (limitXZ)
             {
                 var dx = (a.X + b.X + c.X) * (1f / 3f) - nx;

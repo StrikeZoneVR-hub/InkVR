@@ -61,6 +61,13 @@ public sealed class CharacterSkin
     /// <summary>The model's paintable pieces: ink from the world gets onto them as onto Henry.</summary>
     public readonly List<StainPart> Stains = new();
 
+    /// <summary>
+    /// Its pieces that are only a forearm and hand (left, right): the ink's hands, as Henry's own hands are (drips on
+    /// them buzz the controller, they dip and touch ink, they shake it off). Also in <see cref="Stains"/> (so they go
+    /// with the body), with the region <see cref="InkRegion.Hand"/>: what takes the body as a whole leaves them to the hands.
+    /// </summary>
+    public readonly List<StainPart>[] ArmStains = { new(), new() };
+
     private const int MaxInkVertices = 25000;
 
     /// <summary>Each skinned mesh with a picture of its own becomes a stain piece (its first material).</summary>
@@ -103,9 +110,12 @@ public sealed class CharacterSkin
             var src = smr.bones;
             var bones = new Transform[src.Length];
             for (var i = 0; i < bones.Length; i++) bones[i] = src[i];
-            var part = InkStains.RegisterModel(smr, sub, mb, weights, bones, mesh.bindposes, RegionOf(smr));
+            var arm = ArmSide(weights, bones);
+            var part = InkStains.RegisterModel(smr, sub, mb, weights, bones, mesh.bindposes, arm >= 0 ? InkRegion.Hand : RegionOf(smr));
             if (part == null) continue;
+            part.Twin = twin;
             Stains.Add(part);
+            if (arm >= 0) ArmStains[arm].Add(part);
             if (twin != null)
             {
                 var mats = twin.sharedMaterials;
@@ -114,7 +124,26 @@ public sealed class CharacterSkin
             }
         }
 
-        if (Stains.Count > 0) Plugin.L.LogInfo($"Body: {Def.Label} takes ink ({Stains.Count} piece{(Stains.Count > 1 ? "s" : "")})");
+        if (Stains.Count > 0) Plugin.L.LogInfo($"Body: {Def.Label} takes ink ({Stains.Count} piece{(Stains.Count > 1 ? "s" : "")}, and {ArmStains[0].Count} + {ArmStains[1].Count} for the hands)");
+    }
+
+    /// <summary>A piece that's all forearm and hand: which side (0 left, 1 right), or -1.</summary>
+    private int ArmSide(SkinWeight[] weights, Transform[] bones)
+    {
+        for (var side = 0; side < 2; side++)
+        {
+            var fore = _all[_role[side == 0 ? (int)R.LFore : (int)R.RFore]];
+            var on = 0;
+            foreach (var w in weights)
+            {
+                var b = w.B0 >= 0 && w.B0 < bones.Length ? bones[w.B0] : null;
+                if (b != null && (b == fore || b.IsChildOf(fore))) on++;
+            }
+
+            if (weights.Length > 0 && on >= weights.Length * 0.9f) return side;
+        }
+
+        return -1;
     }
 
     /// <summary>
@@ -403,6 +432,7 @@ public sealed class CharacterSkin
         }
 
         _restEyeY = Mathf.Max(0.1f, _restEye.y - _floor);
+        _chestDepth = ChestDepth();
         BuildRings();
         BuildRenderers();
         return true;
@@ -496,6 +526,31 @@ public sealed class CharacterSkin
         }
 
         return top;
+    }
+
+    private float _chestDepth;
+
+    /// <summary>How far the front of the chest stands out ahead of the neck at rest (model units; Henry's model's waistcoat
+    /// about 15 cm), less what a drawn Henry's chest does (about 5 cm).</summary>
+    private float ChestDepth()
+    {
+        var neck = _role[(int)R.Neck] >= 0 ? _rp[_role[(int)R.Neck]] : _rp[_role[(int)R.Chest]];
+        var lo = _rp[_role[(int)R.Hips]].y;
+        var front = neck.z;
+        foreach (var smr in Root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            var mesh = smr.sharedMesh;
+            if (mesh == null || !mesh.isReadable || !smr.gameObject.activeInHierarchy) continue;
+            var toWorld = smr.transform.localToWorldMatrix;
+            foreach (var v0 in mesh.vertices)
+            {
+                var v = toWorld.MultiplyPoint3x4(v0);
+                if (v.y > lo && v.y < neck.y && Mathf.Abs(v.x - neck.x) < 0.12f * _restEyeY) front = Mathf.Max(front, v.z);
+            }
+        }
+
+        var height = Mathf.Max(0.1f, _restEyeY);
+        return Mathf.Clamp(front - neck.z - 0.05f * height / 1.62f, 0f, 0.25f * height / 1.62f);
     }
 
     private bool EyeBones(out Vector3 between)
@@ -649,6 +704,7 @@ public sealed class CharacterSkin
             }
 
             smr.updateWhenOffscreen = true;
+            smr.allowOcclusionWhenDynamic = false; // (the level's occlusion data dropped its small pieces seen from afar)
             if (Def.DrawnHead)
             {
                 // the drawn head stands in for the model's: the headless copy is the body everyone sees
@@ -666,7 +722,11 @@ public sealed class CharacterSkin
 
             _whole.Add(smr);
             var fp = WithoutHead(smr);
-            if (fp != null) _eyes.Add(fp);
+            if (fp != null)
+            {
+                fp.allowOcclusionWhenDynamic = false;
+                _eyes.Add(fp);
+            }
             _paint.Add((smr, fp));
         }
     }
@@ -1125,6 +1185,12 @@ public sealed class CharacterSkin
         var top = _torso.Count - 2;
         var topBone = _torso[top];
         var neck = p.Eye + (p.NeckBase - p.Eye) * ((_restEye - _rp[topBone]).magnitude * s / Mathf.Max((p.NeckBase - p.Eye).magnitude, 1e-4f));
+        // (a deep chest goes further back still as you look down, by how far it stands out in front of the neck, so
+        // it leaves your view as Henry's drawn one does and your legs come into it, and you're never inside it)
+        var lookDown = Mathf.Max(0f, -(p.HeadRot * Vector3.forward).y);
+        var facing = p.Pelvis * Vector3.up;
+        facing.y = 0;
+        if (facing.sqrMagnitude > 1e-6f) neck -= facing.normalized * (_chestDepth * s * lookDown);
         var neckRest = _rp[head] - _rp[topBone];
         Target(topBone, neck, Look(_tp[head] - neck, p.Neck * Vector3.up) * Quaternion.Inverse(Look(neckRest, Vector3.forward)) * _rr[topBone]);
 

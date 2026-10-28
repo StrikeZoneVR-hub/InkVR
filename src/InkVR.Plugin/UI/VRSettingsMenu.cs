@@ -53,6 +53,7 @@ public static class VRSettingsMenu
         Toggle("CALM THEATRE FLICKER", ModConfig.ReduceFlashes, "ON", "OFF"),
         Category("HENRY"),
         Pick("BODY", ModConfig.BodyMode, new[] { "Full", "Arms", "Hands", "None" }, new[] { "FULL BODY", "ARMS & HANDS", "HANDS ONLY", "NONE" }),
+        Pick("STYLE", ModConfig.BodyStyle, Body.Styles.Keys, Body.Styles.Labels),
         Pick("WATCH", ModConfig.Watch, new[] { "Tank", "Bendy", "Studio", "Gauge", "Angel", "Demon", "None" }, new[] { "TANK (HENRY'S)", "BENDY", "STUDIO GOLD", "INK GAUGE", "ANGEL HALO", "INK DEMON", "NONE" }),
         Toggle("INK ON HENRY", ModConfig.InkOnHands, "ON", "OFF"),
         Toggle("YOUR SHADOW", ModConfig.PlayerShadows, "ON", "OFF"),

@@ -44,6 +44,7 @@ public static class InkBody
         foreach (var p in parts)
         {
             if (!p.Visible || !p.Ready) continue;
+            if (group == 3 && p.Region == InkRegion.Hand) continue; // (a worn model's hands: they're the hands' own)
             foreach (var c in p.Caps)
             {
                 InkStains.CapsuleWorld(p, c, out var a, out var b, out var r);

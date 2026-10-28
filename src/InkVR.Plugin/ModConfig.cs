@@ -118,7 +118,7 @@ public static class ModConfig
             "How much of Henry you see: Full (full body), Arms (arms and hands), Hands (hands only), None.",
             new AcceptableValueList<string>("Full", "Arms", "Hands", "None")));
         BodyStyle = cfg.Bind("Body", "Style", "Lifelike", new ConfigDescription(
-            "Who you are, head to toe (the head shows in the theatre's mirror and in your shadow): Lifelike (Henry: waistcoat, tie and rolled sleeves), the only one now.",
+            "Who you are, head to toe (the head shows in the theatre's mirror and in your shadow): Lifelike (Henry, head to toe: waistcoat, tie and rolled sleeves) or Classic (the Henry InkVR drew before 1.1).",
             new AcceptableValueList<string>(Body.Styles.Keys)));
         Watch = cfg.Bind("Body", "Watch", "Tank", new ConfigDescription(
             "The watch on your left wrist, keeping your real time: Tank (Henry's), Bendy (his character watch), Studio (gold, the studio's), Gauge (an ink-machine gauge whose vial fills chapter by chapter), Angel (Alice's, a halo floating over it), Demon (dripping), or None.",

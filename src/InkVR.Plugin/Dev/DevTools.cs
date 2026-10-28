@@ -1114,7 +1114,7 @@ public class DevTools : MonoBehaviour
                 break;
             case "inkbody":
             {
-                var sb = new System.Text.StringBuilder("INKBODY ");
+                var sb = new System.Text.StringBuilder($"INKBODY buzz L{InkVR.Input.XrInput.HapticCalls[0]} R{InkVR.Input.XrInput.HapticCalls[1]} ");
                 var body = InkVR.Body.Hands.Body;
                 sb.Append($"body={(body != null ? body.Style.ToString() : "none")} wade={InkVR.Body.InkWorld.WadeSurface?.ToString("F2") ?? "-"} ({InkVR.Body.InkWorld.WadeWhy}) ");
                 sb.Append($"footstep={GameManager.Instance?.Player?.CurrentFootstepType} prints={InkVR.Body.Footprints.Count} soles={InkVR.Body.Footprints.LoadLeft:F2}/{InkVR.Body.Footprints.LoadRight:F2} inInk={InkVR.Body.Footprints.InInk} ");

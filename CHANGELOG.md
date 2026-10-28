@@ -9,19 +9,22 @@
   its arms reach your hands, and his hands open, close and hold things exactly as Henry's always have. His clothes
   move with him: raise your arms and the sleeves and waistcoat go with them. In first person you see his arms, hands
   and body; the mirror in the theatre's lobby and your shadow show all of him.
-- **Ink all over him.** Drips land and run down his hands and arms, wading inks his trouser legs and shoes up to the
-  ink line, and a soaking covers him head to toe, then dries.
+- **Ink all over him.** Drips land and run down his hands and arms (and you feel them in the controller), hands
+  dipped in ink come out inked, wading inks his trouser legs and shoes up to the ink line, and a soaking covers him
+  head to toe, then dries.
+- **Look down** and his chest leans back out of your view, so you see his legs and shoes.
 - **The watch fits his wrist.** The strap goes round his forearm just above the wrist, sized to it, and the watch
   turns with your hand like a real one: turn your wrist to read the time. All six watches.
 
 ### Changes
 
-- **One Henry.** The other body styles are gone: Toon Henry, the drawn Bendy, Boris, Alice, Joey, Wally and Beast
-  Bendy, and the game's character models. If you'd picked one, you're Henry again. The STYLE rows have left VR
-  SETTINGS, the launcher and the mirror's panel, which now changes your watch.
+- **Two Henrys.** The new Henry is the default; **CLASSIC HENRY** is the drawn Henry InkVR had before, if you prefer
+  him (STYLE in VR SETTINGS, the launcher or the mirror's panel). The other body styles are gone: Toon Henry, the
+  drawn Bendy, Boris, Alice, Joey, Wally and Beast Bendy, and the game's character models. If you'd picked one,
+  you're Henry again.
 - **Point at the mirror's arrows.** In the theatre lobby, point either hand at the brass panel beside the mirror: a
   laser shows where you're pointing, and the arrow under it sinks a little. Pull that hand's trigger to change your
-  watch. Pressing the arrows with a finger still works.
+  style or your watch. Pressing the arrows with a finger still works.
 
 ### Bug fixes
 

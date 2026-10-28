@@ -128,8 +128,12 @@ public static unsafe class XrInput
         ApplyDev();
     }
 
+    /// <summary>Dev: buzzes asked for, per hand (counted on the test runtime too).</summary>
+    public static readonly int[] HapticCalls = new int[2];
+
     public static void Haptic(Hand hand, float amplitude, float seconds, float frequency = 0)
     {
+        HapticCalls[(int)hand]++;
         if (!_attached) return;
         var info = new XrHapticActionInfo { type = XrType.HapticActionInfo, action = _haptic, subactionPath = hand == Hand.Left ? _handLeft : _handRight };
         var vib = new XrHapticVibration

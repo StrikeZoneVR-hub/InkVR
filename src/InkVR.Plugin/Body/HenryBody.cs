@@ -97,6 +97,9 @@ public sealed partial class HenryBody
 
     public CharacterSkin Character => _character;
 
+    /// <summary>The worn model's forearm-and-hand pieces for this hand (null if it has none): the ink's hands.</summary>
+    public List<StainPart> ArmStains(InkVR.Input.Hand hand) => _character != null && _character.ArmStains[(int)hand].Count > 0 ? _character.ArmStains[(int)hand] : null;
+
     private Vector3 _eye;
     private Quaternion _headRot = Quaternion.identity;
     private float _k = 1f;

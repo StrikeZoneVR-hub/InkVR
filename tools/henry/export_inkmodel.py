@@ -138,11 +138,41 @@ for img in images:
     s(out, os.path.splitext(img.name)[0])
     out += struct.pack("<HHI", w, h, len(data)) + data
 
-# ---- parts: one per mesh, its corners split where UVs or normals differ
-out += struct.pack("<I", len(meshes))
-for ob in meshes:
+# ---- parts: one per mesh, its corners split where UVs or normals differ. The body's skin gives its forearms and hands
+# parts of their own (InkVR's ink treats those as your hands: drips on them buzz the controller, they dip and touch ink)
+ARM = {"l": ("lowerarm_l", "hand_l"), "r": ("lowerarm_r", "hand_r")}
+FINGERS = ("thumb_", "index_", "middle_", "ring_", "pinky_")
+
+
+def arm_of(bone_name):
+    for side, names in ARM.items():
+        if bone_name in names or (bone_name.startswith(FINGERS) and bone_name.endswith("_" + side)):
+            return side
+    return None
+
+
+def pieces(ob):
+    """(name, triangles) for each part a mesh makes."""
     me = ob.data
     me.calc_loop_triangles()
+    if ob.name != "HenryBody":
+        return [(ob.name, list(me.loop_triangles))]
+    names = {g.index: g.name for g in ob.vertex_groups}
+    side = []
+    for v in me.vertices:
+        main = max(v.groups, key=lambda g: g.weight, default=None)
+        side.append(arm_of(names[main.group]) if main is not None else None)
+    split = {None: [], "l": [], "r": []}
+    for tri in me.loop_triangles:
+        sides = {side[me.loops[li].vertex_index] for li in tri.loops}
+        split[sides.pop() if len(sides) == 1 else None].append(tri)
+    return [(ob.name, split[None]), ("HenryArmL", split["l"]), ("HenryArmR", split["r"])]
+
+
+parts = [(ob, name, tris) for ob in meshes for name, tris in pieces(ob) if tris]
+out += struct.pack("<I", len(parts))
+for ob, name, tris in parts:
+    me = ob.data
     uv = me.uv_layers.active.data if me.uv_layers.active else None
     try:
         normals = [n.vector for n in me.corner_normals]
@@ -160,7 +190,7 @@ for ob in meshes:
     verts = bytearray()
     indices = []
     count = 0
-    for tri in me.loop_triangles:
+    for tri in tris:
         corner = []
         for li in tri.loops:
             vi = me.loops[li].vertex_index
@@ -182,15 +212,15 @@ for ob in meshes:
             corner.append(k)
         indices += [corner[0], corner[2], corner[1]]  # wound the other way round (the reflection)
     mat = ob.material_slots[0].material if ob.material_slots else None
-    s(out, ob.name)
+    s(out, name)
     s(out, mat.name if mat else "")
     out += struct.pack("<i", mat_tex.get(mat.name, -1) if mat else -1)
     alpha = 1 if mat and any(l.to_socket.name == "Alpha" for l in mat.node_tree.links) else 0
     out += struct.pack("<B", alpha)
     out += struct.pack("<I", count) + verts
     out += struct.pack("<I", len(indices)) + struct.pack(f"<{len(indices)}I", *indices)
-    print(f"INKMODEL part {ob.name}: {count} vertices, {len(indices) // 3} triangles, material {mat.name if mat else '-'}")
+    print(f"INKMODEL part {name}: {count} vertices, {len(indices) // 3} triangles, material {mat.name if mat else '-'}")
 
 with open(OUT, "wb") as f:
     f.write(out)
-print(f"INKMODEL wrote {OUT}: {len(bones)} bones, {len(images)} textures, {len(meshes)} parts, {len(out) / 1048576:.1f} MB")
+print(f"INKMODEL wrote {OUT}: {len(bones)} bones, {len(images)} textures, {len(parts)} parts, {len(out) / 1048576:.1f} MB")

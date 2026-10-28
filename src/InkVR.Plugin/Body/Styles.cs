@@ -115,11 +115,14 @@ public static class Styles
         return d;
     }
 
-    // Only Henry (1.2), his whole body built in Blender: the other characters (the game's own models, the drawn Bendy,
-    // Boris, Alice, Joey, Wally and Beast Bendy, and Toon Henry) were taken out. A saved choice of one comes back as Henry.
+    // Henry (1.1), his whole body built in Blender, and as an option the drawn Henry InkVR had before (Classic: the same
+    // Lifelike build as ever, its hands and body drawn by InkVR). The other characters (the game's own models, the drawn
+    // Bendy, Boris, Alice, Joey, Wally and Beast Bendy, and Toon Henry) were taken out: a saved choice of one comes back
+    // as Henry.
     public static readonly StyleDef[] All =
     {
         new() { Id = BodyStyle.Lifelike, Key = "Lifelike", Label = "HENRY", Blurb = "Henry Stein: waistcoat, tie, rolled sleeves and his tank watch.", Hands = HandKind.Lifelike, Sleeves = SleeveKind.Rolled, WeddingBand = true, ModelFile = "henry.inkmodel" },
+        new() { Id = BodyStyle.Lifelike, Key = "Classic", Label = "CLASSIC HENRY", Blurb = "The Henry InkVR drew before 1.1: his hands, sleeves, waistcoat and boots.", Hands = HandKind.Lifelike, Sleeves = SleeveKind.Rolled, WeddingBand = true },
     };
 
     public static StyleDef Of(BodyStyle id)

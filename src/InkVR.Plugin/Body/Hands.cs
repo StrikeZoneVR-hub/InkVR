@@ -30,7 +30,8 @@ public static class Hands
     private static Quaternion _handRestRot;
 
     /// <summary>The paintable parts of one hand and arm (empty until the hands are built).</summary>
-    public static List<StainPart> StainParts(Hand hand) => (hand == Hand.Left ? _left : _right)?.Stains;
+    public static List<StainPart> StainParts(Hand hand) =>
+        (Body != null && Body.Worn ? Body.ArmStains(hand) : null) ?? (hand == Hand.Left ? _left : _right)?.Stains;
 
     /// <summary>The full body being shown (null for arms or hands only).</summary>
     public static HenryBody Body { get; private set; }
