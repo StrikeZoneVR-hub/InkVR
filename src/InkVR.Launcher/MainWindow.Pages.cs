@@ -569,8 +569,8 @@ namespace InkVR.Launcher
             y = 390;
             var bodies = new[] { "Full", "Arms", "Hands", "None" };
             Row("BODY", new[] { "FULL BODY", "ARMS & HANDS", "HANDS ONLY", "NONE" }, Math.Max(0, Array.IndexOf(bodies, cfg?.Get("Body", "Mode") ?? "Full")), i => cfg.Set("Body", "Mode", bodies[i]), has);
-            var styles = new List<string> { "Lifelike", "Toon", "Bendy", "Boris", "Alice", "InkDemon", "Sammy", "Projectionist", "BruteBoris", "Searcher", "Joey", "Wally", "BeastBendy" };
-            var styleNames = new[] { "HENRY", "TOON HENRY", "BENDY", "BORIS", "ALICE ANGEL", "THE INK DEMON", "SAMMY LAWRENCE", "THE PROJECTIONIST", "BRUTE BORIS", "A SEARCHER", "JOEY DREW", "WALLY FRANKS", "BEAST BENDY" };
+            var styles = new List<string> { "Lifelike", "Toon" };
+            var styleNames = new[] { "HENRY", "TOON HENRY" };
             Row("STYLE", styleNames, Math.Max(0, styles.IndexOf(cfg?.Get("Body", "Style") ?? "Lifelike")), i => cfg.Set("Body", "Style", styles[i]), has);
             var watches = new[] { "Tank", "Bendy", "Studio", "Gauge", "Angel", "Demon", "None" };
             Row("WATCH", new[] { "TANK (HENRY'S)", "BENDY", "STUDIO GOLD", "INK GAUGE", "ANGEL HALO", "INK DEMON", "NONE" }, Math.Max(0, Array.IndexOf(watches, cfg?.Get("Body", "Watch") ?? "Tank")), i => cfg.Set("Body", "Watch", watches[i]), has);
