@@ -44,6 +44,8 @@ public static class PhysicalDoors
         public float Theta, Omega;
         public Quaternion LastSet;
         public bool Driving, GameOpen;
+        public bool HandOpened; // you opened it by hand: it stays yours to swing, even if the game then locks it open
+        public float OpenSide;  // which way it opened (the sign of its angle)
         public float GameUntil, OwnCallUntil, NextCreak, NextLocked, RattleUntil, NextTick;
         public readonly sbyte[] Side = new sbyte[6];
         public AudioSource Audio;
@@ -380,8 +382,10 @@ public static class PhysicalDoors
         }
 
         if (now < d.GameUntil) return;
-        var locked = d.Locked;
-        // the game locks some doors open once they're opened (they stay open): they just stay put
+        // The game locks many doors open once they're opened, so the story can't shut them again. One you opened by
+        // hand is still yours to swing (it just never latches shut again); one the game opened itself stays put.
+        var lockedOpen = d.HandOpened && d.Locked && d.GameOpen;
+        var locked = d.Locked && !lockedOpen;
         if (locked && d.GameOpen && Mathf.Abs(d.Theta) > 10f)
         {
             if (_grabDoor == d) Release();
@@ -487,6 +491,16 @@ public static class PhysicalDoors
         var through = d.GameOpen && free && before != 0 && Mathf.Sign(before) != Mathf.Sign(d.Theta);
         var settling = d.GameOpen && free && Mathf.Abs(d.Theta) < 2f && (Mathf.Sign(d.Omega) != Mathf.Sign(d.Theta) || Mathf.Abs(d.Omega) < 8f);
         if (!d.GameOpen && Mathf.Abs(d.Theta) > 4f && !locked) TellOpen(d, now);
+        else if (lockedOpen)
+        {
+            // locked open by the story: swung back towards the frame, it stops just short of it (still open, to the game)
+            var keep = 3f * Mathf.Sign(d.OpenSide == 0 ? d.Theta : d.OpenSide);
+            if (Mathf.Abs(d.Theta) < 3f || Mathf.Sign(d.Theta) != Mathf.Sign(keep))
+            {
+                d.Theta = keep;
+                if (Mathf.Sign(d.Omega) != Mathf.Sign(keep)) d.Omega = -d.Omega * 0.2f;
+            }
+        }
         else if (through || settling) TellClosed(d, now, Mathf.Abs(d.Omega));
 
         if (!d.GameOpen && Mathf.Abs(d.Theta) <= 4f && now >= d.RattleUntil && !pushed)
@@ -572,16 +586,15 @@ public static class PhysicalDoors
 
             // finished at once (its listeners run now), so it never tugs the door against your hand
             DOTween.Complete(d.Hinge, true);
-            if (d.Locked && d.OpenInGame)
-            {
-                // the story locked it open behind you: it stays as wide as the game opened it (a crack you'd pushed
-                // it would otherwise be all the way you'd ever get)
-                d.LastSet = d.Hinge.localRotation;
-                d.Theta = AngleOf(d, d.LastSet);
-                if (d.Theta > d.Max) d.Max = d.Theta + 1f;
-                if (d.Theta < d.Min) d.Min = d.Theta - 1f;
-            }
-            else Apply(d, d.Theta);
+            // The game swung it all the way open (and often locked it open): the door stays where your hand has it,
+            // and the game's own open angle is only how far it can go. (Before 1.2 it jumped to the game's angle: a
+            // gentle push flung the door wide open, and a door locked open could never be moved again.)
+            var gameAngle = AngleOf(d, d.Hinge.localRotation);
+            if (gameAngle > d.Max) d.Max = gameAngle + 1f;
+            if (gameAngle < d.Min) d.Min = gameAngle - 1f;
+            d.HandOpened = true;
+            d.OpenSide = Mathf.Sign(d.Theta);
+            Apply(d, d.Theta);
         }
         catch (Exception e)
         {
@@ -595,6 +608,7 @@ public static class PhysicalDoors
     private static void TellClosed(Door d, float now, float speed)
     {
         d.GameOpen = false;
+        d.HandOpened = false;
         d.Theta = 0;
         d.Omega = 0;
         d.OwnCallUntil = now + 0.2f;
@@ -696,26 +710,36 @@ public static class PhysicalDoors
         var k = VRRig.ActiveScale;
         var (pos, _) = HandGrip(hand);
         Door best = null;
-        var bestGap = 0.08f * k;
+        // (the controller's grip sits 5 to 8 cm behind the palm, and a door's handle stands a few cm off the leaf:
+        // within 8 cm, a hand on the door or its handle usually just missed)
+        var bestGap = 0.14f * k;
         var bestOffset = 0f;
+        var miss = "";
         foreach (var d in Doors)
         {
             if (!d.Ready || d.Hinge == null || Time.unscaledTime < d.GameUntil) continue;
             var frame = Frame(d);
             var l = Quaternion.Inverse(frame.rot) * (pos - frame.origin);
-            if (l.y < d.Y0 || l.y > d.Y1) continue;
             var dist = new Vector2(l.x, l.z).magnitude;
-            if (dist < d.Width * 0.3f || dist > d.Width + 0.05f * k) continue;
+            if (dist > d.Width + 0.3f * k) continue;
             var phi = Mathf.Atan2(l.x, l.z) * Mathf.Rad2Deg;
             var delta = Mathf.DeltaAngle(d.Alpha + d.Theta, phi);
             var gap = Mathf.Abs(Mathf.Sin(delta * Mathf.Deg2Rad)) * dist - d.Thick * 0.5f;
+            miss = $"{d.Root.name}: height {l.y / k:F2} in {d.Y0 / k:F2}..{d.Y1 / k:F2}, out {dist / k:F2} of {d.Width / k:F2}, angle {delta:F0}, gap {gap / k:F2} m";
+            if (l.y < d.Y0 || l.y > d.Y1) continue;
+            if (dist < d.Width * 0.3f || dist > d.Width + 0.05f * k) continue;
             if (Mathf.Abs(delta) > 60f || gap > bestGap) continue;
             best = d;
             bestGap = gap;
             bestOffset = delta;
         }
 
-        if (best == null) return false;
+        if (best == null)
+        {
+            if (miss.Length > 0) Plugin.L.LogInfo($"Door grab missed: {miss}");
+            return false;
+        }
+
         _grabDoor = best;
         _grabHand = hand;
         _grabOffset = bestOffset;
