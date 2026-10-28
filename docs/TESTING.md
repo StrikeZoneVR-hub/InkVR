@@ -28,12 +28,16 @@
 - **"looking down seeing through my chest and not seeing legs much":** his chest (with the waistcoat, about 15 cm deeper than the drawn Henry's) stayed under your eyes when you looked down, so you were looking into it. It now leans back as you look down, by how much deeper it is, so it leaves your view and your legs and shoes come into it.
 - **"add old henry model back as a option but the new one is default":** CLASSIC HENRY is back as a STYLE (VR SETTINGS, the launcher, the mirror's panel, which has its STYLE row again). It's the same drawn Henry as before, untouched. HENRY (the new one) stays the default, and any old or unknown choice comes back as HENRY. Checked on the test runtime: the mirror's arrow switches to Classic Henry (the old hands and body) and back.
 
+### Fixed from your third try
+- **"soup cans eating ones ... in your hand the right way like you end up grabbing where the lid you take off is":** the can settled into the same hold as a battery or a gear: its thinnest side across your palm. The shelves' Bacon Soup cans are as wide as they are tall (about 21 cm each way), so that could be the can's height, which put its lid against your palm. Now a can of soup always sits upright in your fist, the way you'd hold one to open it: your fingers round its side, the lid up past your thumb and clear of your hand. In your hand it's a soup can's size (8.5 cm), like Chapter 4's throwing cans. Checked in Chapter 1 on the test runtime: the lid points straight up the fist's line, the other hand pulls it off, and tipping it to your mouth eats it.
+
 ### What to try (1.1.0)
 1. A door: ease it open slowly with your hand, then push one hard. Pull one towards you by its handle.
 2. The lobby mirror: wave, crouch, turn round. Does Henry look right? Change the watch with the arrows.
 3. Raise your left hand and turn your wrist to read the watch, with each watch.
 4. In a chapter: look down and forward; do the arms and hands feel like yours? Walk through some ink.
 5. A tape note (from 1.0.1): does the page come up, and can you read it?
+6. A can of Bacon Soup: pick it up, pull the lid off with your other hand, and eat it.
 
 ## Previous try of 1.1.0: the Characters Update (since replaced by one Henry)
 

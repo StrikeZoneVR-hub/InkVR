@@ -63,6 +63,7 @@ public static class PhysicalInteract
         public bool Open;
         public Hand? LidHand;
         public Vector3 LidRest, CanUp, CanCentre;
+        public float CanRadius; // metres
         public float AtMouthSince = -1f, NextNudge;
 
         // settling into a natural hold
@@ -769,6 +770,7 @@ public static class PhysicalInteract
         var top = centre + up * (b.extents.y + 0.002f * VRRig.ActiveScale);
         g.CanUp = up;
         g.CanCentre = centre;
+        g.CanRadius = Mathf.Min(b.extents.x, b.extents.z) / VRRig.ActiveScale;
         g.LidRest = top;
         g.Soup = Disc(root.transform, top - up * (0.0015f * VRRig.ActiveScale), up, radius * 0.94f, 0.0008f, SoupMaterial, "InkVR_SoupInside");
         g.Lid = Disc(root.transform, top, up, radius, 0.0035f, LidMaterial, "InkVR_SoupLid");
@@ -933,11 +935,62 @@ public static class PhysicalInteract
         if (g.Held == null || !ModConfig.NaturalGrips.Value) return;
         g.FromRot = g.HoldRot;
         g.FromOffset = g.HoldOffset;
+        if (g.Kind == Kind.Soup)
+        {
+            CanHold(g, gripRot);
+            return;
+        }
+
         var radius = Grips.CarryPose(g.Held.transform, gripRot, g.Hand == Hand.Left, out var rot, out var offset);
         g.HoldRot = rot;
         g.HoldOffset = offset;
         g.SettleFrom = Time.unscaledTime;
         Grips.Holding(g.Hand, radius);
+    }
+
+    /// <summary>
+    /// A can of soup sits upright in your fist, the way you hold one to open it: the fingers round its side, its lid up
+    /// past your thumb and clear of the hand, for the other hand to pull and then to tip to your mouth. (The carry hold
+    /// lays a thing's thinnest side across the palm, and a Bacon Soup can is about as tall as it is wide: its lid ended
+    /// up against your palm, your hand where the lid comes off.)
+    /// </summary>
+    private static void CanHold(Gesture g, Quaternion gripRot)
+    {
+        var scale = VRRig.ActiveScale;
+        var asTaken = gripRot * g.HoldRot;
+        var lidWay = asTaken * g.CanUp;
+        g.HoldRot = Quaternion.Inverse(gripRot) * (Quaternion.FromToRotation(lidWay, gripRot * Vector3.forward) * asTaken);
+        // The shelves' cans are drawn about 21 cm tall and as wide: in your hand it's a soup can's size (as Chapter 4's
+        // thrown cans are), one a fist goes round.
+        var height = 2f * Vector3.Dot(g.LidRest - g.CanCentre, g.CanUp) / scale;
+        var size = Mathf.Max(2f * g.CanRadius, height);
+        var k = size > 0.09f ? 0.085f / size : 1f;
+        if (k < 1f)
+        {
+            g.Held.transform.localScale *= k;
+            g.CanRadius *= k;
+        }
+
+        // its middle out of the palm by its own thickness (as a thrown can sits), and a little towards the thumb, so
+        // the lid rim stands just clear of the index finger
+        var radius = Mathf.Clamp(g.CanRadius, 0.02f, 0.06f);
+        var side = g.Hand == Hand.Left ? -1f : 1f;
+        var middle = new Vector3(-side * Mathf.Max(0f, radius - 0.017f), 0f, 0.012f) * scale; // grip space
+        g.HoldOffset = middle - g.HoldRot * (g.CanCentre * g.Held.transform.localScale.x);
+        g.SettleFrom = Time.unscaledTime;
+        Grips.Holding(g.Hand, radius);
+    }
+
+    /// <summary>Dev: how a held can sits in the hand (the lid's way against the fist's line, its middle in grip space).</summary>
+    public static string HoldInfo()
+    {
+        var g = _g;
+        if (g == null || g.Held == null || g.Kind != Kind.Soup) return "no can in hand";
+        var (pos, rot) = HandGrip(g.Hand);
+        var lidWay = g.Held.transform.TransformDirection(g.CanUp);
+        var middle = Quaternion.Inverse(rot) * (g.Held.transform.TransformPoint(g.CanCentre) - pos) / VRRig.ActiveScale;
+        var lid = g.Lid != null ? Quaternion.Inverse(rot) * (g.Lid.transform.position - pos) / VRRig.ActiveScale : Vector3.zero;
+        return $"lid {Vector3.Angle(lidWay, rot * Vector3.forward):F0} deg from the fist's line (0 = up past the thumb), middle at {middle.x:F3},{middle.y:F3},{middle.z:F3} m (grip space), lid at {lid.x:F3},{lid.y:F3},{lid.z:F3}, radius {g.CanRadius:F3} m, height {2f * Vector3.Dot(g.LidRest - g.CanCentre, g.CanUp) * g.Held.transform.localScale.x / VRRig.ActiveScale:F3} m";
     }
 
     private static void PoseHeld(Gesture g, Vector3 pos, Quaternion rot)

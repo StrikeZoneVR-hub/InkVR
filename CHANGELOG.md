@@ -28,6 +28,10 @@
 
 ### Bug fixes
 
+- **Bacon Soup was held by its lid.** A can of soup settled into your hand like a battery, its thinnest side across
+  your palm, and the cans are about as wide as they are tall, so your hand could end up on the lid you pull off.
+  Now it sits upright in your fist, fingers round its side and the lid up past your thumb, and it's a soup can's
+  size in your hand, like Chapter 4's throwing cans.
 - **Doors didn't move with your hand.** A door you pushed or pulled jumped to the game's own open angle as soon as it
   opened, so you couldn't ease one open or push it like a real door. Now the door goes exactly as far as your hand
   takes it, slowly or with a shove, and a gentle reach for the handle catches it.

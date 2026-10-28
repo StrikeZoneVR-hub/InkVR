@@ -1328,7 +1328,7 @@ public class DevTools : MonoBehaviour
                 InkVR.Body.WeaponHandling.DevVelocity = arg == "off" ? null : (Vector3?)ParseV3(arg);
                 break;
             case "gesture":
-                Plugin.L.LogInfo($"GESTURE active={InkVR.Input.PhysicalInteract.Active} last='{InkVR.Input.PhysicalInteract.LastResult}' hover={InkVR.Input.InteractionAim.Hovered?.name} ({(InkVR.Input.InteractionAim.Hovered != null ? InkVR.Input.PhysicalInteract.Classify(InkVR.Input.InteractionAim.Hovered).ToString() : "-")})");
+                Plugin.L.LogInfo($"GESTURE active={InkVR.Input.PhysicalInteract.Active} last='{InkVR.Input.PhysicalInteract.LastResult}' hover={InkVR.Input.InteractionAim.Hovered?.name} ({(InkVR.Input.InteractionAim.Hovered != null ? InkVR.Input.PhysicalInteract.Classify(InkVR.Input.InteractionAim.Hovered).ToString() : "-")}); can: {InkVR.Input.PhysicalInteract.HoldInfo()}");
                 break;
             case "throwstate":
                 Plugin.L.LogInfo($"THROW last='{InkVR.Body.WeaponHandling.LastThrow}' twoHands={InkVR.Body.WeaponHandling.OffHandOnGun} holstered={InkVR.Body.WeaponHandling.Holstered} held={GameManager.Instance?.Player?.WeaponGameObject?.name} inactive={GameManager.Instance?.Player?.InactiveWeapon?.name}");
